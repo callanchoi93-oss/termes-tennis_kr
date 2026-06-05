@@ -260,11 +260,11 @@ body{background:var(--bg);color:var(--gray-900);font-family:'Pretendard',-apple-
   <!-- 회원가입 폼 -->
   <div id="registerForm" style="display:none;width:100%;max-width:360px">
     <div style="background:var(--blue-l);border-radius:12px;padding:12px 16px;margin-bottom:20px;font-size:13px;color:var(--blue);line-height:1.6;font-weight:500">
-      임원진이 등록한 회원만 가입할 수 있습니다.<br>이름 목록에 없으면 임원진에게 문의하세요.
+      성함을 입력하고 가입 신청하세요.<br>임원진 승인 후 로그인할 수 있습니다.
     </div>
     <div style="margin-bottom:14px">
       <div style="font-size:14px;font-weight:700;color:var(--gray-700);margin-bottom:6px">성함 입력</div>
-      <div style="font-size:12px;color:var(--gray-400);margin-bottom:8px;line-height:1.6">임원진에게 등록된 이름과 정확히 일치해야 합니다</div>
+      <div style="font-size:12px;color:var(--gray-400);margin-bottom:8px;line-height:1.6">실명으로 입력해주세요</div>
       <input id="regName" type="text" placeholder="본인 성함을 입력하세요" style="width:100%;background:var(--gray-100);border:2px solid transparent;border-radius:14px;padding:14px 16px;font-size:16px;font-family:'Pretendard',sans-serif;color:var(--gray-900);outline:none;transition:border-color .15s" onfocus="this.style.borderColor='var(--blue)';this.style.background='var(--white)'" onblur="checkRegName(this)">
       <div id="regNameFeedback" style="font-size:13px;min-height:18px;margin-top:6px;padding-left:4px"></div>
     </div>
@@ -548,19 +548,15 @@ function countGames(s,ai){let c=0;getB(s).forEach(r=>{if(r.wait.includes(ai))ret
 function calcTotals(s){const sc=getSc(s),b=getB(s),t={};b.forEach((r,ri)=>{r.courts.forEach((ct,ci)=>{if(!ct||ct.length<4)return;const sv=sc[`${ri}-${ci}`]||{},s1=parseInt(sv.s1)||0,s2=parseInt(sv.s2)||0;ct.slice(0,2).forEach(ai=>{t[ai]=(t[ai]||0)+s1;});ct.slice(2,4).forEach(ai=>{t[ai]=(t[ai]||0)+s2;});});});return t;}
 function checkDone(s){const b=getB(s),sc=getSc(s);for(let ri=0;ri<b.length;ri++){for(let ci=0;ci<b[ri].courts.length;ci++){const ct=b[ri].courts[ci];if(!ct||ct.length<4)continue;const sv=sc[`${ri}-${ci}`]||{};if(sv.s1===undefined||sv.s1===null||sv.s2===undefined||sv.s2===null)return false;}}return true;}
 
-// ── 이름 실시간 검증 ──
+// ── 이름 실시간 검증 (신규 회원 누구나 가입 가능) ──
 function checkRegName(inp){
   inp.style.borderColor='transparent';inp.style.background='var(--gray-100)';
   const name=inp.value.trim();
   const fb=document.getElementById('regNameFeedback');
   if(!name){fb.textContent='';return;}
-  if(MEMBERS.includes(name)){
-    fb.style.color='var(--green)';fb.textContent='✓ 등록된 회원입니다';
-    inp.style.borderColor='var(--green)';inp.style.background='var(--white)';
-  } else {
-    fb.style.color='var(--red)';fb.textContent='등록된 이름이 아닙니다. 정확한 이름을 입력해주세요';
-    inp.style.borderColor='var(--red)';inp.style.background='var(--white)';
-  }
+  fb.style.color='var(--gray-400)';
+  fb.textContent='가입 신청 후 임원진 승인이 필요합니다';
+  inp.style.borderColor='transparent';
 }
 
 // ── 로그인 폼 초기화 ──
@@ -568,22 +564,22 @@ async function buildNameList(){
   const sel=document.getElementById('loginName');
   if(!sel)return;
   sel.innerHTML='<option value="">이름을 선택하세요</option>';
-  // 1) 임원진이 PIN 부여한 회원
-  // 2) 회원가입 후 승인된 회원
-  // 두 경우 모두 로그인 가능 → MEMBERS 전체 표시 (핀 없으면 로그인 단계에서 안내)
+
+  // 기존 MEMBERS (임원진 PIN 부여된 회원)
   for(const name of MEMBERS){
-    const o=document.createElement('option');o.value=name;o.textContent=name;sel.appendChild(o);
+    const d=await sget(mkKey(name));
+    if(d&&d.pin){
+      const o=document.createElement('option');o.value=name;o.textContent=name;sel.appendChild(o);
+    }
   }
-  // 승인된 신규 가입자도 추가 (MEMBERS에 없는 경우 대비)
+
+  // 신규 가입 후 승인된 회원 추가
   try{
-    let pl=await sget('pending-members')||[];
-    if(!Array.isArray(pl))pl=Object.values(pl);
-    for(const name of pl){
-      if(MEMBERS.includes(name))continue;
-      const d=await sget(mkKey(name));
-      if(d&&d.approved&&!d.pending){
-        const o=document.createElement('option');o.value=name;o.textContent=name;sel.appendChild(o);
-      }
+    let approved=await sget('approved-members')||[];
+    if(!Array.isArray(approved))approved=Object.values(approved);
+    for(const name of approved){
+      if(MEMBERS.includes(name))continue; // 이미 위에서 추가됨
+      const o=document.createElement('option');o.value=name;o.textContent=name;sel.appendChild(o);
     }
   }catch(e){}
 }
@@ -699,7 +695,7 @@ async function doRegister(){
   errEl.textContent='';
   const trimmedName=name.trim();
   if(!trimmedName){errEl.textContent='성함을 입력해주세요';return;}
-  if(!MEMBERS.includes(trimmedName)){errEl.textContent=`"${trimmedName}"은(는) 등록된 회원 이름이 아닙니다. 임원진에게 문의하세요`;return;}
+  if(trimmedName.length<2){errEl.textContent='올바른 이름을 입력해주세요';return;}
   if(pin1.length!==6||![...pin1].every(c=>c>='0'&&c<='9')){errEl.textContent='PIN은 6자리 숫자로 입력해주세요';return;}
   if(pin1!==pin2){errEl.textContent='PIN이 일치하지 않습니다';return;}
   if(!q||!a){errEl.textContent='비밀번호 찾기 질문과 답변을 입력해주세요';return;}
@@ -757,11 +753,25 @@ async function checkPin(){
   else{document.getElementById('pinErr').textContent='PIN이 올바르지 않습니다';_pb='';updDots();}
 }
 function loginGuest(){me=null;document.getElementById('loginScreen').style.display='none';enterApp('게스트',false);}
-function loginOK(name){me=name;document.getElementById('pinScreen').style.display='none';enterApp(name==='__super__'?'관리자':name,name==='__super__');}
+function loginOK(name){
+  me=name;
+  // 슈퍼계정은 모든 스코어 수정 가능
+  const isSuper=name==='__super__';
+  document.getElementById('pinScreen')&&(document.getElementById('pinScreen').style.display='none');
+  document.getElementById('adminLoginForm')&&(document.getElementById('adminLoginForm').style.display='none');
+  document.getElementById('loginScreen').style.display='none';
+  enterApp(isSuper?'관리자':name, isSuper);
+}
 function enterApp(label,isAdmin){
-  const b=document.getElementById('memberBadge');b.textContent=label;b.className='hdr-badge'+(isAdmin?' admin':'');
-  if(me==='__super__')document.getElementById('scoreDesc').textContent='관리자 모드 — 전체 스코어 수정 가능';
-  else if(!me)document.getElementById('scoreDesc').textContent='게스트 모드 — 조회만 가능';
+  const b=document.getElementById('memberBadge');
+  b.textContent=isAdmin?'관리자':(!label?'게스트':label);
+  b.className='hdr-badge'+(isAdmin?' admin':'');
+  const sd=document.getElementById('scoreDesc');
+  if(sd){
+    if(isAdmin)sd.textContent='관리자 모드 — 전체 스코어 수정 가능';
+    else if(!me)sd.textContent='게스트 모드 — 조회만 가능';
+    else sd.textContent='본인 경기 스코어를 입력하세요';
+  }
   document.getElementById('mainApp').style.display='block';
   loadRanking(curYear);loadToday();
 }
@@ -1294,19 +1304,19 @@ function showIOSGuide(){
     <div style="display:flex;flex-direction:column;gap:14px;margin-bottom:24px">
       <div style="display:flex;align-items:center;gap:12px">
         <div style="width:32px;height:32px;border-radius:50%;background:#ebf3fe;color:#3182f6;font-size:14px;font-weight:800;display:flex;align-items:center;justify-content:center;flex-shrink:0">1</div>
-        <div style="font-size:15px;color:#333d4b;line-height:1.5">Safari 주소창 옆 <strong>... 버튼</strong>을 탭하세요</div>
+        <div style="font-size:15px;color:#333d4b;line-height:1.5">Safari에서 주소창 오른쪽 <strong>···</strong> 버튼을 탭하세요</div>
       </div>
       <div style="display:flex;align-items:center;gap:12px">
         <div style="width:32px;height:32px;border-radius:50%;background:#ebf3fe;color:#3182f6;font-size:14px;font-weight:800;display:flex;align-items:center;justify-content:center;flex-shrink:0">2</div>
-        <div style="font-size:15px;color:#333d4b;line-height:1.5"><strong>공유</strong> 버튼을 탭하세요</div>
+        <div style="font-size:15px;color:#333d4b;line-height:1.5">메뉴에서 <strong>공유</strong>를 탭하세요</div>
       </div>
       <div style="display:flex;align-items:center;gap:12px">
         <div style="width:32px;height:32px;border-radius:50%;background:#ebf3fe;color:#3182f6;font-size:14px;font-weight:800;display:flex;align-items:center;justify-content:center;flex-shrink:0">3</div>
-        <div style="font-size:15px;color:#333d4b;line-height:1.5">스크롤해서 <strong>홈 화면에 추가</strong>를 탭하세요</div>
+        <div style="font-size:15px;color:#333d4b;line-height:1.5">아래로 스크롤하여 <strong>홈 화면에 추가</strong>를 탭하세요</div>
       </div>
       <div style="display:flex;align-items:center;gap:12px">
         <div style="width:32px;height:32px;border-radius:50%;background:#ebf3fe;color:#3182f6;font-size:14px;font-weight:800;display:flex;align-items:center;justify-content:center;flex-shrink:0">4</div>
-        <div style="font-size:15px;color:#333d4b;line-height:1.5">오른쪽 위 <strong>추가</strong>를 탭하면 완료!</div>
+        <div style="font-size:15px;color:#333d4b;line-height:1.5">우측 상단 <strong>추가</strong>를 탭하면 홈 화면에 저장됩니다</div>
       </div>
     </div>
     <button onclick="document.getElementById('iosGuideOverlay').remove()" style="width:100%;padding:14px;background:#f2f4f6;border:none;border-radius:14px;font-family:'Pretendard',sans-serif;font-size:15px;font-weight:700;color:#4e5968;cursor:pointer">닫기</button>

@@ -1114,12 +1114,17 @@ async function loadApprovals(){
 async function approveMember(name){
   const d=await sget(mkKey(name));
   if(!d){toast('데이터를 찾을 수 없습니다');return;}
+  // 승인 처리
   d.approved=true;d.pending=false;d.approvedAt=Date.now();
   await sset(mkKey(name),d);
   // pending 목록에서 제거
   let pl=await sget('pending-members')||[];
   if(!Array.isArray(pl))pl=Object.values(pl);
   await sset('pending-members',pl.filter(n=>n!==name));
+  // approved-members에 추가 (로그인 드롭박스에 표시됨)
+  let am=await sget('approved-members')||[];
+  if(!Array.isArray(am))am=Object.values(am);
+  if(!am.includes(name)){am.push(name);await sset('approved-members',am);}
   toast(`${name}님이 승인되었습니다`);
   loadApprovals();
 }
