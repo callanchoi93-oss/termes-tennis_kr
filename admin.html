@@ -885,7 +885,7 @@ function renderBracket(){
     const bl=document.createElement('div');bl.className='round-block';
     const ch=round.courts.map((ct,ci)=>{if(ct.length<4)return '';const col=CC[ci%CC.length];const p=ai=>`<span class="p-chip">${pname(ai)}</span>`;return `<div class="court-line" style="background:${col}0f;border-left:4px solid ${col}"><div class="court-tag">코트 ${ci+1}</div><div class="match-group"><div class="team-pair">${p(ct[0])}${p(ct[1])}</div><span class="vs-label">VS</span><div class="team-pair">${p(ct[2])}${p(ct[3])}</div></div></div>`;}).join('');
     const wh=round.wait.length?round.wait.map(ai=>`<span class="wait-chip">${pname(ai)}</span>`).join(''):`<span class="wait-chip" style="color:var(--green)">전원 참가</span>`;
-    bl.innerHTML=`<div class="round-top"><div class="round-name">Round ${ri+1}</div><div class="round-mode">${S.gameMode}게임제</div></div><div class="round-body">${ch}<div class="wait-line"><span class="wait-tag">대기</span>${wh}</div></div>`;
+    bl.innerHTML=`<div class="round-top"><div class="round-name">${ri+1}게임</div><div class="round-mode">${S.gameMode}게임제</div></div><div class="round-body">${ch}<div class="wait-line"><span class="wait-tag">대기</span>${wh}</div></div>`;
     wrap.appendChild(bl);
   });
 }
@@ -959,7 +959,7 @@ function renderScoreEditBody(sess){
   const br=getB2(sess),sc=sess.sc||{};
   br.forEach((round,ri)=>{
     const sec=document.createElement('div');sec.className='se-round';
-    sec.innerHTML=`<div class="se-round-title">Round ${ri+1}</div>`;
+    sec.innerHTML=`<div class="se-round-title">${ri+1}게임</div>`;
     round.courts.forEach((ct,ci)=>{
       if(ct.length<4)return;
       const col=CC[ci%CC.length],key=`${ri}-${ci}`,saved=sc[key]||{};

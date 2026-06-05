@@ -564,16 +564,28 @@ function checkRegName(inp){
 }
 
 // ── 로그인 폼 초기화 ──
-function buildNameList(){
-  // 로그인 select
+async function buildNameList(){
   const sel=document.getElementById('loginName');
-  const regSel=document.getElementById('regName');
-  if(sel){
-    MEMBERS.forEach(name=>{
-      const o=document.createElement('option');o.value=name;o.textContent=name;sel.appendChild(o);
-    });
+  if(!sel)return;
+  sel.innerHTML='<option value="">이름을 선택하세요</option>';
+  // 1) 임원진이 PIN 부여한 회원
+  // 2) 회원가입 후 승인된 회원
+  // 두 경우 모두 로그인 가능 → MEMBERS 전체 표시 (핀 없으면 로그인 단계에서 안내)
+  for(const name of MEMBERS){
+    const o=document.createElement('option');o.value=name;o.textContent=name;sel.appendChild(o);
   }
-  // regName은 이제 text input이므로 초기화 불필요
+  // 승인된 신규 가입자도 추가 (MEMBERS에 없는 경우 대비)
+  try{
+    let pl=await sget('pending-members')||[];
+    if(!Array.isArray(pl))pl=Object.values(pl);
+    for(const name of pl){
+      if(MEMBERS.includes(name))continue;
+      const d=await sget(mkKey(name));
+      if(d&&d.approved&&!d.pending){
+        const o=document.createElement('option');o.value=name;o.textContent=name;sel.appendChild(o);
+      }
+    }
+  }catch(e){}
 }
 
 function showLoginTab(){
@@ -621,23 +633,60 @@ async function doLogin(){
   if(!name){errEl.textContent='이름을 선택해주세요';return;}
   if(!pin||pin.length<4){errEl.textContent='PIN을 입력해주세요';return;}
   const data=await sget(mkKey(name));
-  if(!data||(!data.pin&&!data.pending)){errEl.textContent='등록되지 않은 회원입니다. 먼저 회원가입을 해주세요';return;}
+
+  // 경우 1: 데이터 없음 → 가입 안 됨
+  if(!data){errEl.textContent='가입되지 않은 회원입니다. 회원가입을 먼저 해주세요';return;}
+
+  // 경우 2: 가입 신청 대기 중
   if(data.pending&&!data.approved){
     errEl.textContent='가입 신청이 아직 승인되지 않았습니다. 임원진에게 문의하세요';return;
   }
-  if(data.pin!==pin){errEl.textContent='PIN이 올바르지 않습니다';document.getElementById('loginPin').value='';return;}
+
+  // 경우 3: PIN 없음 (임원진 미부여)
+  if(!data.pin){errEl.textContent='PIN이 설정되지 않았습니다. 임원진에게 문의하세요';return;}
+
+  // PIN 확인 (임원진 부여 PIN or 본인 설정 PIN 모두 가능)
+  if(data.pin!==pin){
+    errEl.textContent='PIN이 올바르지 않습니다';
+    document.getElementById('loginPin').value='';return;
+  }
   window._fq=data.question||'';window._fa=data.answer||'';
   loginOK(name);
 }
 
+// 관리자 PIN PAD
+let _adminBuf='';
+function adminPk(n){
+  if(_adminBuf.length>=6)return;
+  _adminBuf+=n;updAdminDots();
+  document.getElementById('adminPinErr').textContent='';
+  if(_adminBuf.length>=4) setTimeout(doAdminLogin,150);
+}
+function adminPkDel(){
+  if(_adminBuf.length>0){_adminBuf=_adminBuf.slice(0,-1);updAdminDots();}
+}
+function updAdminDots(){
+  const wrap=document.getElementById('adminPinDots');
+  if(!wrap)return;
+  const stored_len=4; // 최소 4자리 표시
+  const maxLen=Math.max(stored_len,_adminBuf.length);
+  wrap.innerHTML='';
+  for(let i=0;i<maxLen;i++){
+    const d=document.createElement('div');
+    d.style.cssText=`width:13px;height:13px;border-radius:50%;background:${i<_adminBuf.length?'var(--blue)':'var(--gray-200)'}`;
+    wrap.appendChild(d);
+  }
+}
 async function doAdminLogin(){
-  const pin=document.getElementById('adminPin').value;
-  const errEl=document.getElementById('adminPinErr');
-  errEl.textContent='';
-  if(!pin){errEl.textContent='PIN을 입력해주세요';return;}
   const stored=await sget('admin-pin')||'0604';
-  if(pin!==stored){errEl.textContent='PIN이 올바르지 않습니다';document.getElementById('adminPin').value='';return;}
-  loginOK('__super__');
+  if(_adminBuf===stored){
+    loginOK('__super__');
+    return;
+  }
+  if(_adminBuf.length>=stored.length){
+    document.getElementById('adminPinErr').textContent='PIN이 올바르지 않습니다';
+    _adminBuf='';updAdminDots();
+  }
 }
 
 async function doRegister(){
@@ -740,6 +789,14 @@ async function saveQuestion(){const q=document.getElementById('qInput').value.tr
 async function skipQuestion(){document.getElementById('qScreen').style.display='none';loginOK(_sTarget);}
 
 // ── 내 정보 ──
+function logoutMember(){
+  me=null;curSess=null;clearInterval(autoTimer);
+  document.getElementById('mainApp').style.display='none';
+  document.getElementById('loginScreen').style.display='flex';
+  document.getElementById('loginPin').value='';
+  document.getElementById('loginErr').textContent='';
+  buildNameList();
+}
 function openMyPage(){if(!me)return;document.getElementById('myPageName').textContent=me==='__super__'?'관리자':me;const b=document.getElementById('myPageBody');if(me==='__super__'){b.innerHTML='<p style="font-size:15px;color:var(--gray-500)">관리자 계정은 임원진 PIN과 동일합니다</p>';}else{b.innerHTML=`<button class="btn btn-primary" style="margin-bottom:12px" onclick="changePIN()">PIN 변경</button><button class="btn btn-gray" onclick="changeQuestion()">비밀번호 찾기 질문 변경</button>`;}document.getElementById('myPageModal').classList.add('on');}
 function changePIN(){document.getElementById('myPageModal').classList.remove('on');_ss=0;_sf='';_sb='';_sReset=true;_sTarget=me;showSetup('PIN 변경 1단계','새 PIN을 입력하세요');document.getElementById('mainApp').style.display='none';}
 async function changeQuestion(){document.getElementById('myPageModal').classList.remove('on');const d=await sget(mkKey(me))||{};document.getElementById('qInput').value=d.question||'';document.getElementById('aInput').value='';_sTarget=me;document.getElementById('qScreen').style.display='flex';}
@@ -842,7 +899,7 @@ async function showPlayer(name,year){
     const sc=getSc(s),br=getB(s);
     let mHtml='';
     br.forEach((round,ri)=>{
-      if(round.wait.includes(ai)){mHtml+=`<div style="padding:10px 14px;border-bottom:1px solid var(--gray-100);display:flex;align-items:center;gap:10px"><span style="font-size:13px;font-weight:700;background:var(--gray-100);color:var(--gray-500);padding:4px 10px;border-radius:8px">Round ${ri+1}</span><span style="font-size:14px;color:var(--gray-400)">대기</span></div>`;return;}
+      if(round.wait.includes(ai)){mHtml+=`<div style="padding:10px 14px;border-bottom:1px solid var(--gray-100);display:flex;align-items:center;gap:10px"><span style="font-size:13px;font-weight:700;background:var(--gray-100);color:var(--gray-500);padding:4px 10px;border-radius:8px">${ri+1}게임</span><span style="font-size:14px;color:var(--gray-400)">대기</span></div>`;return;}
       round.courts.forEach((ct,ci)=>{
         if(!ct||!ct.includes(ai)||ct.length<4)return;
         const col=CC[ci%CC.length],skey=`${ri}-${ci}`,sv=sc[skey]||{};
@@ -960,7 +1017,7 @@ async function loadBracket(){
     const bl=document.createElement('div');bl.className='round-card';
     const ch=round.courts.map((ct,ci)=>{if(!ct||ct.length<4)return '';const col=CC[ci%CC.length];const p=ai=>`<span class="p-tag">${pname(sess,ai)}</span>`;return `<div class="court-row" style="background:${col}10;border-left:4px solid ${col}"><div class="ct-lbl">코트 ${ci+1}</div><div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap"><div style="display:flex;gap:5px">${p(ct[0])}${p(ct[1])}</div><span class="vs-t">VS</span><div style="display:flex;gap:5px">${p(ct[2])}${p(ct[3])}</div></div></div>`;}).join('');
     const wh=round.wait&&round.wait.length?round.wait.map(ai=>`<span class="w-chip">${pname(sess,ai)}</span>`).join(''):`<span class="w-chip" style="color:var(--green)">전원 참가</span>`;
-    bl.innerHTML=`<div class="round-hdr"><div class="round-title">Round ${ri+1}</div><div class="round-badge">${sess.gm}게임제</div></div><div style="padding:14px;display:flex;flex-direction:column;gap:10px">${ch}<div class="wait-row"><span style="font-size:13px;font-weight:700;color:var(--gray-500);min-width:36px">대기</span>${wh}</div></div>`;
+    bl.innerHTML=`<div class="round-hdr"><div class="round-title">${ri+1}게임</div><div class="round-badge">${sess.gm}게임제</div></div><div style="padding:14px;display:flex;flex-direction:column;gap:10px">${ch}<div class="wait-row"><span style="font-size:13px;font-weight:700;color:var(--gray-500);min-width:36px">대기</span>${wh}</div></div>`;
     wrap.appendChild(bl);
   });
 }
@@ -1003,7 +1060,7 @@ function renderScoreUI(sess){
       </div>`;
     });
     const ww=round.wait&&round.wait.length?`<div style="background:var(--gray-50);border-radius:12px;padding:10px 14px"><div style="font-size:13px;font-weight:700;color:var(--gray-500);margin-bottom:6px">대기</div><div style="display:flex;flex-wrap:wrap;gap:6px">${round.wait.map(ai=>`<span class="w-chip">${pname(sess,ai)}</span>`).join('')}</div></div>`:'';
-    block.innerHTML=`<div class="score-hdr"><div class="round-title">Round ${ri+1}</div><div class="round-badge">${sess.gm}게임제</div></div><div style="padding:14px;display:flex;flex-direction:column;gap:10px">${cHtml}${ww}</div>`;
+    block.innerHTML=`<div class="score-hdr"><div class="round-title">${ri+1}게임</div><div class="round-badge">${sess.gm}게임제</div></div><div style="padding:14px;display:flex;flex-direction:column;gap:10px">${cHtml}${ww}</div>`;
     wrap.appendChild(block);
   });
   if(isFinished){const f=document.createElement('div');f.style.cssText='background:var(--green-l);border-radius:16px;padding:22px;text-align:center;margin-top:10px';f.innerHTML='<div style="font-size:18px;font-weight:800;color:var(--green)">경기 종료</div><div style="font-size:14px;color:var(--gray-500);margin-top:6px">모든 스코어가 입력되었습니다</div>';wrap.appendChild(f);}
@@ -1237,14 +1294,18 @@ function showIOSGuide(){
     <div style="display:flex;flex-direction:column;gap:14px;margin-bottom:24px">
       <div style="display:flex;align-items:center;gap:12px">
         <div style="width:32px;height:32px;border-radius:50%;background:#ebf3fe;color:#3182f6;font-size:14px;font-weight:800;display:flex;align-items:center;justify-content:center;flex-shrink:0">1</div>
-        <div style="font-size:15px;color:#333d4b;line-height:1.5">Safari 하단의 <strong>공유 버튼</strong>을 탭하세요</div>
+        <div style="font-size:15px;color:#333d4b;line-height:1.5">Safari 주소창 옆 <strong>... 버튼</strong>을 탭하세요</div>
       </div>
       <div style="display:flex;align-items:center;gap:12px">
         <div style="width:32px;height:32px;border-radius:50%;background:#ebf3fe;color:#3182f6;font-size:14px;font-weight:800;display:flex;align-items:center;justify-content:center;flex-shrink:0">2</div>
-        <div style="font-size:15px;color:#333d4b;line-height:1.5"><strong>홈 화면에 추가</strong>를 선택하세요</div>
+        <div style="font-size:15px;color:#333d4b;line-height:1.5"><strong>공유</strong> 버튼을 탭하세요</div>
       </div>
       <div style="display:flex;align-items:center;gap:12px">
         <div style="width:32px;height:32px;border-radius:50%;background:#ebf3fe;color:#3182f6;font-size:14px;font-weight:800;display:flex;align-items:center;justify-content:center;flex-shrink:0">3</div>
+        <div style="font-size:15px;color:#333d4b;line-height:1.5">스크롤해서 <strong>홈 화면에 추가</strong>를 탭하세요</div>
+      </div>
+      <div style="display:flex;align-items:center;gap:12px">
+        <div style="width:32px;height:32px;border-radius:50%;background:#ebf3fe;color:#3182f6;font-size:14px;font-weight:800;display:flex;align-items:center;justify-content:center;flex-shrink:0">4</div>
         <div style="font-size:15px;color:#333d4b;line-height:1.5">오른쪽 위 <strong>추가</strong>를 탭하면 완료!</div>
       </div>
     </div>
