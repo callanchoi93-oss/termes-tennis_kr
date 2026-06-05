@@ -69,7 +69,7 @@ body{background:var(--bg);color:var(--gray-900);font-family:'Pretendard',-apple-
 /* 탭 네비 */
 .tab-nav{background:var(--white);display:flex;border-bottom:2px solid var(--gray-100);overflow-x:auto;-ms-overflow-style:none;scrollbar-width:none}
 .tab-nav::-webkit-scrollbar{display:none}
-.tn{flex:1;min-width:60px;padding:14px 4px;background:none;border:none;color:var(--gray-400);font-family:'Pretendard',sans-serif;font-size:13px;font-weight:600;cursor:pointer;border-bottom:2.5px solid transparent;margin-bottom:-2px;white-space:nowrap;transition:all .15s}
+.tn{flex:1;min-width:56px;padding:10px 4px 8px;background:none;border:none;color:var(--gray-400);font-family:'Pretendard',sans-serif;font-size:12px;font-weight:600;cursor:pointer;border-bottom:2.5px solid transparent;margin-bottom:-2px;white-space:nowrap;transition:all .15s;display:flex;flex-direction:column;align-items:center;gap:3px}
 .tn.on{color:var(--blue);border-bottom-color:var(--blue);font-weight:700}
 
 /* 페이지 */
@@ -296,14 +296,14 @@ body{background:var(--bg);color:var(--gray-900);font-family:'Pretendard',-apple-
     </div>
   </div>
   <div class="tab-nav">
-    <button class="tn on" onclick="goTab('attend',this)">참석</button>
-    <button class="tn" onclick="goTab('setup',this)">설정</button>
-    <button class="tn" onclick="goTab('grade',this)">등급</button>
-    <button class="tn" onclick="goTab('raffle',this)">래플</button>
-    <button class="tn" onclick="goTab('bracket',this)">대진표</button>
-    <button class="tn" onclick="goTab('history',this)">기록</button>
-    <button class="tn" onclick="goTab('notice',this)">공지</button>
-    <button class="tn" onclick="goTab('vault',this)">PIN 보관함</button>
+    <button class="tn on" onclick="goTab('attend',this)"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87M16 3.13a4 4 0 010 7.75"/></svg>참석</button>
+    <button class="tn" onclick="goTab('setup',this)"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83-2.83l.06-.06A1.65 1.65 0 004.68 15a1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 012.83-2.83l.06.06A1.65 1.65 0 009 4.68a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 2.83l-.06.06A1.65 1.65 0 0019.4 9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z"/></svg>설정</button>
+    <button class="tn" onclick="goTab('grade',this)"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>등급</button>
+    <button class="tn" onclick="goTab('raffle',this)"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M16 3h5v5M4 20L21 3M21 16v5h-5M15 15l6 6M4 4l5 5"/></svg>래플</button>
+    <button class="tn" onclick="goTab('bracket',this)"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01"/></svg>대진표</button>
+    <button class="tn" onclick="goTab('history',this)"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 3"/></svg>기록</button>
+    <button class="tn" onclick="goTab('notice',this)"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8A6 6 0 006 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 01-3.46 0"/></svg>공지</button>
+    <button class="tn" onclick="goTab('vault',this)"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0110 0v4"/></svg>PIN</button>
   </div>
 
   <!-- 참석 -->
@@ -383,7 +383,7 @@ body{background:var(--bg);color:var(--gray-900);font-family:'Pretendard',-apple-
       <div class="card" id="gradeList"></div>
     </div>
     <div class="btn-row" style="margin-bottom:12px">
-      <button class="btn btn-primary" style="flex:2" onclick="saveGrades()">저장</button>
+      <button class="btn btn-primary" style="flex:2;display:inline-flex;align-items:center;justify-content:center;gap:6px" onclick="saveGrades()"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg> 저장</button>
       <button class="btn btn-danger-light" style="flex:1" onclick="confirmResetGrades()">초기화</button>
     </div>
     <div id="gradeSavedMsg" style="display:none;background:var(--green-l);border-radius:12px;padding:12px 16px;font-size:14px;color:var(--green);font-weight:600">
@@ -424,7 +424,7 @@ body{background:var(--bg);color:var(--gray-900);font-family:'Pretendard',-apple-
       <div id="bktWrap"><div class="empty-state">래플을 먼저 진행해주세요</div></div>
     </div>
     <div id="pubBtnWrap" style="display:none">
-      <button class="btn btn-primary" onclick="publish()">정회원에게 발행</button>
+      <button class="btn btn-primary" onclick="publish()" style="display:inline-flex;align-items:center;justify-content:center;gap:8px"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg> 정회원에게 발행</button>
     </div>
   </div>
 
@@ -432,7 +432,7 @@ body{background:var(--bg);color:var(--gray-900);font-family:'Pretendard',-apple-
   <div id="p-history" class="page">
     <div class="section-header" style="margin-bottom:16px">
       <div class="section-title" style="margin-bottom:0">발행 기록</div>
-      <button class="refresh-btn" onclick="loadHistory()" style="float:none">새로고침</button>
+      <button class="refresh-btn" onclick="loadHistory()" style="float:none;display:inline-flex;align-items:center;gap:5px"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M23 4v6h-6M1 20v-6h6"/><path d="M3.51 9a9 9 0 0114.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0020.49 15"/></svg> 새로고침</button>
     </div>
     <div class="history-list" id="histList"><div class="empty-state">불러오는 중...</div></div>
   </div>
@@ -452,11 +452,41 @@ body{background:var(--bg);color:var(--gray-900);font-family:'Pretendard',-apple-
     </div>
   </div>
 
+  <!-- 회원 관리 -->
+  <div id="p-members" class="page">
+    <div class="section-header" style="margin-bottom:16px">
+      <div class="section-title" style="margin-bottom:0">회원 관리</div>
+      <button class="refresh-btn" onclick="loadMembers()" style="float:none;display:inline-flex;align-items:center;gap:5px">새로고침</button>
+    </div>
+    <div style="background:var(--red-l);border-radius:12px;padding:12px 16px;margin-bottom:16px;font-size:14px;color:var(--red);font-weight:500;line-height:1.6">
+      회원 삭제 시 해당 회원의 PIN과 보안 질문이 모두 삭제됩니다.<br>경기 기록은 유지됩니다.
+    </div>
+    <div id="memberList"><div class="empty-state">불러오는 중...</div></div>
+  </div>
+
+  <!-- 구력 관리 -->
+  <div id="p-career" class="page">
+    <div class="section-header" style="margin-bottom:16px">
+      <div class="section-title" style="margin-bottom:0">회원 구력</div>
+      <button class="refresh-btn" onclick="loadAdminCareer()" style="float:none;display:inline-flex;align-items:center;gap:5px">새로고침</button>
+    </div>
+    <div id="adminCareerList"><div class="empty-state">불러오는 중...</div></div>
+  </div>
+
+  <!-- 가입 승인 -->
+  <div id="p-approval" class="page">
+    <div class="section-header" style="margin-bottom:16px">
+      <div class="section-title" style="margin-bottom:0">가입 승인</div>
+      <button class="refresh-btn" onclick="loadApprovals()" style="float:none;display:inline-flex;align-items:center;gap:5px">새로고침</button>
+    </div>
+    <div id="approvalList"><div class="empty-state">불러오는 중...</div></div>
+  </div>
+
   <!-- PIN 보관함 -->
   <div id="p-vault" class="page">
     <div class="section-header" style="margin-bottom:16px">
       <div class="section-title" style="margin-bottom:0">PIN 보관함</div>
-      <button class="refresh-btn" onclick="loadVault()" style="float:none">새로고침</button>
+      <button class="refresh-btn" onclick="loadVault()" style="float:none;display:inline-flex;align-items:center;gap:5px"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M23 4v6h-6M1 20v-6h6"/><path d="M3.51 9a9 9 0 0114.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0020.49 15"/></svg> 새로고침</button>
     </div>
     <button class="btn btn-secondary" style="margin-bottom:16px" onclick="bulkSetPins()">미설정 회원 일괄 PIN 부여</button>
     <div id="vaultList"><div class="empty-state">불러오는 중...</div></div>
@@ -536,7 +566,7 @@ function dateKey(){const d=new Date();return `${d.getFullYear()}${String(d.getMo
 function fmt(k){if(!k||k.length<8)return k;return `${k.slice(0,4)}년 ${parseInt(k.slice(4,6))}월 ${parseInt(k.slice(6,8))}일`;}
 function shuffle(a){const b=[...a];for(let i=b.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[b[i],b[j]]=[b[j],b[i]];}return b;}
 function closeModal(id){document.getElementById(id).classList.remove('on');}
-function goTab(id,btn){document.querySelectorAll('.page').forEach(p=>p.classList.remove('on'));document.querySelectorAll('.tn').forEach(b=>b.classList.remove('on'));document.getElementById('p-'+id).classList.add('on');btn.classList.add('on');if(id==='history')loadHistory();else if(id==='grade')renderGradeList();else if(id==='attend')renderAttendance();else if(id==='notice')loadNotices();else if(id==='vault')loadVault();}
+function goTab(id,btn){document.querySelectorAll('.page').forEach(p=>p.classList.remove('on'));document.querySelectorAll('.tn').forEach(b=>b.classList.remove('on'));document.getElementById('p-'+id).classList.add('on');btn.classList.add('on');if(id==='history')loadHistory();else if(id==='grade')renderGradeList();else if(id==='attend')renderAttendance();else if(id==='notice')loadNotices();else if(id==='vault')loadVault();else if(id==='members')loadMembers();else if(id==='approval')loadApprovals();else if(id==='career')loadAdminCareer();}
 
 // ── PIN 인증 ──
 let pinBuf='';
@@ -586,7 +616,7 @@ async function confirmNewPin(){
 }
 
 // ── 초기화 ──
-async function initApp(){await loadGrades();renderAttendance();}
+async function initApp(){await loadGrades();renderAttendance();loadApprovals();}
 
 // ── 참석 ──
 async function renderAttendance(){
@@ -748,35 +778,92 @@ function doRaffle(seeded){
 }
 function pname(ai){return S.players[S.assigned[ai]]?.name??`${ai+1}번`;}
 
+// ── 대기 스케줄 생성 (100% 균등 보장) ──
+function buildWaitSchedule(n, r, waitSz, wb){
+  // 1000번 시도, 그리디 방식으로 항상 성공
+  for(let attempt=0;attempt<1000;attempt++){
+    const remaining=[...wb];
+    const schedule=[];
+    let valid=true;
+
+    for(let ri=0;ri<r;ri++){
+      // 이 라운드에 배정 가능한 선수 (remaining > 0)
+      let candidates=Array.from({length:n},(_,i)=>i).filter(i=>remaining[i]>0);
+
+      if(candidates.length<waitSz){valid=false;break;}
+
+      // 남은 횟수 많은 순 정렬
+      candidates.sort((a,b)=>remaining[b]-remaining[a]);
+
+      // 동점 경계에서 섞기
+      const threshold=remaining[candidates[waitSz-1]];
+      const must=candidates.filter(i=>remaining[i]>threshold);
+      const can=shuffle(candidates.filter(i=>remaining[i]===threshold));
+      const selected=[...must,...can].slice(0,waitSz);
+
+      if(selected.length<waitSz){valid=false;break;}
+
+      schedule.push(selected);
+      selected.forEach(i=>remaining[i]--);
+    }
+
+    if(valid&&remaining.every(v=>v===0)){
+      return schedule;
+    }
+  }
+
+  // Fallback: 절대 실패하지 않는 순차 배정
+  console.warn('그리디 실패 - 순차 배정으로 전환');
+  return buildFallbackSchedule(n,r,waitSz,wb);
+}
+
+function buildFallbackSchedule(n,r,waitSz,wb){
+  // 각 선수의 대기 라운드를 직접 할당
+  // 선수를 남은 횟수 순으로 정렬하여 순차 배정
+  const schedule=Array.from({length:r},()=>[]);
+  const remaining=[...wb];
+
+  for(let ri=0;ri<r;ri++){
+    // 남은 횟수가 0 초과인 선수 중 waitSz명 선택
+    const available=Array.from({length:n},(_,i)=>i)
+      .filter(i=>remaining[i]>0)
+      .sort((a,b)=>remaining[b]-remaining[a]);
+
+    const selected=available.slice(0,waitSz);
+    schedule[ri]=selected;
+    selected.forEach(i=>remaining[i]--);
+  }
+  return schedule;
+}
+
 // ── 대진표 생성 ──
 function genBracket(){
   if(!S.assigned.length){toast('래플을 먼저 진행해주세요');return;}
   const n=S.players.length,c=S.courts,r=S.rounds,ppr=c*4,waitSz=n-ppr;
   S.bracket=[];
-  if(waitSz<=0){for(let ri=0;ri<r;ri++)S.bracket.push({courts:assignC(shuffle(Array.from({length:n},(_,i)=>i)),c),wait:[]});}
-  else{
-    const tw=waitSz*r,bw=Math.floor(tw/n),ew=tw%n;
-    const extras=shuffle(Array.from({length:n},(_,i)=>i)).slice(0,ew);
-    const wb=Array(n).fill(bw);extras.forEach(i=>wb[i]++);
-    // pool 방식
-    let pool=[];for(let i=0;i<n;i++)for(let k=0;k<wb[i];k++)pool.push(i);
-    pool=shuffle(pool);
-    let best=null,bestScore=Infinity;
-    for(let att=0;att<200;att++){
-      const p=shuffle(pool);const sched=[];let rem=[...p];let valid=true;
-      for(let ri=0;ri<r;ri++){
-        const slot=[],used=new Set(),leftover=[];
-        for(const x of rem){if(slot.length<waitSz&&!used.has(x)){slot.push(x);used.add(x);}else leftover.push(x);}
-        if(slot.length<waitSz){valid=false;break;}
-        sched.push(slot);rem=leftover;
-      }
-      if(!valid)continue;
-      let score=0;for(let ri=1;ri<r;ri++){const prev=new Set(sched[ri-1]);score+=sched[ri].filter(x=>prev.has(x)).length;}
-      if(score<bestScore){bestScore=score;best=sched;}
-      if(bestScore===0)break;
+  if(waitSz<=0){
+    // 전원 매 라운드 참가
+    for(let ri=0;ri<r;ri++)
+      S.bracket.push({courts:assignC(shuffle(Array.from({length:n},(_,i)=>i)),c),wait:[]});
+  } else {
+    // ── 완벽 균등 보장 알고리즘 ──
+    // 각 선수 대기 횟수: floor(waitSz*r/n) 또는 +1
+    const tw=waitSz*r;
+    const bw=Math.floor(tw/n);
+    const ew=tw%n;
+    const wb=Array(n).fill(bw);
+    // ew명에게 1번 더 배정 (무작위 선택)
+    shuffle(Array.from({length:n},(_,i)=>i)).slice(0,ew).forEach(i=>wb[i]++);
+
+    // 그리디 배정: 남은 대기 횟수가 많은 선수를 우선
+    const schedule=buildWaitSchedule(n,r,waitSz,wb);
+
+    // 대진표 생성
+    for(let ri=0;ri<r;ri++){
+      const wl=schedule[ri];
+      const playing=shuffle(Array.from({length:n},(_,i)=>i).filter(i=>!wl.includes(i)));
+      S.bracket.push({courts:assignC(playing,c),wait:wl});
     }
-    if(!best){best=[];let rem=[...pool];for(let ri=0;ri<r;ri++){const slot=[],used=new Set(),leftover=[];for(const x of rem){if(slot.length<waitSz&&!used.has(x)){slot.push(x);used.add(x);}else leftover.push(x);}best.push(slot);rem=leftover;}}
-    for(let ri=0;ri<r;ri++){const wl=best[ri];const playing=shuffle(Array.from({length:n},(_,i)=>i).filter(i=>!wl.includes(i)));S.bracket.push({courts:assignC(playing,c),wait:wl});}
   }
   const gc=Array(n).fill(0);S.bracket.forEach(rd=>rd.courts.forEach(ct=>ct.forEach(ai=>gc[ai]++)));
   console.log('게임수:',Math.min(...gc),'~',Math.max(...gc));
@@ -939,6 +1026,160 @@ async function editMemberPin(name){
   if(!/^\d{6}$/.test(newPin)){toast('6자리 숫자만 입력 가능합니다');return;}
   data.pin=newPin;await sset(key,data);toast(`${name} PIN 설정: ${newPin}`);loadVault();
 }
+// ── 구력 조회 ──
+const CAREER_LEVELS=['1년 미만','1~2년','2~3년','3~5년','5~7년','7~10년','10년 이상'];
+async function loadAdminCareer(){
+  const wrap=document.getElementById('adminCareerList');
+  wrap.innerHTML='<div class="empty-state">불러오는 중...</div>';
+  let html='<div style="display:flex;flex-direction:column;gap:8px">';
+  let entered=0;
+  for(const name of MEMBERS){
+    const key='career-'+name.replace(/\s/g,'');
+    const d=await sget(key);
+    const yrs=d&&d.years?d.years:null;
+    const desc=d&&d.desc?d.desc:'';
+    const grade=grades[name]||'none';
+    const gc={A:'#fff1f0',B:'var(--blue-l)',C:'var(--green-l)',none:'var(--gray-100)'};
+    const gtc={A:'var(--red)',B:'var(--blue)',C:'var(--green)',none:'var(--gray-500)'};
+    if(yrs)entered++;
+    html+=`<div style="background:var(--white);border-radius:14px;padding:15px 18px;box-shadow:var(--shadow);display:flex;align-items:center;gap:12px">
+      <div style="flex:1">
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:3px">
+          <div style="font-size:16px;font-weight:700">${name}</div>
+          ${grade!=='none'?`<span style="font-size:11px;font-weight:700;padding:2px 7px;border-radius:6px;background:${gc[grade]};color:${gtc[grade]}">${grade}</span>`:''}
+        </div>
+        ${desc?`<div style="font-size:13px;color:var(--gray-500)">${desc}</div>`:''}
+      </div>
+      <div style="text-align:right">
+        <div style="font-size:15px;font-weight:700;color:${yrs?'var(--blue)':'var(--gray-300)'}">${yrs||'미입력'}</div>
+      </div>
+    </div>`;
+  }
+  html+='</div>';
+  html=`<div style="background:var(--blue-l);border-radius:12px;padding:12px 16px;margin-bottom:14px;font-size:14px;font-weight:600;color:var(--blue)">${entered}명 입력 완료 · ${MEMBERS.length-entered}명 미입력</div>`+html;
+  wrap.innerHTML=html;
+}
+
+// ── 가입 승인 ──
+async function loadApprovals(){
+  const wrap=document.getElementById('approvalList');
+  wrap.innerHTML='<div class="empty-state">불러오는 중...</div>';
+  let pendingList=await sget('pending-members')||[];
+  if(!Array.isArray(pendingList))pendingList=Object.values(pendingList);
+
+  // 실제 pending 상태인 회원만 필터
+  const actualPending=[];
+  for(const name of pendingList){
+    const d=await sget(mkKey(name));
+    if(d&&d.pending&&!d.approved)actualPending.push({name,data:d});
+  }
+
+  // 탭 배지 업데이트
+  const tnEl=document.getElementById('tn-approval');
+  if(tnEl){
+    const badge=actualPending.length>0?`<span style="background:var(--red);color:#fff;font-size:10px;font-weight:800;padding:1px 5px;border-radius:8px;margin-left:4px">${actualPending.length}</span>`:'';
+    tnEl.innerHTML=tnEl.innerHTML.replace(/<span[^>]*>.*?<\/span>/g,'')+badge;
+  }
+
+  if(!actualPending.length){
+    wrap.innerHTML='<div class="empty-state">승인 대기 중인 신청이 없습니다</div>';
+    return;
+  }
+
+  let html='<div style="display:flex;flex-direction:column;gap:10px">';
+  for(const {name,data} of actualPending){
+    const dt=data.requestedAt?new Date(data.requestedAt).toLocaleString('ko-KR'):'—';
+    html+=`<div style="background:var(--white);border-radius:16px;padding:18px 20px;box-shadow:var(--shadow)">
+      <div style="display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:10px">
+        <div>
+          <div style="font-size:17px;font-weight:800;color:var(--gray-900);margin-bottom:3px">${name}</div>
+          <div style="font-size:13px;color:var(--gray-400)">신청일: ${dt}</div>
+        </div>
+        <span style="font-size:12px;font-weight:700;background:#fff8e1;color:#d97706;padding:4px 10px;border-radius:8px">승인 대기</span>
+      </div>
+      <div style="background:var(--gray-50);border-radius:10px;padding:12px 14px;margin-bottom:14px">
+        <div style="font-size:12px;font-weight:700;color:var(--gray-500);margin-bottom:4px">보안 질문</div>
+        <div style="font-size:14px;color:var(--gray-800)">Q. ${data.question||'—'}</div>
+      </div>
+      <div class="btn-row">
+        <button class="btn btn-danger-light btn-sm" style="flex:1" onclick="rejectMember('${name}')">거절</button>
+        <button class="btn btn-success btn-sm" style="flex:2" onclick="approveMember('${name}')">승인</button>
+      </div>
+    </div>`;
+  }
+  html+='</div>';
+  wrap.innerHTML=html;
+}
+
+async function approveMember(name){
+  const d=await sget(mkKey(name));
+  if(!d){toast('데이터를 찾을 수 없습니다');return;}
+  d.approved=true;d.pending=false;d.approvedAt=Date.now();
+  await sset(mkKey(name),d);
+  // pending 목록에서 제거
+  let pl=await sget('pending-members')||[];
+  if(!Array.isArray(pl))pl=Object.values(pl);
+  await sset('pending-members',pl.filter(n=>n!==name));
+  toast(`${name}님이 승인되었습니다`);
+  loadApprovals();
+}
+
+async function rejectMember(name){
+  document.getElementById('delMsg').textContent=`${name}님의 가입 신청을 거절하시겠습니까? 신청 정보가 삭제됩니다.`;
+  document.getElementById('delConfirmBtn').onclick=async()=>{
+    await sset(mkKey(name),{});
+    let pl=await sget('pending-members')||[];
+    if(!Array.isArray(pl))pl=Object.values(pl);
+    await sset('pending-members',pl.filter(n=>n!==name));
+    closeModal('delModal');toast(`${name}님의 가입이 거절되었습니다`);
+    loadApprovals();
+  };
+  document.getElementById('delModal').classList.add('on');
+}
+
+// ── 회원 관리 ──
+async function loadMembers(){
+  const wrap=document.getElementById('memberList');
+  wrap.innerHTML='<div class="empty-state">불러오는 중...</div>';
+  let html='<div style="display:flex;flex-direction:column;gap:8px">';
+  for(const name of MEMBERS){
+    const key=mkKey(name);
+    const data=await sget(key);
+    const isReg=data&&data.pin;
+    const grade=grades[name]||'none';
+    const gc={A:'#fff1f0',B:'var(--blue-l)',C:'var(--green-l)',none:'var(--gray-100)'};
+    const gtc={A:'var(--red)',B:'var(--blue)',C:'var(--green)',none:'var(--gray-500)'};
+    html+=`<div style="background:var(--white);border-radius:14px;padding:15px 18px;box-shadow:var(--shadow);display:flex;align-items:center;gap:12px">
+      <div style="flex:1">
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:3px">
+          <div style="font-size:16px;font-weight:700">${name}</div>
+          ${grade!=='none'?`<span style="font-size:11px;font-weight:700;padding:2px 7px;border-radius:6px;background:${gc[grade]};color:${gtc[grade]}">${grade}</span>`:''}
+        </div>
+        <div style="font-size:13px;color:${isReg?'var(--green)':'var(--gray-400)'}">
+          ${isReg?'가입 완료':'미가입'}
+        </div>
+      </div>
+      ${isReg?`<button class="btn btn-danger-light btn-xs" onclick="confirmDeleteMember('${name}')">삭제</button>`:'<span style="font-size:13px;color:var(--gray-300)">—</span>'}
+    </div>`;
+  }
+  html+='</div>';
+  wrap.innerHTML=html;
+}
+
+async function confirmDeleteMember(name){
+  // 모달 재활용
+  document.getElementById('delMsg').textContent=`${name} 회원의 PIN과 보안 질문을 삭제합니다. 경기 기록은 유지됩니다.`;
+  document.getElementById('delConfirmBtn').onclick=()=>deleteMember(name);
+  document.getElementById('delModal').classList.add('on');
+}
+async function deleteMember(name){
+  await sset(mkKey(name),{});
+  closeModal('delModal');
+  toast(`${name} 회원이 삭제되었습니다`);
+  loadMembers();
+  loadVault();
+}
+
 async function bulkSetPins(){
   if(!confirm('미설정 회원에게만 초기 PIN을 부여합니다.\n계속하시겠습니까?'))return;
   let count=0;

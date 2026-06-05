@@ -210,6 +210,8 @@ body{background:var(--bg);color:var(--gray-900);font-family:'Pretendard',-apple-
 .empty{text-align:center;padding:40px 20px;color:var(--gray-400);font-size:15px;line-height:2.2}
 .rfbtn{float:right;background:none;border:1.5px solid var(--gray-200);color:var(--gray-500);font-size:13px;font-weight:600;padding:6px 14px;border-radius:22px;cursor:pointer;font-family:'Pretendard',sans-serif;margin-bottom:12px}
 .grade-chip{font-size:11px;font-weight:700;padding:3px 7px;border-radius:6px;margin-right:4px}
+.nav-icon{display:flex;align-items:center;justify-content:center;margin-bottom:3px}
+.nb{display:flex;flex-direction:column;align-items:center;padding:10px 3px 8px}
 .chip-A{background:#fff1f0;color:var(--red)}
 .chip-B{background:var(--blue-l);color:var(--blue)}
 .chip-C{background:var(--green-l);color:var(--green)}
@@ -219,11 +221,88 @@ body{background:var(--bg);color:var(--gray-900);font-family:'Pretendard',-apple-
 
 <!-- ── 로그인 ── -->
 <div id="loginScreen">
-  <div class="login-logo">TER<span>MES</span></div>
-  <div class="login-sub">정회원 전용</div>
-  <div class="login-section-title">이름을 선택하세요</div>
-  <div class="name-list" id="nameList"></div>
-  <button class="guest-btn" onclick="loginGuest()">게스트로 입장 (조회만 가능)</button>
+  <div style="text-align:center;margin-bottom:32px">
+    <div class="login-logo" style="margin-bottom:10px">TER<span>MES</span></div>
+    <div style="font-size:15px;color:var(--gray-600);font-weight:600;letter-spacing:0.5px;margin-bottom:4px">테르메스 테니스 클럽</div>
+    <div style="font-size:13px;color:var(--gray-400);font-weight:500;letter-spacing:1px">정회원 전용</div>
+  </div>
+
+  <!-- 탭 -->
+  <div style="display:flex;gap:0;width:100%;max-width:360px;margin-bottom:24px;background:var(--gray-100);border-radius:14px;padding:4px">
+    <button id="tab-login" onclick="showLoginTab()" style="flex:1;padding:10px;border:none;border-radius:11px;font-family:'Pretendard',sans-serif;font-size:15px;font-weight:700;cursor:pointer;background:var(--white);color:var(--gray-900);box-shadow:0 1px 4px rgba(0,0,0,.1);transition:all .15s">로그인</button>
+    <button id="tab-register" onclick="showRegisterTab()" style="flex:1;padding:10px;border:none;border-radius:11px;font-family:'Pretendard',sans-serif;font-size:15px;font-weight:700;cursor:pointer;background:transparent;color:var(--gray-400);transition:all .15s">회원가입</button>
+  </div>
+
+  <!-- 로그인 폼 -->
+  <div id="loginForm" style="width:100%;max-width:360px">
+    <div style="margin-bottom:14px">
+      <div style="font-size:14px;font-weight:700;color:var(--gray-700);margin-bottom:8px">이름</div>
+      <select id="loginName" style="width:100%;background:var(--gray-100);border:2px solid transparent;border-radius:14px;padding:14px 16px;font-size:16px;font-family:'Pretendard',sans-serif;color:var(--gray-900);outline:none;-webkit-appearance:none;transition:border-color .15s">
+        <option value="">이름을 선택하세요</option>
+      </select>
+    </div>
+    <div style="margin-bottom:8px">
+      <div style="font-size:14px;font-weight:700;color:var(--gray-700);margin-bottom:8px">비밀번호 (PIN 6자리)</div>
+      <input id="loginPin" type="password" inputmode="numeric" maxlength="6" placeholder="PIN 6자리 입력" style="width:100%;background:var(--gray-100);border:2px solid transparent;border-radius:14px;padding:14px 16px;font-size:16px;font-family:'Pretendard',sans-serif;color:var(--gray-900);outline:none;letter-spacing:4px;transition:border-color .15s" oninput="onLoginPinInput()" onfocus="this.style.borderColor='var(--blue)';this.style.background='var(--white)'" onblur="this.style.borderColor='transparent';this.style.background='var(--gray-100)'">
+    </div>
+    <div id="loginErr" style="font-size:13px;color:var(--red);font-weight:600;min-height:18px;margin-bottom:14px;padding-left:4px"></div>
+    <button onclick="doLogin()" style="width:100%;padding:15px;background:var(--blue);color:#fff;border:none;border-radius:14px;font-family:'Pretendard',sans-serif;font-size:16px;font-weight:700;cursor:pointer;margin-bottom:12px">로그인</button>
+    <div style="display:flex;justify-content:space-between;align-items:center;padding:0 4px">
+      <button onclick="showForgot()" style="background:none;border:none;font-size:14px;color:var(--blue);cursor:pointer;font-family:'Pretendard',sans-serif;font-weight:600">비밀번호 찾기</button>
+      <button onclick="loginGuest()" style="background:none;border:none;font-size:14px;color:var(--gray-400);cursor:pointer;font-family:'Pretendard',sans-serif">게스트로 입장</button>
+    </div>
+    <!-- 관리자 -->
+    <div style="margin-top:24px;padding-top:20px;border-top:1px solid var(--gray-200)">
+      <button onclick="showAdminLogin()" style="width:100%;padding:13px;background:var(--gray-100);color:var(--gray-600);border:none;border-radius:14px;font-family:'Pretendard',sans-serif;font-size:14px;font-weight:700;cursor:pointer">관리자로 로그인</button>
+    </div>
+  </div>
+
+  <!-- 회원가입 폼 -->
+  <div id="registerForm" style="display:none;width:100%;max-width:360px">
+    <div style="background:var(--blue-l);border-radius:12px;padding:12px 16px;margin-bottom:20px;font-size:13px;color:var(--blue);line-height:1.6;font-weight:500">
+      임원진이 등록한 회원만 가입할 수 있습니다.<br>이름 목록에 없으면 임원진에게 문의하세요.
+    </div>
+    <div style="margin-bottom:14px">
+      <div style="font-size:14px;font-weight:700;color:var(--gray-700);margin-bottom:6px">성함 입력</div>
+      <div style="font-size:12px;color:var(--gray-400);margin-bottom:8px;line-height:1.6">임원진에게 등록된 이름과 정확히 일치해야 합니다</div>
+      <input id="regName" type="text" placeholder="본인 성함을 입력하세요" style="width:100%;background:var(--gray-100);border:2px solid transparent;border-radius:14px;padding:14px 16px;font-size:16px;font-family:'Pretendard',sans-serif;color:var(--gray-900);outline:none;transition:border-color .15s" onfocus="this.style.borderColor='var(--blue)';this.style.background='var(--white)'" onblur="checkRegName(this)">
+      <div id="regNameFeedback" style="font-size:13px;min-height:18px;margin-top:6px;padding-left:4px"></div>
+    </div>
+    <div style="margin-bottom:14px">
+      <div style="font-size:14px;font-weight:700;color:var(--gray-700);margin-bottom:8px">PIN 설정 (6자리 숫자)</div>
+      <input id="regPin1" type="password" inputmode="numeric" maxlength="6" placeholder="PIN 6자리 입력" style="width:100%;background:var(--gray-100);border:2px solid transparent;border-radius:14px;padding:14px 16px;font-size:16px;font-family:'Pretendard',sans-serif;color:var(--gray-900);outline:none;letter-spacing:4px;transition:border-color .15s;margin-bottom:10px" onfocus="this.style.borderColor='var(--blue)';this.style.background='var(--white)'" onblur="this.style.borderColor='transparent';this.style.background='var(--gray-100)'">
+      <input id="regPin2" type="password" inputmode="numeric" maxlength="6" placeholder="PIN 확인" style="width:100%;background:var(--gray-100);border:2px solid transparent;border-radius:14px;padding:14px 16px;font-size:16px;font-family:'Pretendard',sans-serif;color:var(--gray-900);outline:none;letter-spacing:4px;transition:border-color .15s" onfocus="this.style.borderColor='var(--blue)';this.style.background='var(--white)'" onblur="this.style.borderColor='transparent';this.style.background='var(--gray-100)'">
+    </div>
+    <!-- 보안 질문 -->
+    <div style="background:var(--gray-50);border-radius:12px;padding:14px 16px;margin-bottom:14px">
+      <div style="font-size:14px;font-weight:700;color:var(--gray-800);margin-bottom:6px">비밀번호 찾기 질문 만들기</div>
+      <div style="font-size:12px;color:var(--gray-500);margin-bottom:12px;line-height:1.6">비밀번호를 분실 시 사용할 질문과 답변을 만들어주세요</div>
+      <input id="regQ" type="text" placeholder="나만의 질문 (예: 내가 처음 테니스를 친 장소는?)" style="width:100%;background:var(--white);border:1.5px solid var(--gray-200);border-radius:10px;padding:11px 14px;font-size:14px;font-family:'Pretendard',sans-serif;outline:none;margin-bottom:8px;transition:border-color .15s" onfocus="this.style.borderColor='var(--blue)'" onblur="this.style.borderColor='var(--gray-200)'">
+      <input id="regA" type="text" placeholder="답변" style="width:100%;background:var(--white);border:1.5px solid var(--gray-200);border-radius:10px;padding:11px 14px;font-size:14px;font-family:'Pretendard',sans-serif;outline:none;transition:border-color .15s" onfocus="this.style.borderColor='var(--blue)'" onblur="this.style.borderColor='var(--gray-200)'">
+    </div>
+    <div id="regErr" style="font-size:13px;color:var(--red);font-weight:600;min-height:18px;margin-bottom:12px;padding-left:4px"></div>
+    <button onclick="doRegister()" style="width:100%;padding:15px;background:var(--blue);color:#fff;border:none;border-radius:14px;font-family:'Pretendard',sans-serif;font-size:16px;font-weight:700;cursor:pointer">가입 완료</button>
+  </div>
+
+  <!-- 관리자 로그인 -->
+  <div id="adminLoginForm" style="display:none;width:100%;max-width:360px;display:none;flex-direction:column;align-items:center">
+    <div style="font-size:18px;font-weight:800;color:var(--gray-900);margin-bottom:4px;text-align:center">관리자</div>
+    <div style="font-size:14px;color:var(--gray-500);margin-bottom:28px;text-align:center">관리자 PIN을 입력하세요</div>
+    <div style="display:flex;gap:14px;margin-bottom:10px" id="adminPinDots">
+      <div style="width:13px;height:13px;border-radius:50%;background:var(--gray-200)" id="apd0"></div>
+      <div style="width:13px;height:13px;border-radius:50%;background:var(--gray-200)" id="apd1"></div>
+      <div style="width:13px;height:13px;border-radius:50%;background:var(--gray-200)" id="apd2"></div>
+      <div style="width:13px;height:13px;border-radius:50%;background:var(--gray-200)" id="apd3"></div>
+    </div>
+    <div id="adminPinErr" style="font-size:13px;color:var(--red);font-weight:600;min-height:20px;margin-bottom:18px;text-align:center"></div>
+    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;width:100%;max-width:280px">
+      <button class="pk" onclick="adminPk('1')">1</button><button class="pk" onclick="adminPk('2')">2</button><button class="pk" onclick="adminPk('3')">3</button>
+      <button class="pk" onclick="adminPk('4')">4</button><button class="pk" onclick="adminPk('5')">5</button><button class="pk" onclick="adminPk('6')">6</button>
+      <button class="pk" onclick="adminPk('7')">7</button><button class="pk" onclick="adminPk('8')">8</button><button class="pk" onclick="adminPk('9')">9</button>
+      <button class="pk empty"></button><button class="pk" onclick="adminPk('0')">0</button><button class="pk del" onclick="adminPkDel()">⌫</button>
+    </div>
+    <button class="pin-link" onclick="hideAdminLogin()" style="margin-top:20px">← 돌아가기</button>
+  </div>
 </div>
 
 <!-- ── PIN 입력 ── -->
@@ -292,16 +371,21 @@ body{background:var(--bg);color:var(--gray-900);font-family:'Pretendard',-apple-
       <a href="index.html" class="hdr-back">← 홈</a>
       <div class="hdr-logo">TER<span>MES</span></div>
     </div>
-    <button id="memberBadge" class="hdr-badge" onclick="openMyPage()">정회원</button>
+    <div style="display:flex;align-items:center;gap:8px">
+      <button id="installMiniBtn" onclick="triggerInstall()" title="홈 화면에 추가" style="display:none;background:none;border:1.5px solid var(--gray-200);border-radius:10px;padding:6px 10px;cursor:pointer;color:var(--gray-600)">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+      </button>
+      <button id="memberBadge" class="hdr-badge" onclick="openMyPage()">정회원</button>
+    </div>
   </div>
   <nav class="nav">
-    <button class="nb on" onclick="gTab('ranking',this)">랭킹</button>
-    <button class="nb" onclick="gTab('today',this)">오늘</button>
-    <button class="nb" onclick="gTab('bracket',this)">대진표</button>
-    <button class="nb" onclick="gTab('score',this)">점수</button>
-    <button class="nb" onclick="gTab('history',this)">기록</button>
-    <button class="nb" onclick="gTab('notice',this)">공지</button>
-    <button class="nb" onclick="gTab('rules',this)">룰</button>
+    <button class="nb on" onclick="gTab('ranking',this)"><div class="nav-icon"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="12" width="4" height="9" rx="1"/><rect x="10" y="7" width="4" height="14" rx="1"/><rect x="17" y="3" width="4" height="18" rx="1"/></svg></div>랭킹</button>
+    <button class="nb" onclick="gTab('today',this)"><div class="nav-icon"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="3"/><path d="M16 2v4M8 2v4M3 10h18"/></svg></div>오늘</button>
+    <button class="nb" onclick="gTab('bracket',this)"><div class="nav-icon"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01"/></svg></div>대진표</button>
+    <button class="nb" onclick="gTab('score',this)"><div class="nav-icon"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11"/></svg></div>점수</button>
+    <button class="nb" onclick="gTab('history',this)"><div class="nav-icon"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 3"/></svg></div>기록</button>
+    <button class="nb" onclick="gTab('notice',this)"><div class="nav-icon"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8A6 6 0 006 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 01-3.46 0"/></svg></div>공지</button>
+    <button class="nb" onclick="gTab('rules',this)"><div class="nav-icon"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 8v4M12 16h.01"/></svg></div>룰</button>
   </nav>
 
   <!-- 랭킹 -->
@@ -322,8 +406,8 @@ body{background:var(--bg);color:var(--gray-900);font-family:'Pretendard',-apple-
 
   <!-- 오늘 -->
   <div id="p-today" class="page">
-    <button class="rfbtn" onclick="loadToday()">새로고침</button>
     <div id="todayContent"><div class="empty">불러오는 중...</div></div>
+    <button class="rfbtn" onclick="loadToday()" style="float:none;margin-top:14px;display:inline-block">새로고침</button>
   </div>
 
   <!-- 대진표 -->
@@ -351,7 +435,7 @@ body{background:var(--bg);color:var(--gray-900);font-family:'Pretendard',-apple-
   <!-- 기록 -->
   <div id="p-history" class="page">
     <div class="page-title">기록</div>
-    <button class="rfbtn" onclick="loadHistory()">새로고침</button>
+    <button class="rfbtn" onclick="loadHistory()" style="display:inline-flex;align-items:center;gap:5px"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M23 4v6h-6M1 20v-6h6"/><path d="M3.51 9a9 9 0 0114.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0020.49 15"/></svg> 새로고침</button>
     <div id="histWrap"><div class="empty">불러오는 중...</div></div>
   </div>
 
@@ -359,6 +443,13 @@ body{background:var(--bg);color:var(--gray-900);font-family:'Pretendard',-apple-
   <div id="p-notice" class="page">
     <div class="page-title">공지사항</div>
     <div id="noticeWrap"><div class="empty">불러오는 중...</div></div>
+  </div>
+
+  <!-- 구력 -->
+  <div id="p-career" class="page">
+    <div class="page-title">구력 관리</div>
+    <div class="page-sub" id="careerDesc">나의 테니스 구력을 입력하세요</div>
+    <div id="careerContent"><div class="empty">불러오는 중...</div></div>
   </div>
 
   <!-- 룰 -->
@@ -376,7 +467,7 @@ body{background:var(--bg);color:var(--gray-900);font-family:'Pretendard',-apple-
     <div class="rule-sec">
       <div class="rule-sec-title">운영 방식</div>
       <div class="rule-row"><span class="rule-key">시즌</span><span class="rule-val">1월 1일 ~ 12월 31일</span></div>
-      <div class="rule-row"><span class="rule-key">게임 방식</span><span class="rule-val">아메리카노 로테이션</span></div>
+      <div class="rule-row"><span class="rule-key">게임 방식</span><span class="rule-val">4게임 로테이션</span></div>
       <div class="rule-row"><span class="rule-key">게임수 보장</span><span class="rule-val">전원 균등 배분</span></div>
       <div class="rule-row"><span class="rule-key">삭제된 세션</span><span class="rule-val" style="color:var(--red)">랭킹 미반영</span></div>
     </div>
@@ -457,56 +548,144 @@ function countGames(s,ai){let c=0;getB(s).forEach(r=>{if(r.wait.includes(ai))ret
 function calcTotals(s){const sc=getSc(s),b=getB(s),t={};b.forEach((r,ri)=>{r.courts.forEach((ct,ci)=>{if(!ct||ct.length<4)return;const sv=sc[`${ri}-${ci}`]||{},s1=parseInt(sv.s1)||0,s2=parseInt(sv.s2)||0;ct.slice(0,2).forEach(ai=>{t[ai]=(t[ai]||0)+s1;});ct.slice(2,4).forEach(ai=>{t[ai]=(t[ai]||0)+s2;});});});return t;}
 function checkDone(s){const b=getB(s),sc=getSc(s);for(let ri=0;ri<b.length;ri++){for(let ci=0;ci<b[ri].courts.length;ci++){const ct=b[ri].courts[ci];if(!ct||ct.length<4)continue;const sv=sc[`${ri}-${ci}`]||{};if(sv.s1===undefined||sv.s1===null||sv.s2===undefined||sv.s2===null)return false;}}return true;}
 
-// ── 로그인 ──
-function buildNameList(){
-  const wrap=document.getElementById('nameList');
-  if(!wrap)return;
-  wrap.innerHTML='';
-  const ab=document.createElement('button');ab.className='name-btn admin-btn';ab.textContent='관리자 (전체 수정)';ab.onclick=()=>startPin('__super__','관리자','관리자 PIN 입력');wrap.appendChild(ab);
-  const sep=document.createElement('div');sep.style.cssText='height:1px;background:#e5e8eb;margin:6px 0 8px';wrap.appendChild(sep);
-  MEMBERS.forEach(name=>{
-    const b=document.createElement('button');b.className='name-btn';b.textContent=name;
-    b.onclick=()=>onSelect(name);wrap.appendChild(b);
-  });
-}
-async function onSelect(name){
-  const key=mkKey(name);
-  console.log('선택:', name, '키:', key);
-  const data=await sget(key);
-  console.log('데이터:', JSON.stringify(data));
-  if(!data||!data.pin){
-    // PIN 미설정 → 임원진이 설정해줘야 함
-    document.getElementById('loginScreen').style.display='none';
-    // 안내 화면 표시
-    showNoPinScreen(name);
-    return;
+// ── 이름 실시간 검증 ──
+function checkRegName(inp){
+  inp.style.borderColor='transparent';inp.style.background='var(--gray-100)';
+  const name=inp.value.trim();
+  const fb=document.getElementById('regNameFeedback');
+  if(!name){fb.textContent='';return;}
+  if(MEMBERS.includes(name)){
+    fb.style.color='var(--green)';fb.textContent='✓ 등록된 회원입니다';
+    inp.style.borderColor='var(--green)';inp.style.background='var(--white)';
+  } else {
+    fb.style.color='var(--red)';fb.textContent='등록된 이름이 아닙니다. 정확한 이름을 입력해주세요';
+    inp.style.borderColor='var(--red)';inp.style.background='var(--white)';
   }
-  window._fq=data.question||'';
-  window._fa=data.answer||'';
-  startPin(name, name, 'PIN을 입력하세요');
 }
 
-function showNoPinScreen(name){
-  // 기존 안내 div가 있으면 제거
-  const old=document.getElementById('noPinScreen');
-  if(old)old.remove();
+// ── 로그인 폼 초기화 ──
+function buildNameList(){
+  // 로그인 select
+  const sel=document.getElementById('loginName');
+  const regSel=document.getElementById('regName');
+  if(sel){
+    MEMBERS.forEach(name=>{
+      const o=document.createElement('option');o.value=name;o.textContent=name;sel.appendChild(o);
+    });
+  }
+  // regName은 이제 text input이므로 초기화 불필요
+}
 
+function showLoginTab(){
+  document.getElementById('loginForm').style.display='block';
+  document.getElementById('registerForm').style.display='none';
+  document.getElementById('adminLoginForm').style.display='none';
+  document.getElementById('tab-login').style.cssText='flex:1;padding:10px;border:none;border-radius:11px;font-family:Pretendard,sans-serif;font-size:15px;font-weight:700;cursor:pointer;background:var(--white);color:var(--gray-900);box-shadow:0 1px 4px rgba(0,0,0,.1);transition:all .15s';
+  document.getElementById('tab-register').style.cssText='flex:1;padding:10px;border:none;border-radius:11px;font-family:Pretendard,sans-serif;font-size:15px;font-weight:700;cursor:pointer;background:transparent;color:var(--gray-400);transition:all .15s';
+}
+function showRegisterTab(){
+  document.getElementById('loginForm').style.display='none';
+  document.getElementById('registerForm').style.display='block';
+  document.getElementById('adminLoginForm').style.display='none';
+  document.getElementById('tab-register').style.cssText='flex:1;padding:10px;border:none;border-radius:11px;font-family:Pretendard,sans-serif;font-size:15px;font-weight:700;cursor:pointer;background:var(--white);color:var(--gray-900);box-shadow:0 1px 4px rgba(0,0,0,.1);transition:all .15s';
+  document.getElementById('tab-login').style.cssText='flex:1;padding:10px;border:none;border-radius:11px;font-family:Pretendard,sans-serif;font-size:15px;font-weight:700;cursor:pointer;background:transparent;color:var(--gray-400);transition:all .15s';
+}
+function showAdminLogin(){
+  _adminBuf='';
+  document.getElementById('loginForm').style.display='none';
+  document.getElementById('registerForm').style.display='none';
+  const af=document.getElementById('adminLoginForm');
+  af.style.display='flex';af.style.flexDirection='column';af.style.alignItems='center';
+  document.getElementById('adminPinErr').textContent='';
+  updAdminDots();
+}
+function hideAdminLogin(){
+  showLoginTab();
+}
+
+// PIN 입력 시 6자리 되면 자동 로그인
+function onLoginPinInput(){
+  const v=document.getElementById('loginPin').value;
+  if(v.length===6) setTimeout(doLogin,200);
+}
+function onAdminPinInput(){
+  const v=document.getElementById('adminPin').value;
+  if(v.length===6) setTimeout(doAdminLogin,200);
+}
+
+async function doLogin(){
+  const name=document.getElementById('loginName').value;
+  const pin=document.getElementById('loginPin').value;
+  const errEl=document.getElementById('loginErr');
+  errEl.textContent='';
+  if(!name){errEl.textContent='이름을 선택해주세요';return;}
+  if(!pin||pin.length<4){errEl.textContent='PIN을 입력해주세요';return;}
+  const data=await sget(mkKey(name));
+  if(!data||(!data.pin&&!data.pending)){errEl.textContent='등록되지 않은 회원입니다. 먼저 회원가입을 해주세요';return;}
+  if(data.pending&&!data.approved){
+    errEl.textContent='가입 신청이 아직 승인되지 않았습니다. 임원진에게 문의하세요';return;
+  }
+  if(data.pin!==pin){errEl.textContent='PIN이 올바르지 않습니다';document.getElementById('loginPin').value='';return;}
+  window._fq=data.question||'';window._fa=data.answer||'';
+  loginOK(name);
+}
+
+async function doAdminLogin(){
+  const pin=document.getElementById('adminPin').value;
+  const errEl=document.getElementById('adminPinErr');
+  errEl.textContent='';
+  if(!pin){errEl.textContent='PIN을 입력해주세요';return;}
+  const stored=await sget('admin-pin')||'0604';
+  if(pin!==stored){errEl.textContent='PIN이 올바르지 않습니다';document.getElementById('adminPin').value='';return;}
+  loginOK('__super__');
+}
+
+async function doRegister(){
+  const name=document.getElementById('regName').value.trim();
+  const pin1=document.getElementById('regPin1').value;
+  const pin2=document.getElementById('regPin2').value;
+  const q=document.getElementById('regQ').value.trim();
+  const a=document.getElementById('regA').value.trim();
+  const errEl=document.getElementById('regErr');
+  errEl.textContent='';
+  const trimmedName=name.trim();
+  if(!trimmedName){errEl.textContent='성함을 입력해주세요';return;}
+  if(!MEMBERS.includes(trimmedName)){errEl.textContent=`"${trimmedName}"은(는) 등록된 회원 이름이 아닙니다. 임원진에게 문의하세요`;return;}
+  if(pin1.length!==6||![...pin1].every(c=>c>='0'&&c<='9')){errEl.textContent='PIN은 6자리 숫자로 입력해주세요';return;}
+  if(pin1!==pin2){errEl.textContent='PIN이 일치하지 않습니다';return;}
+  if(!q||!a){errEl.textContent='비밀번호 찾기 질문과 답변을 입력해주세요';return;}
+  // 이미 가입 또는 대기 중인지 확인
+  const existing=await sget(mkKey(name));
+  if(existing&&existing.pin){errEl.textContent='이미 가입된 회원입니다. 로그인해주세요';return;}
+  if(existing&&existing.pending){errEl.textContent='이미 가입 신청이 접수되어 임원진 승인을 기다리고 있습니다';return;}
+  // pending 상태로 저장 (승인 전)
+  await sset(mkKey(name),{pending:true,pin:pin1,question:q,answer:a,requestedAt:Date.now()});
+  // 임원진에게 알림 (pending 목록에 추가)
+  let pendingList=await sget('pending-members')||[];
+  if(!Array.isArray(pendingList))pendingList=Object.values(pendingList);
+  if(!pendingList.includes(name))pendingList.unshift(name);
+  await sset('pending-members',pendingList);
+  // 성공 화면 표시
+  showRegisterSuccess(name);
+}
+
+function showRegisterSuccess(name){
+  document.getElementById('registerForm').style.display='none';
   const div=document.createElement('div');
-  div.id='noPinScreen';
-  div.style.cssText='position:fixed;inset:0;background:#fff;z-index:1000;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:40px 28px;text-align:center';
+  div.id='regSuccessBox';
+  div.style.cssText='width:100%;max-width:360px;text-align:center;padding:20px 0';
   div.innerHTML=`
-    <div style="font-size:2.2rem;font-weight:900;letter-spacing:3px;color:#191f28;margin-bottom:6px">TER<span style="color:#3182f6">MES</span></div>
-    <div style="font-size:20px;font-weight:800;color:#191f28;margin-bottom:10px;margin-top:28px">${name}</div>
-    <div style="font-size:16px;color:#8b95a1;line-height:1.8;margin-bottom:36px">
-      아직 PIN이 설정되지 않았습니다.<br>
-      임원진에게 PIN 설정을 요청하세요.
+    <div style="width:64px;height:64px;border-radius:50%;background:var(--blue-l);display:flex;align-items:center;justify-content:center;margin:0 auto 18px">
+      <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="var(--blue)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
     </div>
-    <button onclick="document.getElementById('noPinScreen').remove();document.getElementById('loginScreen').style.display='flex'" 
-      style="width:100%;max-width:320px;padding:15px;background:#f2f4f6;border:none;border-radius:14px;font-family:'Pretendard',sans-serif;font-size:16px;font-weight:700;color:#4e5968;cursor:pointer">
-      ← 돌아가기
-    </button>
+    <div style="font-size:20px;font-weight:800;color:var(--gray-900);margin-bottom:8px">가입 신청 완료</div>
+    <div style="font-size:15px;color:var(--gray-500);line-height:1.7;margin-bottom:28px">
+      <strong style="color:var(--gray-800)">${name}</strong>님의 가입 신청이 접수되었습니다.<br>
+      임원진 승인 후 로그인할 수 있습니다.
+    </div>
+    <button onclick="document.getElementById('regSuccessBox').remove();showLoginTab()" style="width:100%;padding:14px;background:var(--blue);color:#fff;border:none;border-radius:14px;font-family:'Pretendard',sans-serif;font-size:16px;font-weight:700;cursor:pointer">로그인 화면으로</button>
   `;
-  document.body.appendChild(div);
+  document.getElementById('loginScreen').appendChild(div);
 }
 let _pt='',_pb='';
 function startPin(target,who,desc){
@@ -576,6 +755,7 @@ function gTab(id,btn){
   else if(id==='score')loadScore();
   else if(id==='history')loadHistory();
   else if(id==='notice')loadNotices();
+  else if(id==='career')loadCareer();
 }
 
 // ── 연도/그룹 탭 ──
@@ -619,8 +799,8 @@ async function loadRanking(year){
   if(!ranked.length){el.innerHTML=`<div class="empty">${year}년 기록이 없습니다</div>`;return;}
   let html='';
   if(curGT==='all'&&ranked.length>=3){
-    const mk=(p,cl)=>`<div class="pod ${cl}" style="cursor:pointer" onclick="showPlayer('${p.name}',${year})"><div class="pod-medal">${cl==='p1'?'금메달':cl==='p2'?'은메달':'동메달'}</div><div class="pod-name">${p.name}</div><div class="pod-pts" style="color:${cl==='p1'?'#d97706':cl==='p2'?'#94a3b8':'#b45309'}">${p.pts}</div><div class="pod-lbl">PTS</div></div>`;
-    html+=`<div class="podium">${mk(ranked[1],'p2')}${mk(ranked[0],'p1')}${mk(ranked[2],'p3')}</div>`;
+    const mk=(p,cl,rank)=>`<div class="pod ${cl}" style="cursor:pointer" onclick="showPlayer('${p.name}',${year})"><div class="pod-medal" style="font-size:22px;font-weight:900;color:${cl==='p1'?'#d97706':cl==='p2'?'#94a3b8':'#b45309'}">${rank}</div><div class="pod-name">${p.name}</div><div class="pod-pts" style="color:${cl==='p1'?'#d97706':cl==='p2'?'#94a3b8':'#b45309'}">${p.pts}</div><div class="pod-lbl">PTS</div></div>`;
+    html+=`<div class="podium">${mk(ranked[1],'p2','2위')}${mk(ranked[0],'p1','1위')}${mk(ranked[2],'p3','3위')}</div>`;
   }
   let dr=1;
   ranked.forEach((p,i)=>{
@@ -935,6 +1115,72 @@ function openHistModal(sess,dk,seqL){
   document.getElementById('histModal').classList.add('on');
 }
 
+// ── 구력 관리 ──
+const CAREER_LEVELS = ['1년 미만','1~2년','2~3년','3~5년','5~7년','7~10년','10년 이상'];
+
+async function loadCareer(){
+  const wrap=document.getElementById('careerContent');
+  wrap.innerHTML='<div class="empty">불러오는 중...</div>';
+
+  if(!me||me==='__super__'){
+    // 게스트/관리자: 전체 조회
+    let html='<div style="display:flex;flex-direction:column;gap:8px">';
+    for(const name of MEMBERS){
+      const d=await sget('career-'+name.replace(/\s/g,''));
+      const yrs=d&&d.years?d.years:'미입력';
+      const desc=d&&d.desc?d.desc:'';
+      html+=`<div style="background:var(--white);border-radius:14px;padding:14px 18px;box-shadow:0 1px 4px rgba(0,0,0,.06);display:flex;align-items:center;gap:12px">
+        <div style="flex:1"><div style="font-size:16px;font-weight:700">${name}</div>${desc?`<div style="font-size:13px;color:var(--gray-500);margin-top:2px">${desc}</div>`:''}</div>
+        <div style="font-size:15px;font-weight:700;color:${yrs==='미입력'?'var(--gray-300)':'var(--blue)'}">${yrs}</div>
+      </div>`;
+    }
+    html+='</div>';
+    wrap.innerHTML=html;
+    document.getElementById('careerDesc').textContent='전체 회원 구력';
+    return;
+  }
+
+  // 본인 구력 입력/수정
+  const key='career-'+me.replace(/\s/g,'');
+  const d=await sget(key)||{};
+  document.getElementById('careerDesc').textContent='나의 테니스 구력';
+
+  let html=`<div class="card card-pad">
+    <div style="font-size:14px;font-weight:700;color:var(--gray-700);margin-bottom:10px">구력 선택</div>
+    <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:8px;margin-bottom:18px">`;
+  CAREER_LEVELS.forEach(lvl=>{
+    const sel=d.years===lvl;
+    html+=`<button onclick="selectCareerLevel(this,'${lvl}')" data-level="${lvl}" style="padding:12px;border-radius:12px;font-family:'Pretendard',sans-serif;font-size:15px;font-weight:600;cursor:pointer;transition:all .15s;border:2px solid ${sel?'var(--blue)':'var(--gray-200)'};background:${sel?'var(--blue-l)':'var(--white)'};color:${sel?'var(--blue)':'var(--gray-700)'}">${lvl}</button>`;
+  });
+  html+=`</div>
+    <div style="font-size:14px;font-weight:700;color:var(--gray-700);margin-bottom:8px">한 줄 소개 (선택)</div>
+    <input id="careerDesc2" type="text" placeholder="예: 주 2회 동호인 활동 중" value="${d.desc||''}" style="width:100%;background:var(--gray-100);border:2px solid transparent;border-radius:12px;padding:12px 14px;font-size:15px;font-family:'Pretendard',sans-serif;outline:none;margin-bottom:16px;transition:border-color .15s" onfocus="this.style.borderColor='var(--blue)';this.style.background='var(--white)'" onblur="this.style.borderColor='transparent';this.style.background='var(--gray-100)'">
+    <button onclick="saveCareer()" class="btn btn-primary">저장</button>
+  </div>`;
+  wrap.innerHTML=html;
+}
+
+function selectCareerLevel(btn,lvl){
+  document.querySelectorAll('[data-level]').forEach(b=>{
+    const sel=b.dataset.level===lvl;
+    b.style.border=`2px solid ${sel?'var(--blue)':'var(--gray-200)'}`;
+    b.style.background=sel?'var(--blue-l)':'var(--white)';
+    b.style.color=sel?'var(--blue)':'var(--gray-700)';
+  });
+  window._selectedCareer=lvl;
+}
+
+async function saveCareer(){
+  if(!me||me==='__super__')return;
+  const selected=window._selectedCareer||document.querySelector('[data-level]')&&
+    [...document.querySelectorAll('[data-level]')].find(b=>b.style.color.includes('3182'))?.dataset.level;
+  if(!selected){toast('구력을 선택해주세요');return;}
+  const desc=document.getElementById('careerDesc2')?.value.trim()||'';
+  const key='career-'+me.replace(/\s/g,'');
+  await sset(key,{years:selected,desc,updatedAt:Date.now()});
+  toast('구력이 저장되었습니다');
+}
+
 // ── 공지 ──
 async function loadNotices(){
   const wrap=document.getElementById('noticeWrap');wrap.innerHTML='<div class="empty">불러오는 중...</div>';
@@ -945,6 +1191,68 @@ async function loadNotices(){
 
 buildNameList();
 if('serviceWorker' in navigator)navigator.serviceWorker.register('sw.js').catch(()=>{});
+
+// ── 홈 화면 추가 (PWA) ──
+let _installPrompt=null;
+window.addEventListener('beforeinstallprompt',e=>{
+  e.preventDefault();_installPrompt=e;
+  const btn=document.getElementById('installMiniBtn');
+  if(btn)btn.style.display='block';
+});
+window.addEventListener('appinstalled',()=>{
+  _installPrompt=null;
+  const btn=document.getElementById('installMiniBtn');
+  if(btn)btn.style.display='none';
+  toast('홈 화면에 추가되었습니다');
+});
+// 이미 설치된 경우 숨김
+if(window.matchMedia('(display-mode: standalone)').matches||window.navigator.standalone){
+  const btn=document.getElementById('installMiniBtn');
+  if(btn)btn.style.display='none';
+}
+
+function triggerInstall(){
+  // Android/Chrome
+  if(_installPrompt){
+    _installPrompt.prompt();
+    _installPrompt.userChoice.then(r=>{if(r.outcome==='accepted')_installPrompt=null;});
+    return;
+  }
+  // iOS Safari
+  const isIOS=/iPad|iPhone|iPod/.test(navigator.userAgent)&&!window.MSStream;
+  const isSafari=/^((?!chrome|android).)*safari/i.test(navigator.userAgent);
+  if(isIOS&&isSafari){showIOSGuide();return;}
+  toast('브라우저 메뉴에서 홈 화면에 추가해주세요');
+}
+
+function showIOSGuide(){
+  let existing=document.getElementById('iosGuideOverlay');
+  if(existing){existing.remove();return;}
+  const div=document.createElement('div');
+  div.id='iosGuideOverlay';
+  div.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:9000;display:flex;align-items:flex-end;justify-content:center;padding:0';
+  div.innerHTML=`<div style="background:#fff;border-radius:22px 22px 0 0;width:100%;max-width:480px;padding:28px 24px 44px">
+    <div style="width:40px;height:4px;background:#d1d6db;border-radius:2px;margin:0 auto 22px"></div>
+    <div style="font-size:18px;font-weight:800;color:#191f28;margin-bottom:18px">홈 화면에 추가하기</div>
+    <div style="display:flex;flex-direction:column;gap:14px;margin-bottom:24px">
+      <div style="display:flex;align-items:center;gap:12px">
+        <div style="width:32px;height:32px;border-radius:50%;background:#ebf3fe;color:#3182f6;font-size:14px;font-weight:800;display:flex;align-items:center;justify-content:center;flex-shrink:0">1</div>
+        <div style="font-size:15px;color:#333d4b;line-height:1.5">Safari 하단의 <strong>공유 버튼</strong>을 탭하세요</div>
+      </div>
+      <div style="display:flex;align-items:center;gap:12px">
+        <div style="width:32px;height:32px;border-radius:50%;background:#ebf3fe;color:#3182f6;font-size:14px;font-weight:800;display:flex;align-items:center;justify-content:center;flex-shrink:0">2</div>
+        <div style="font-size:15px;color:#333d4b;line-height:1.5"><strong>홈 화면에 추가</strong>를 선택하세요</div>
+      </div>
+      <div style="display:flex;align-items:center;gap:12px">
+        <div style="width:32px;height:32px;border-radius:50%;background:#ebf3fe;color:#3182f6;font-size:14px;font-weight:800;display:flex;align-items:center;justify-content:center;flex-shrink:0">3</div>
+        <div style="font-size:15px;color:#333d4b;line-height:1.5">오른쪽 위 <strong>추가</strong>를 탭하면 완료!</div>
+      </div>
+    </div>
+    <button onclick="document.getElementById('iosGuideOverlay').remove()" style="width:100%;padding:14px;background:#f2f4f6;border:none;border-radius:14px;font-family:'Pretendard',sans-serif;font-size:15px;font-weight:700;color:#4e5968;cursor:pointer">닫기</button>
+  </div>`;
+  div.onclick=e=>{if(e.target===div)div.remove();};
+  document.body.appendChild(div);
+}
 </script>
 </body>
 </html>
