@@ -1288,7 +1288,15 @@ function renderBracket(){
   const wrap=document.getElementById('bktWrap');wrap.innerHTML='';
   S.bracket.forEach((round,ri)=>{
     const bl=document.createElement('div');bl.className='round-block';
-    const ch=round.courts.map((ct,ci)=>{if(ct.length<4)return '';const col=CC[ci%CC.length];const p=ai=>`<span class="p-chip">${pname(ai)}</span>`;return `<div class="court-line" style="background:${col}0f;border-left:4px solid ${col}"><div class="court-tag">코트 ${ci+1}</div><div class="match-group"><div class="team-pair">${p(ct[0])}${p(ct[1])}</div><span class="vs-label">VS</span><div class="team-pair">${p(ct[2])}${p(ct[3])}</div></div></div>`;}).join('');
+    const ch=round.courts.map((ct,ci)=>{
+      if(ct.length<4)return '';
+      const col=CC[ci%CC.length];
+      const p=ai=>`<span class="p-chip">${pname(ai)}</span>`;
+      const tpLabel=round.courtTypeLabels?round.courtTypeLabels[ci]:'';
+      const tpColor=tpLabel==='남복'?'#3182f6':tpLabel==='여복'?'#f04452':tpLabel==='혼복'?'#00b493':'';
+      const tpBadge=tpLabel?`<span style="font-size:11px;font-weight:700;padding:2px 8px;border-radius:6px;background:${tpColor}20;color:${tpColor};margin-right:6px;flex-shrink:0">${tpLabel}</span>`:'';
+      return `<div class="court-line" style="background:${col}0f;border-left:4px solid ${col}"><div class="court-tag">코트 ${ci+1}</div>${tpBadge}<div class="match-group"><div class="team-pair">${p(ct[0])}${p(ct[1])}</div><span class="vs-label">VS</span><div class="team-pair">${p(ct[2])}${p(ct[3])}</div></div></div>`;
+    }).join('');
     const wh=round.wait.length?round.wait.map(ai=>`<span class="wait-chip">${pname(ai)}</span>`).join(''):`<span class="wait-chip" style="color:var(--green)">전원 참가</span>`;
     bl.innerHTML=`<div class="round-top"><div class="round-name">${ri+1}게임</div><div class="round-mode">${S.gameMode}게임제</div></div><div class="round-body">${ch}<div class="wait-line"><span class="wait-tag">대기</span>${wh}</div></div>`;
     wrap.appendChild(bl);
@@ -1305,7 +1313,7 @@ async function publish(){
     await archiveSession(today,existing);
   }
   const archN=await sget('archive-idx-'+today)||0;
-  const data={d:today,p:S.players.map(p=>({n:p.name,g:p.isGuest?1:0,s:p.skill})),ct:S.courts,r:S.rounds,gm:S.gameMode,a:S.assigned,b:S.bracket.map(rd=>({c:rd.courts,w:rd.wait})),sc:{},pub:Date.now(),exp:Date.now()+24*60*60*1000,del:false,finished:false,seq:archN+1};
+  const data={d:today,p:S.players.map(p=>({n:p.name,g:p.isGuest?1:0,s:p.skill})),ct:S.courts,r:S.rounds,gm:S.gameMode,a:S.assigned,b:S.bracket.map(rd=>({c:rd.courts,w:rd.wait,ctl:rd.courtTypeLabels||null})),sc:{},pub:Date.now(),exp:Date.now()+24*60*60*1000,del:false,finished:false,seq:archN+1};
   const ok=await sset('sessions/'+today,data);if(!ok){toast('저장에 실패했습니다');return;}
   let idx=await sget('index');idx=idx?(Array.isArray(idx)?idx:Object.values(idx)):[];
   if(!idx.includes(today))idx.unshift(today);await sset('index',idx.slice(0,200));

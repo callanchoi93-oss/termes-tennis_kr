@@ -147,7 +147,8 @@ body{background:var(--bg);color:var(--gray-900);font-family:'Pretendard',-apple-
 .round-badge{background:var(--blue-l);color:var(--blue);font-size:13px;font-weight:700;padding:4px 10px;border-radius:8px}
 .court-row{display:flex;align-items:center;gap:10px;padding:12px 14px;border-radius:12px;flex-wrap:wrap}
 .ct-lbl{font-size:13px;font-weight:700;color:var(--gray-500);min-width:50px;letter-spacing:.3px}
-.p-tag{background:var(--white);border:1.5px solid var(--gray-200);border-radius:9px;padding:5px 11px;font-size:14px;font-weight:600;white-space:nowrap}
+.p-tag{background:var(--white);border:1.5px solid var(--gray-200);border-radius:9px;padding:5px 11px;font-size:14px;font-weight:600;white-space:nowrap;cursor:pointer;transition:all .15s}
+.p-tag:active{background:var(--blue-l);border-color:var(--blue);color:var(--blue)}
 .vs-t{font-size:12px;font-weight:800;color:var(--gray-400);letter-spacing:1px}
 .wait-row{display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding:10px 14px;background:var(--gray-50);border-radius:12px}
 .w-chip{background:var(--white);border:1px solid var(--gray-200);border-radius:8px;padding:4px 10px;font-size:13px;color:var(--gray-600);font-weight:500}
@@ -157,7 +158,8 @@ body{background:var(--bg);color:var(--gray-900);font-family:'Pretendard',-apple-
 .score-hdr{padding:16px 20px;display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid var(--gray-100)}
 .score-match{border-radius:14px;padding:16px;border-top-width:3px;border-top-style:solid;background:var(--gray-50)}
 .m-team{flex:1}
-.m-name{font-size:14px;font-weight:700;color:var(--gray-800);margin-bottom:2px}
+.m-name{font-size:14px;font-weight:700;color:var(--gray-800);margin-bottom:2px;cursor:pointer}
+.m-name:active{color:var(--blue)}
 .m-vs{font-size:13px;font-weight:800;color:var(--gray-400)}
 .s-inp{width:68px;height:56px;background:var(--white);border:2px solid var(--gray-200);border-radius:14px;text-align:center;color:var(--gray-900);font-family:'Pretendard',sans-serif;font-size:26px;font-weight:800;outline:none;-webkit-appearance:none;transition:all .15s}
 .s-inp:focus{border-color:var(--blue);background:var(--blue-l)}
@@ -536,7 +538,7 @@ function toast(m){const e=document.getElementById('toast');e.textContent=m;e.cla
 function dateKey(){const d=new Date();return `${d.getFullYear()}${String(d.getMonth()+1).padStart(2,'0')}${String(d.getDate()).padStart(2,'0')}`;}
 function fmt(k){if(!k||k.length<8)return k;return `${k.slice(0,4)}년 ${parseInt(k.slice(4,6))}월 ${parseInt(k.slice(6,8))}일`;}
 function getP(s){return s.p||[];}
-function getB(s){return (s.b||[]).map(r=>({courts:r.c||[],wait:r.w||[]}));}
+function getB(s){return (s.b||[]).map(r=>({courts:r.c||[],wait:r.w||[],courtTypeLabels:r.ctl||r.courtTypeLabels||null}));}
 function getSc(s){return s.sc||{};}
 function pname(s,ai){const p=getP(s),a=s.a||[],pi=a[ai];if(pi===undefined||!p[pi])return `${ai+1}번`;return p[pi].n||p[pi].name||`${ai+1}번`;}
 function countGames(s,ai){let c=0;getB(s).forEach(r=>{if(r.wait.includes(ai))return;r.courts.forEach(ct=>{if(ct&&ct.includes(ai))c++;});});return c;}
@@ -922,6 +924,13 @@ async function loadRanking(year){
 }
 
 // ── 선수 상세 ──
+// 이름으로 바로 조회 (연도는 현재 연도)
+function showPlayerFromName(name){
+  // MEMBERS에 있거나 승인된 회원이면 조회
+  if(!name||name.includes('번'))return; // 게스트는 제외
+  showPlayer(name, curYear);
+}
+
 async function showPlayer(name,year){
   pmTab='history';_pmH='';_pmP=[];_pmPr={};
   document.getElementById('pmName').textContent=name;
@@ -1051,9 +1060,18 @@ async function loadToday(){
   const now=Date.now(),expired=sess.exp<now,remain=Math.max(0,Math.ceil((sess.exp-now)/3600000));
   const pl=getP(sess);
   const sBadge=sess.finished?'<span class="live-badge" style="background:rgba(0,180,147,.25)">경기 종료</span>':expired?'<span class="live-badge" style="background:rgba(255,255,255,.15)">열람 기간 만료</span>':`<span class="live-badge"><span class="live-dot"></span>진행중 · 잔여 ${remain}시간</span>`;
+  // 참가자 이름 클릭 가능 목록
+  const participantHtml=pl.map((p,ai)=>{
+    const name=p.n||p.name||`${ai+1}번`;
+    return `<span onclick="showPlayerFromName('${name}')" style="background:var(--white);border:1.5px solid var(--gray-200);border-radius:9px;padding:5px 11px;font-size:14px;font-weight:600;cursor:pointer;white-space:nowrap;transition:all .15s">${name}</span>`;
+  }).join('');
   wrap.innerHTML=`<div class="today-hero"><div class="today-date">${fmt(today)}</div><div class="today-info">${pl.length}명 · 코트 ${sess.ct} · ${sess.r}라운드 · ${sess.gm}게임제</div>${sBadge}</div>
     <div class="stat-row"><div class="stat-box"><div class="stat-val">${pl.length}</div><div class="stat-lbl">인원</div></div><div class="stat-box"><div class="stat-val">${sess.ct}</div><div class="stat-lbl">코트</div></div><div class="stat-box"><div class="stat-val">${sess.r}</div><div class="stat-lbl">라운드</div></div></div>
-    <div style="display:flex;gap:10px"><button class="btn btn-primary" style="flex:1" onclick="gTab('bracket',document.querySelectorAll('.nb')[2])">대진표 보기</button><button class="btn btn-success" style="flex:1" onclick="gTab('score',document.querySelectorAll('.nb')[3])">점수 입력</button></div>`;
+    <div style="display:flex;gap:10px;margin-bottom:14px"><button class="btn btn-primary" style="flex:1" onclick="gTab('bracket',document.querySelectorAll('.nb')[2])">대진표 보기</button><button class="btn btn-success" style="flex:1" onclick="gTab('score',document.querySelectorAll('.nb')[3])">점수 입력</button></div>
+    <div style="background:var(--white);border-radius:14px;padding:14px 16px;box-shadow:0 1px 4px rgba(0,0,0,.06)">
+      <div style="font-size:13px;font-weight:700;color:var(--gray-500);margin-bottom:10px;letter-spacing:.5px">참가자 · 이름을 탭하면 기록을 볼 수 있어요</div>
+      <div style="display:flex;flex-wrap:wrap;gap:7px">${participantHtml}</div>
+    </div>`;
 }
 
 // ── 대진표 ──
@@ -1064,7 +1082,16 @@ async function loadBracket(){
   curSess=sess;wrap.innerHTML='';
   getB(sess).forEach((round,ri)=>{
     const bl=document.createElement('div');bl.className='round-card';
-    const ch=round.courts.map((ct,ci)=>{if(!ct||ct.length<4)return '';const col=CC[ci%CC.length];const p=ai=>`<span class="p-tag">${pname(sess,ai)}</span>`;return `<div class="court-row" style="background:${col}10;border-left:4px solid ${col}"><div class="ct-lbl">코트 ${ci+1}</div><div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap"><div style="display:flex;gap:5px">${p(ct[0])}${p(ct[1])}</div><span class="vs-t">VS</span><div style="display:flex;gap:5px">${p(ct[2])}${p(ct[3])}</div></div></div>`;}).join('');
+    const ch=round.courts.map((ct,ci)=>{
+      if(!ct||ct.length<4)return '';
+      const col=CC[ci%CC.length];
+      const p=ai=>`<span class="p-tag" onclick="showPlayerFromName('${pname(sess,ai)}')">${pname(sess,ai)}</span>`;
+      // 성별 대진 타입 배지
+      const tpLabel=round.courtTypeLabels?round.courtTypeLabels[ci]:'';
+      const tpColor=tpLabel==='남복'?'#3182f6':tpLabel==='여복'?'#f04452':tpLabel==='혼복'?'#00b493':'';
+      const tpBadge=tpLabel?`<span style="font-size:11px;font-weight:700;padding:2px 8px;border-radius:6px;background:${tpColor}20;color:${tpColor};flex-shrink:0">${tpLabel}</span>`:'';
+      return `<div class="court-row" style="background:${col}10;border-left:4px solid ${col}"><div class="ct-lbl">코트 ${ci+1}</div>${tpBadge}<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap"><div style="display:flex;gap:5px">${p(ct[0])}${p(ct[1])}</div><span class="vs-t">VS</span><div style="display:flex;gap:5px">${p(ct[2])}${p(ct[3])}</div></div></div>`;
+    }).join('');
     const wh=round.wait&&round.wait.length?round.wait.map(ai=>`<span class="w-chip">${pname(sess,ai)}</span>`).join(''):`<span class="w-chip" style="color:var(--green)">전원 참가</span>`;
     bl.innerHTML=`<div class="round-hdr"><div class="round-title">${ri+1}게임</div><div class="round-badge">${sess.gm}게임제</div></div><div style="padding:14px;display:flex;flex-direction:column;gap:10px">${ch}<div class="wait-row"><span style="font-size:13px;font-weight:700;color:var(--gray-500);min-width:36px">대기</span>${wh}</div></div>`;
     wrap.appendChild(bl);
@@ -1094,6 +1121,10 @@ function renderScoreUI(sess){
       const dStyle=canEdit?'':'background:var(--gray-100);color:var(--gray-400);';
       const typing=sc._typing&&sc._typing[skey];
       const typingText=(typing&&(Date.now()-typing.time<10000))?typing.name+' 입력 중...':'';
+      // 성별 대진 타입 배지
+      const tpLabel=round.courtTypeLabels?round.courtTypeLabels[ci]:'';
+      const tpColor=tpLabel==='남복'?'#3182f6':tpLabel==='여복'?'#f04452':tpLabel==='혼복'?'#00b493':'';
+      const tpBadge=tpLabel?`<span style="font-size:11px;font-weight:700;padding:2px 7px;border-radius:6px;background:${tpColor}20;color:${tpColor};margin-left:4px">${tpLabel}</span>`:'';
       cHtml+=`<div class="score-match" style="border-top-color:${col}">
         <div style="display:flex;align-items:center;gap:12px;margin-bottom:14px">
           <div class="m-team"><div class="m-name">${pname(sess,ct[0])}</div><div class="m-name">${pname(sess,ct[1])}</div></div>
@@ -1160,7 +1191,7 @@ function updateStandings(sess){
   rows.forEach((row,i)=>{
     if(i>0&&row.total<rows[i-1].total)rank=i+1;
     const tr=document.createElement('tr');
-    tr.innerHTML=`<td><span class="st-rank">${rank}</span>${row.name}</td><td style="text-align:center;font-size:15px;font-weight:600">${row.games}</td><td style="text-align:center;font-size:18px;font-weight:900;color:var(--blue)">${row.total}</td>`;
+    tr.innerHTML=`<td style="cursor:pointer" onclick="showPlayerFromName('${row.name}')"><span class="st-rank">${rank}</span><span style="border-bottom:1px solid var(--gray-300)">${row.name}</span></td><td style="text-align:center;font-size:15px;font-weight:600">${row.games}</td><td style="text-align:center;font-size:18px;font-weight:900;color:var(--blue)">${row.total}</td>`;
     tbody.appendChild(tr);
   });
 }
@@ -1209,7 +1240,7 @@ function openHistModal(sess,dk,seqL){
     if(i>0&&row.total<rows[i-1].total)rank=i+1;
     html+=`<div style="display:flex;align-items:center;gap:14px;padding:14px 0;border-bottom:1px solid var(--gray-100)">
       <div style="font-size:17px;font-weight:800;color:var(--gray-400);min-width:32px">${rank}</div>
-      <div style="flex:1;font-size:16px;font-weight:700">${row.name}</div>
+      <div style="flex:1;font-size:16px;font-weight:700;cursor:pointer;color:var(--blue)" onclick="document.getElementById('histModal').classList.remove('on');showPlayerFromName('${row.name}')">${row.name}</div>
       <div style="display:flex;align-items:baseline;gap:6px">
         <span style="font-size:20px;font-weight:900;color:var(--blue)">${row.total}</span>
         <span style="font-size:13px;color:var(--gray-400)">점</span>
