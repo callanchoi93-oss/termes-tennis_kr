@@ -327,6 +327,13 @@ body{background:var(--bg);color:var(--gray-900);font-family:'Pretendard',-apple-
       <button class="btn btn-secondary" onclick="attAndGo()">참석자로 대진 설정 바로가기</button>
     </div>
     <div id="attSummary" style="display:none;margin-top:16px;background:var(--green-l);border-radius:14px;padding:14px 16px;font-size:14px;color:var(--green);font-weight:600;line-height:1.7"></div>
+
+    <!-- 게스트 추가 -->
+    <div style="margin-top:20px">
+      <div style="font-size:13px;font-weight:700;color:var(--gray-500);letter-spacing:1px;margin-bottom:12px">게스트</div>
+      <div id="guestList" style="display:flex;flex-direction:column;gap:8px;margin-bottom:10px"></div>
+      <button class="btn btn-neutral" onclick="addAttGuest()" style="font-size:14px;padding:11px">+ 게스트 추가</button>
+    </div>
   </div>
 
   <!-- 설정 -->
@@ -649,6 +656,50 @@ function renderAttGrid(){
   document.getElementById('attCount').textContent=cnt+'명 참석';
 }
 function attAll(){MEMBERS.forEach(n=>attendance[n]=true);renderAttGrid();}
+
+// 참석 탭 게스트 추가
+let guestCount = 0;
+function addAttGuest(){
+  guestCount++;
+  const wrap = document.getElementById('guestList');
+  const id = 'ag-'+guestCount;
+  const d = document.createElement('div');
+  d.id = id;
+  d.style.cssText='background:var(--white);border-radius:14px;padding:14px 16px;box-shadow:var(--shadow)';
+  d.innerHTML=`
+    <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px">
+      <span style="background:#fffbeb;color:#d97706;font-size:12px;font-weight:700;padding:3px 8px;border-radius:6px;flex-shrink:0">GUEST</span>
+      <input type="text" placeholder="게스트 이름" id="${id}-name"
+        style="flex:1;background:var(--gray-100);border:none;border-radius:10px;padding:9px 12px;font-size:15px;font-family:'Pretendard',sans-serif;outline:none">
+      <button onclick="document.getElementById('${id}').remove()" style="background:none;border:none;font-size:20px;color:var(--gray-300);cursor:pointer;line-height:1">×</button>
+    </div>
+    <div style="display:flex;gap:8px">
+      <select id="${id}-gender" style="flex:1;background:var(--gray-100);border:none;border-radius:10px;padding:9px 12px;font-size:14px;font-family:'Pretendard',sans-serif;outline:none;color:var(--gray-900)">
+        <option value="M">남성</option>
+        <option value="F">여성</option>
+      </select>
+      <select id="${id}-grade" style="flex:1;background:var(--gray-100);border:none;border-radius:10px;padding:9px 12px;font-size:14px;font-family:'Pretendard',sans-serif;outline:none;color:var(--gray-900)">
+        <option value="none">등급 없음</option>
+        <option value="A">A 상위</option>
+        <option value="B">B 중위</option>
+        <option value="C">C 하위</option>
+      </select>
+    </div>`;
+  wrap.appendChild(d);
+}
+
+function getAttGuests(){
+  // 참석 탭에서 추가된 게스트 목록 반환
+  const guests=[];
+  document.querySelectorAll('#guestList > div[id^="ag-"]').forEach(d=>{
+    const name=d.querySelector('input').value.trim();
+    if(!name)return;
+    const gender=d.querySelector('select:nth-of-type(1)').value;
+    const grade=d.querySelector('select:nth-of-type(2)').value;
+    guests.push({name,gender,grade});
+  });
+  return guests;
+}
 function attNone(){MEMBERS.forEach(n=>attendance[n]=false);renderAttGrid();}
 async function saveAttendance(){
   const today=dateKey();await sset('attendance-'+today,attendance);
@@ -660,13 +711,42 @@ async function attAndGo(){
   await saveAttendance();
   const today=dateKey(),saved=await sget('attendance-'+today);
   const attending=MEMBERS.filter(n=>saved&&saved[n]);
-  if(!attending.length){toast('참석자가 없습니다');return;}
+  const guests=getAttGuests();
+  const total=attending.length+guests.length;
+  if(!total){toast('참석자가 없습니다');return;}
   const list=document.getElementById('plist');list.innerHTML='';
   attending.forEach((name,i)=>appendSlot(i,name));
-  document.getElementById('playerN').value=attending.length;
+  // 게스트도 추가
+  guests.forEach((g,gi)=>{
+    const i=attending.length+gi;
+    const d=document.createElement('div');
+    d.className='player-item';d.dataset.i=i;d.dataset.type='guest';
+    d.style.cssText='flex-wrap:wrap;gap:6px';
+    d.innerHTML=`
+      <div style="display:flex;align-items:center;gap:8px;width:100%">
+        <div class="p-num" style="background:#d97706;flex-shrink:0">${i+1}</div>
+        <span class="guest-badge" style="flex-shrink:0">GUEST</span>
+        <input class="p-guest" type="text" value="${g.name}" style="flex:1;min-width:80px">
+        <button class="p-del" onclick="delSlot(this)" style="flex-shrink:0">×</button>
+      </div>
+      <div style="display:flex;gap:6px;padding-left:36px;width:100%">
+        <select class="grade-select guest-gender" style="flex:1;text-align:center;font-size:13px;padding:6px 8px">
+          <option value="M"${g.gender==='M'?' selected':''}>남성</option>
+          <option value="F"${g.gender==='F'?' selected':''}>여성</option>
+        </select>
+        <select class="grade-select guest-grade" style="flex:1;text-align:center;font-size:13px;padding:6px 8px">
+          <option value="none"${g.grade==='none'?' selected':''}>등급 없음</option>
+          <option value="A"${g.grade==='A'?' selected':''}>A 상위</option>
+          <option value="B"${g.grade==='B'?' selected':''}>B 중위</option>
+          <option value="C"${g.grade==='C'?' selected':''}>C 하위</option>
+        </select>
+      </div>`;
+    list.appendChild(d);
+  });
+  document.getElementById('playerN').value=total;
   calcOptimal();
   goTab('setup',document.querySelectorAll('.tn')[1]);
-  toast(`${attending.length}명 불러왔습니다`);
+  toast(`${attending.length}명 + 게스트${guests.length}명 불러왔습니다`);
 }
 async function loadAtt(){
   const today=dateKey(),saved=await sget('attendance-'+today);
@@ -918,6 +998,23 @@ function buildFallbackSchedule(n,r,waitSz,wb){
 }
 
 // ── 성별 대진 알고리즘 ──
+function gradeScore(grade){return {A:3,B:2,C:1,none:2}[grade]||2;}
+
+function makeBalancedMixedCourt(males,females,pInfo){
+  // 각 팀 남1+여1 구성, 실력 균형 (강+약 vs 강+약)
+  if(males.length<2||females.length<2)return null;
+  const m=[males[0],males[1]];
+  const f=[females[0],females[1]];
+  const ms=m.map(i=>gradeScore(pInfo[i].grade));
+  const fs=f.map(i=>gradeScore(pInfo[i].grade));
+  // opt1: m[0]+f[0] vs m[1]+f[1]
+  const d1=Math.abs((ms[0]+fs[0])-(ms[1]+fs[1]));
+  // opt2: m[0]+f[1] vs m[1]+f[0]
+  const d2=Math.abs((ms[0]+fs[1])-(ms[1]+fs[0]));
+  if(d1<=d2) return [m[0],f[0],m[1],f[1]];
+  else        return [m[0],f[1],m[1],f[0]];
+}
+
 function buildWaitSched(n,r,wz,wb){
   for(let att=0;att<1000;att++){
     const rem=[...wb];const sched=[];let valid=true;
@@ -943,13 +1040,11 @@ function buildWaitSched(n,r,wz,wb){
 }
 
 function genGenderBracket(n,c,r,ppr,waitSz){
-  // 선수 정보: name, gender, grade
-  const playerInfo=S.assigned.map(pi=>{
+  const pInfo=S.assigned.map(pi=>{
     const p=S.players[pi];
-    // 게스트는 직접 입력한 성별/등급 사용, 일반 회원은 Firebase 저장값 사용
     const gender=p.isGuest?(p.guestGender||'M'):(genders[p.name]||'M');
     const grade=p.isGuest?(p.guestGrade||'none'):(grades[p.name]||'none');
-    return {name:p.name,gender,grade,isGuest:p.isGuest};
+    return{name:p.name,gender,grade,isGuest:p.isGuest};
   });
 
   // 대기 스케줄
@@ -959,26 +1054,23 @@ function genGenderBracket(n,c,r,ppr,waitSz){
     const wb=Array(n).fill(bw);
     shuffle(Array.from({length:n},(_,i)=>i)).slice(0,ew).forEach(i=>wb[i]++);
     waitSched=buildWaitSched(n,r,waitSz,wb);
-  } else {
+  }else{
     waitSched=Array.from({length:r},()=>[]);
   }
 
-  // 타입 quota (대기 반영)
   const wb2=Array(n).fill(0);
   waitSched.forEach(wl=>wl.forEach(i=>wb2[i]++));
   const gameCnt=Array.from({length:n},(_,i)=>r-wb2[i]);
 
   const typeRem=Array.from({length:n},(_,i)=>{
-    const gc=gameCnt[i];const p=playerInfo[i];
+    const gc=gameCnt[i];const p=pInfo[i];
     if(p.gender==='M'&&p.grade!=='C')
-      return {mens:Math.max(0,gc-1),mixed:Math.min(1,gc),ladies:0};
+      return{mens:Math.max(0,gc-1),mixed:Math.min(1,gc),ladies:0};
     else if(p.gender==='M')
-      return {mens:0,mixed:gc,ladies:0};
+      return{mens:0,mixed:gc,ladies:0};
     else
-      return {mens:0,mixed:Math.max(0,gc-1),ladies:Math.min(1,gc)};
+      return{mens:0,mixed:Math.max(0,gc-1),ladies:Math.min(1,gc)};
   });
-
-  const CC2=['#3182f6','#00b493','#f7c244','#f04452','#8b5cf6','#f97316'];
 
   for(let ri=0;ri<r;ri++){
     const waitSet=new Set(waitSched[ri]);
@@ -989,49 +1081,62 @@ function genGenderBracket(n,c,r,ppr,waitSz){
     for(let att=0;att<500;att++){
       const used=new Set();const cts=[];const tps=[];
 
-      const mab=shuffle(playing.filter(i=>playerInfo[i].gender==='M'&&playerInfo[i].grade!=='C'));
-      const mc=shuffle(playing.filter(i=>playerInfo[i].gender==='M'&&playerInfo[i].grade==='C'));
-      const fem=shuffle(playing.filter(i=>playerInfo[i].gender==='F'));
+      const rmab=shuffle(playing.filter(i=>pInfo[i].gender==='M'&&pInfo[i].grade!=='C'));
+      const rmc =shuffle(playing.filter(i=>pInfo[i].gender==='M'&&pInfo[i].grade==='C'));
+      const rfem=playing.filter(i=>pInfo[i].gender==='F').sort((a,b)=>gradeScore(pInfo[b].grade)-gradeScore(pInfo[a].grade));
+      const rmabS=rmab.slice().sort((a,b)=>gradeScore(pInfo[b].grade)-gradeScore(pInfo[a].grade));
 
-      let wm=shuffle(mab.filter(i=>typeRem[i].mixed>0));
-      let wf_l=shuffle(fem.filter(i=>typeRem[i].ladies>0));
-      let wf_m=shuffle(fem.filter(i=>typeRem[i].mixed>0));
-      let allF=shuffle(fem);
+      let wm=shuffle(rmab.filter(i=>typeRem[i].mixed>0));
+      const wfl=rfem.filter(i=>typeRem[i].ladies>0);
 
       for(let ci=0;ci<c;ci++){
         const fwm=wm.filter(i=>!used.has(i));
-        const fmc=mc.filter(i=>!used.has(i));
-        const ffem=allF.filter(i=>!used.has(i));
-        const ffwl=wf_l.filter(i=>!used.has(i));
-        const fmab=mab.filter(i=>!used.has(i));
+        const fmc=rmc.filter(i=>!used.has(i));
+        const ff =rfem.filter(i=>!used.has(i));
+        const fwl=wfl.filter(i=>!used.has(i));
+        const fmab=rmabS.filter(i=>!used.has(i));
+        const fallM=playing.filter(i=>pInfo[i].gender==='M'&&!used.has(i));
 
         let ct=null,tp=null;
 
-        // 여복: 여성 4명 + ladies quota
-        if(ffwl.length>=4&&tps.filter(t=>t==='ladies').length<Math.ceil(fem.length/4)){
-          ct=ffwl.slice(0,4);tp='ladies';
+        // 여복
+        if(fwl.length>=4&&tps.filter(t=>t==='ladies').length<Math.ceil(rfem.length/4)){
+          const fl=fwl.slice(0,4).sort((a,b)=>gradeScore(pInfo[b].grade)-gradeScore(pInfo[a].grade));
+          ct=[fl[0],fl[3],fl[1],fl[2]];tp='ladies';
         }
-        // 혼복: 남A/B mixed + 혼복풀
-        else if(fwm.length>=2){
-          const pool=fmc.concat(ffem).filter(i=>!used.has(i));
-          if(pool.length>=2){ct=fwm.slice(0,2).concat(pool.slice(0,2));tp='mixed';}
+        // 혼복: 남A/B mixed 필요 + 여
+        else if(fwm.length>=2&&ff.length>=2){
+          ct=makeBalancedMixedCourt(fwm,ff,pInfo);tp='mixed';
         }
-        // 혼복: mc + 여
-        if(!ct&&fmc.length>=2&&ffem.length>=2){ct=fmc.slice(0,2).concat(ffem.slice(0,2));tp='mixed';}
-        // 남복
-        if(!ct&&fmab.length>=4){ct=fmab.slice(0,4);tp='mens';}
-        // 혼복 폴백
-        if(!ct){
+        // 혼복: 남C + 여
+        else if(fmc.length>=2&&ff.length>=2){
+          ct=makeBalancedMixedCourt(fmc,ff,pInfo);tp='mixed';
+        }
+        // 혼복: 남(any) + 여
+        else if(fallM.length>=2&&ff.length>=2){
+          ct=makeBalancedMixedCourt(fallM,ff,pInfo);tp='mixed';
+        }
+        // 남복: 스네이크 드래프트 밸런스
+        else if(fmab.length>=4){
+          const m4=fmab.slice(0,4);
+          ct=[m4[0],m4[3],m4[1],m4[2]];tp='mens';
+        }
+        else if(fallM.length>=4){
+          const m4=fallM.slice(0,4).sort((a,b)=>gradeScore(pInfo[b].grade)-gradeScore(pInfo[a].grade));
+          ct=[m4[0],m4[3],m4[1],m4[2]];tp='mens';
+        }
+        // 폴백
+        else{
           const avail=playing.filter(i=>!used.has(i));
           if(avail.length>=4){
-            const am=avail.filter(i=>playerInfo[i].gender==='M');
-            const af=avail.filter(i=>playerInfo[i].gender==='F');
-            if(am.length>=2&&af.length>=2){ct=am.slice(0,2).concat(af.slice(0,2));tp='mixed';}
-            else if(am.length>=4){ct=am.slice(0,4);tp='mens';}
-            else if(af.length>=4){ct=af.slice(0,4);tp='ladies';}
+            const am=avail.filter(i=>pInfo[i].gender==='M');
+            const af=avail.filter(i=>pInfo[i].gender==='F');
+            if(am.length>=2&&af.length>=2){ct=makeBalancedMixedCourt(am,af,pInfo)||am.slice(0,2).concat(af.slice(0,2));tp='mixed';}
+            else if(am.length>=4){const m4=am.slice(0,4).sort((a,b)=>gradeScore(pInfo[b].grade)-gradeScore(pInfo[a].grade));ct=[m4[0],m4[3],m4[1],m4[2]];tp='mens';}
             else{ct=avail.slice(0,4);tp='mixed';}
           }
         }
+
         if(ct&&ct.length===4){cts.push(ct);tps.push(tp);ct.forEach(x=>used.add(x));}
       }
 
@@ -1045,7 +1150,6 @@ function genGenderBracket(n,c,r,ppr,waitSz){
     }
 
     if(!bestCts){
-      // fallback
       bestCts=[];bestTps=[];
       const used2=new Set();
       for(let ci=0;ci<c;ci++){
@@ -1055,7 +1159,6 @@ function genGenderBracket(n,c,r,ppr,waitSz){
       }
     }
 
-    // quota 업데이트
     bestCts.forEach((ct,ci)=>{
       const tp=bestTps[ci];
       ct.forEach(pi=>{
@@ -1064,11 +1167,9 @@ function genGenderBracket(n,c,r,ppr,waitSz){
       });
     });
 
-    // 코트 타입 라벨
-    const typeLabel={'mens':'남복','mixed':'혼복','ladies':'여복'};
+    const typeLabel={mens:'남복',mixed:'혼복',ladies:'여복'};
     S.bracket.push({
-      courts:bestCts,
-      wait:waitSched[ri],
+      courts:bestCts,wait:waitSched[ri],
       courtTypes:bestTps,
       courtTypeLabels:bestTps.map(t=>typeLabel[t])
     });
@@ -1079,7 +1180,7 @@ function genGenderBracket(n,c,r,ppr,waitSz){
   console.log('성별대진 게임수:',Math.min(...gc2),'~',Math.max(...gc2));
   renderBracketGender();
   document.getElementById('pubBtnWrap').style.display='block';
-  toast(`성별 대진표 생성 완료`);
+  toast('성별 대진표 생성 완료');
   goTab('bracket',document.querySelectorAll('.tn')[4]);
 }
 
