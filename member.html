@@ -409,7 +409,13 @@ body{background:var(--bg);color:var(--gray-900);font-family:'Pretendard',-apple-
 
   <!-- 대진표 -->
   <div id="p-bracket" class="page">
-    <div class="page-title">대진표</div>
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
+      <div class="page-title" style="margin-bottom:0">대진표</div>
+      <button onclick="printBracketPDF()" style="display:inline-flex;align-items:center;gap:6px;background:var(--blue-l);color:var(--blue);border:none;border-radius:10px;padding:8px 14px;font-family:'Pretendard',sans-serif;font-size:14px;font-weight:700;cursor:pointer">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+        PDF 저장
+      </button>
+    </div>
     <div id="bktWrap"><div class="empty">오늘 대진표가 없습니다</div></div>
   </div>
 
@@ -1251,6 +1257,91 @@ function openHistModal(sess,dk,seqL){
   });
   document.getElementById('histModalBody').innerHTML=`<div style="font-size:15px;color:var(--gray-500);margin-bottom:16px">${pl.length}명 · 코트 ${sess.ct} · ${sess.r}라운드</div>${html}`;
   document.getElementById('histModal').classList.add('on');
+}
+
+// ── 대진표 PDF 출력 ──
+function printBracketPDF(){
+  if(!curSess){toast('대진표가 없습니다');return;}
+  const sess=curSess;
+  const today=dateKey();
+  const dateStr=fmt(today);
+
+  // 인쇄용 HTML 생성
+  let html=`<!DOCTYPE html><html lang="ko"><head>
+  <meta charset="UTF-8">
+  <title>테르메스 대진표 ${dateStr}</title>
+  <style>
+    @import url('https://cdn.jsdelivr.net/gh/orioncactus/pretendard/dist/web/static/pretendard.css');
+    *{box-sizing:border-box;margin:0;padding:0}
+    body{font-family:'Pretendard',-apple-system,sans-serif;color:#191f28;background:#fff;padding:28px;font-size:14px}
+    .header{display:flex;align-items:center;justify-content:space-between;margin-bottom:24px;padding-bottom:16px;border-bottom:2px solid #3182f6}
+    .logo{font-size:24px;font-weight:900;letter-spacing:2px;color:#191f28}
+    .logo b{color:#3182f6}
+    .date{font-size:15px;color:#6b7684;font-weight:600}
+    .info{font-size:13px;color:#8b95a1;margin-top:4px}
+    .round{margin-bottom:18px;break-inside:avoid}
+    .round-title{font-size:16px;font-weight:800;color:#191f28;margin-bottom:10px;padding:8px 14px;background:#f2f4f6;border-radius:8px;display:flex;align-items:center;justify-content:space-between}
+    .round-badge{font-size:12px;font-weight:700;color:#3182f6;background:#ebf3fe;padding:3px 10px;border-radius:6px}
+    .courts{display:flex;flex-direction:column;gap:8px}
+    .court{display:flex;align-items:center;gap:10px;padding:10px 14px;border-radius:10px;border-left:4px solid}
+    .court-num{font-size:12px;font-weight:700;color:#8b95a1;min-width:44px}
+    .type-badge{font-size:11px;font-weight:700;padding:2px 7px;border-radius:5px;margin-right:6px}
+    .team{display:flex;gap:5px;align-items:center;flex-wrap:wrap}
+    .player{background:#fff;border:1.5px solid #e5e8eb;border-radius:7px;padding:4px 10px;font-size:13px;font-weight:600}
+    .vs{font-size:12px;font-weight:800;color:#b0b8c1;margin:0 6px}
+    .wait-row{display:flex;align-items:center;gap:6px;padding:7px 14px;background:#f9fafb;border-radius:8px;flex-wrap:wrap}
+    .wait-label{font-size:12px;font-weight:700;color:#8b95a1;min-width:28px}
+    .wait-chip{background:#fff;border:1px solid #e5e8eb;border-radius:6px;padding:3px 9px;font-size:12px;color:#6b7684}
+    @media print{body{padding:16px}@page{margin:1cm;size:A4}}
+  </style></head><body>
+  <div class="header">
+    <div><div class="logo">TER<b>MES</b></div><div class="date">${dateStr} 대진표</div><div class="info">${getP(sess).length}명 · 코트 ${sess.ct} · ${sess.r}라운드 · ${sess.gm}게임제</div></div>
+  </div>`;
+
+  const CC2=['#3182f6','#00b493','#f7c244','#f04452','#8b5cf6','#f97316'];
+  const CC2bg=['#ebf3fe','#e6f8f5','#fefce8','#fff0f1','#f5f3ff','#fff7ed'];
+
+  getB(sess).forEach((round,ri)=>{
+    const tpLabel=round.courtTypeLabels;
+    html+=`<div class="round"><div class="round-title"><span>${ri+1}게임</span><span class="round-badge">${sess.gm}게임제</span></div><div class="courts">`;
+
+    round.courts.forEach((ct,ci)=>{
+      if(!ct||ct.length<4)return;
+      const col=CC2[ci%CC2.length];
+      const bg=CC2bg[ci%CC2bg.length];
+      const tp=tpLabel?tpLabel[ci]:'';
+      const tpCol=tp==='남복'?'#3182f6':tp==='여복'?'#f04452':tp==='혼복'?'#00b493':'';
+      const tpBg=tp==='남복'?'#ebf3fe':tp==='여복'?'#fff0f1':tp==='혼복'?'#e6f8f5':'';
+      const tpSpan=tp?`<span class="type-badge" style="background:${tpBg};color:${tpCol}">${tp}</span>`:'';
+      const pn=ai=>pname(sess,ai);
+      html+=`<div class="court" style="background:${bg};border-left-color:${col}">
+        <div class="court-num">코트 ${ci+1}</div>
+        ${tpSpan}
+        <div class="team"><span class="player">${pn(ct[0])}</span><span class="player">${pn(ct[1])}</span></div>
+        <div class="vs">VS</div>
+        <div class="team"><span class="player">${pn(ct[2])}</span><span class="player">${pn(ct[3])}</span></div>
+      </div>`;
+    });
+
+    const wl=round.wait||[];
+    html+=`<div class="wait-row"><span class="wait-label">대기</span>`;
+    if(wl.length){wl.forEach(ai=>{html+=`<span class="wait-chip">${pname(sess,ai)}</span>`;});}
+    else{html+=`<span class="wait-chip" style="color:#00b493">전원 참가</span>`;}
+    html+=`</div></div></div>`;
+  });
+
+  html+=`</body></html>`;
+
+  // 새 창에서 인쇄 (PDF로 저장 가능)
+  const win=window.open('','_blank','width=800,height=900');
+  if(!win){toast('팝업이 차단되었습니다. 팝업을 허용해주세요');return;}
+  win.document.write(html);
+  win.document.close();
+  win.onload=()=>{
+    setTimeout(()=>{
+      win.print();
+    },500);
+  };
 }
 
 // ── 구력 관리 ──
