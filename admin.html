@@ -376,6 +376,15 @@ body{background:var(--bg);color:var(--gray-900);font-family:'Pretendard',-apple-
         </div>
       </div>
     </div>
+
+    <div class="section">
+      <div class="section-title">늦참자 설정</div>
+      <div class="card card-pad">
+        <div class="form-hint" style="margin-bottom:14px">늦게 합류하는 참가자의 시작 라운드를 설정하세요.<br>해당 라운드부터 대진에 포함됩니다.</div>
+        <div id="lateList" style="display:flex;flex-direction:column;gap:8px;margin-bottom:12px"></div>
+        <button class="btn btn-neutral btn-sm" onclick="addLatePlayer()">+ 늦참자 추가</button>
+      </div>
+    </div>
     <div class="section">
       <div class="section-title">참가자</div>
       <div class="warn-banner" id="dupWarn"></div>
@@ -580,7 +589,7 @@ const CC=['#3182f6','#00b493','#f7c244','#f04452','#8b5cf6','#f97316'];
 const NC=['#f04452','#3182f6','#00b493','#8b5cf6','#f97316','#ec4899','#0891b2','#65a30d'];
 const SEC_ANSWERS=['용테파','용인테니스파크'];
 let grades={},genders={},attendance={};
-let S={players:[],courts:3,rounds:8,gameMode:'6',assigned:[],bracket:[],useGender:false};
+let S={players:[],courts:3,rounds:8,gameMode:'6',assigned:[],bracket:[],useGender:false,lateArrivals:{}};
 
 // 유틸
 function toast(m){const e=document.getElementById('toast');e.textContent=m;e.classList.add('on');setTimeout(()=>e.classList.remove('on'),2600);}
@@ -838,6 +847,53 @@ function syncSlots(){
   else for(let i=cur-1;i>=n;i--)list.querySelectorAll('.player-item')[i]?.remove();
 }
 function addMember(){const list=document.getElementById('plist');const n=list.querySelectorAll('.player-item').length;appendSlot(n,'');document.getElementById('playerN').value=n+1;}
+
+function addLatePlayer(){
+  const lateList=document.getElementById('lateList');
+  const rounds=parseInt(document.getElementById('roundN').value)||8;
+  const div=document.createElement('div');
+  div.style.cssText='display:flex;align-items:center;gap:8px;background:var(--white);border-radius:12px;padding:10px 14px;border:1.5px solid var(--gray-200)';
+  
+  // 참가자 선택
+  const sel=document.createElement('select');
+  sel.className='form-input';sel.style.cssText='flex:1;padding:8px 12px;font-size:14px';
+  sel.innerHTML='<option value="">참가자 선택</option>';
+  document.querySelectorAll('.player-item').forEach((el,i)=>{
+    const name=el.dataset.type==='guest'
+      ?(el.querySelector('.p-guest')?.value||'게스트')
+      :(el.querySelector('.p-select')?.value||`${i+1}번`);
+    const o=document.createElement('option');o.value=i;o.textContent=name;sel.appendChild(o);
+  });
+  
+  // 시작 라운드
+  const rndSel=document.createElement('select');
+  rndSel.className='form-input';rndSel.style.cssText='width:100px;padding:8px 12px;font-size:14px';
+  for(let r=2;r<=rounds;r++){
+    const o=document.createElement('option');o.value=r-1;o.textContent=`${r}게임부터`;rndSel.appendChild(o);
+  }
+  
+  const del=document.createElement('button');
+  del.style.cssText='background:none;border:none;font-size:20px;color:var(--gray-300);cursor:pointer;flex-shrink:0;line-height:1';
+  del.textContent='×';del.onclick=()=>div.remove();
+  
+  div.appendChild(sel);div.appendChild(rndSel);div.appendChild(del);
+  lateList.appendChild(div);
+}
+
+function getLateArrivals(){
+  // {roundIndex: [playerIndex, ...]} 형태로 반환
+  const result={};
+  document.querySelectorAll('#lateList > div').forEach(div=>{
+    const sels=div.querySelectorAll('select');
+    if(sels.length<2)return;
+    const pi=parseInt(sels[0].value);
+    const ri=parseInt(sels[1].value);
+    if(isNaN(pi)||isNaN(ri))return;
+    if(!result[ri])result[ri]=[];
+    result[ri].push(pi);
+  });
+  return result;
+}
 function addGuest(){const list=document.getElementById('plist');const n=list.querySelectorAll('.player-item').length;appendGuestSlot(n);document.getElementById('playerN').value=n+1;}
 function appendSlot(i,name){
   const list=document.getElementById('plist');
@@ -908,6 +964,7 @@ function saveSetup(){
   S.rounds=parseInt(document.getElementById('roundN').value)||8;
   S.gameMode=document.getElementById('gameM').value;
   S.useGender=document.getElementById('useGenderCheck')?.checked||false;
+  S.lateArrivals=getLateArrivals();
   document.getElementById('st-n').textContent=S.players.length;
   document.getElementById('st-c').textContent=S.courts;
   document.getElementById('st-r').textContent=S.rounds;
@@ -1003,6 +1060,104 @@ function buildFallbackSchedule(n,r,waitSz,wb){
   return schedule;
 }
 
+// ── 스마트 대진 (파트너 중복 방지 + 늦참자) ──
+function genSmartBracket(n,c,r,ppr,waitSz){
+  const lateMap=S.lateArrivals||{};  // {ri: [pi,...]}
+  
+  // 선수별 시작 라운드
+  const startRound=Array(n).fill(0);
+  Object.entries(lateMap).forEach(([ri,players])=>{
+    players.forEach(pi=>{if(pi<n)startRound[pi]=parseInt(ri);});
+  });
+  
+  // 라운드별 가용 선수
+  const roundAvail=Array.from({length:r},(_,ri)=>
+    Array.from({length:n},(_,i)=>i).filter(i=>startRound[i]<=ri)
+  );
+  
+  // 파트너 카운트
+  const partnerCount={};
+  function pKey(a,b){return Math.min(a,b)+','+Math.max(a,b);}
+  function pScore(a,b){return partnerCount[pKey(a,b)]||0;}
+  
+  // 라운드별 대기 스케줄 (게임수 균등 배분)
+  const gameSoFar=Array(n).fill(0);
+  const waitSched=[];
+  
+  for(let ri=0;ri<r;ri++){
+    const avail=roundAvail[ri];
+    const na=avail.length;
+    const wz=Math.max(0,na-ppr);
+    if(wz<=0){waitSched.push([]);avail.forEach(i=>gameSoFar[i]++);continue;}
+    
+    // 게임 많이 한 사람 우선 대기
+    const sorted=[...avail].sort((a,b)=>gameSoFar[b]-gameSoFar[a]);
+    const waitList=sorted.slice(0,wz);
+    waitSched.push(waitList);
+    avail.filter(i=>!waitList.includes(i)).forEach(i=>gameSoFar[i]++);
+  }
+  
+  // 라운드별 코트 배정
+  for(let ri=0;ri<r;ri++){
+    const waitSet=new Set(waitSched[ri]);
+    const playing=roundAvail[ri].filter(i=>!waitSet.has(i));
+    
+    let bestCts=null;let bestScore=Infinity;
+    
+    for(let att=0;att<400;att++){
+      const sh=shuffle(playing);
+      const cts=[];const used=new Set();
+      
+      for(let ci=0;ci<c;ci++){
+        const free=sh.filter(i=>!used.has(i));
+        if(free.length<4)break;
+        const ct=assignBalanced(free.slice(0,8),ci);
+        if(ct){cts.push(ct);ct.forEach(x=>used.add(x));}
+      }
+      
+      if(cts.length===c&&new Set(cts.flat()).size===playing.length){
+        const score=cts.reduce((s,ct)=>
+          s+pScore(ct[0],ct[1])+pScore(ct[2],ct[3]),0);
+        if(score<bestScore){bestScore=score;bestCts=cts;}
+        if(bestScore===0)break;
+      }
+    }
+    
+    if(!bestCts){
+      bestCts=[];const used2=new Set();
+      for(let ci=0;ci<c;ci++){
+        const free=playing.filter(i=>!used2.has(i));
+        bestCts.push(free.slice(0,4));
+        free.slice(0,4).forEach(x=>used2.add(x));
+      }
+    }
+    
+    // 파트너 업데이트
+    bestCts.forEach(ct=>{
+      const k1=pKey(ct[0],ct[1]),k2=pKey(ct[2],ct[3]);
+      partnerCount[k1]=(partnerCount[k1]||0)+1;
+      partnerCount[k2]=(partnerCount[k2]||0)+1;
+    });
+    
+    S.bracket.push({courts:bestCts,wait:[...waitSet],courtTypeLabels:null});
+  }
+  
+  const gc2=Array(n).fill(0);
+  S.bracket.forEach(rd=>rd.courts.forEach(ct=>ct.forEach(ai=>gc2[ai]++)));
+  console.log('스마트대진 게임수:',Math.min(...gc2.filter((_,i)=>startRound[i]===0)),'~',Math.max(...gc2));
+  renderBracket();
+  document.getElementById('pubBtnWrap').style.display='block';
+  toast(`대진표 생성 완료`);
+  goTab('bracket',document.querySelectorAll('.tn')[4]);
+}
+
+function assignBalanced(pool,ci){
+  if(pool.length<4)return null;
+  // 등급 기반 균형 배정 (스네이크)
+  const sorted=[...pool].sort((a,b)=>gradeScore(grades[S.players[S.assigned[a]]?.name]||'none')-gradeScore(grades[S.players[S.assigned[b]]?.name]||'none'));
+  return [sorted[0],sorted[pool.length-1],sorted[1],sorted[Math.max(2,pool.length-2)]];
+}
+
 // ── 성별 대진 알고리즘 ──
 function gradeScore(grade){return {A:3,B:2,C:1,none:2}[grade]||2;}
 
@@ -1068,20 +1223,35 @@ function genGenderBracket(n,c,r,ppr,waitSz){
     return{name:p.name,gender,grade,isGuest:p.isGuest,origGender:p.isGuest?(p.guestGender||'M'):(genders[p.name]||'M')};
   });
 
-  // 대기 스케줄
-  let waitSched;
-  if(waitSz>0){
-    const tw=waitSz*r;const bw=Math.floor(tw/n);const ew=tw%n;
-    const wb=Array(n).fill(bw);
-    shuffle(Array.from({length:n},(_,i)=>i)).slice(0,ew).forEach(i=>wb[i]++);
-    waitSched=buildWaitSched(n,r,waitSz,wb);
-  }else{
-    waitSched=Array.from({length:r},()=>[]);
+  // 늦참자 처리
+  const lateMap=S.lateArrivals||{};
+  const startRound=Array(n).fill(0);
+  Object.entries(lateMap).forEach(([ri,players])=>{
+    players.forEach(pi=>{if(pi<n)startRound[pi]=parseInt(ri);});
+  });
+  const roundAvail=Array.from({length:r},(_,ri)=>
+    Array.from({length:n},(_,i)=>i).filter(i=>startRound[i]<=ri)
+  );
+
+  // 대기 스케줄 (늦참자 + 균등 배분)
+  const gameSoFar2=Array(n).fill(0);
+  const waitSched=[];
+  for(let ri=0;ri<r;ri++){
+    const avail=roundAvail[ri];
+    const wz=Math.max(0,avail.length-ppr);
+    if(wz<=0){waitSched.push([]);avail.forEach(i=>gameSoFar2[i]++);continue;}
+    const sorted=[...avail].sort((a,b)=>gameSoFar2[b]-gameSoFar2[a]);
+    const wl=sorted.slice(0,wz);
+    waitSched.push(wl);
+    avail.filter(i=>!wl.includes(i)).forEach(i=>gameSoFar2[i]++);
   }
 
-  const wb2=Array(n).fill(0);
-  waitSched.forEach(wl=>wl.forEach(i=>wb2[i]++));
-  const gameCnt=Array.from({length:n},(_,i)=>r-wb2[i]);
+  const gameCnt=gameSoFar2;
+
+  // 파트너 카운트
+  const partnerCnt={};
+  function gpKey(a,b){return Math.min(a,b)+','+Math.max(a,b);}
+  function gpScore(a,b){return partnerCnt[gpKey(a,b)]||0;}
 
   const typeRem=Array.from({length:n},(_,i)=>{
     const gc=gameCnt[i];const p=pInfo[i];
@@ -1094,7 +1264,7 @@ function genGenderBracket(n,c,r,ppr,waitSz){
 
   for(let ri=0;ri<r;ri++){
     const waitSet=new Set(waitSched[ri]);
-    const playing=Array.from({length:n},(_,i)=>i).filter(i=>!waitSet.has(i));
+    const playing=roundAvail[ri].filter(i=>!waitSet.has(i));
 
     let bestCts=null,bestTps=null,bestScore=-1;
 
@@ -1183,6 +1353,13 @@ function genGenderBracket(n,c,r,ppr,waitSz){
       });
     });
 
+    // 파트너 카운트 업데이트
+    bestCts.forEach(ct=>{
+      const k1=gpKey(ct[0],ct[1]),k2=gpKey(ct[2],ct[3]);
+      partnerCnt[k1]=(partnerCnt[k1]||0)+1;
+      partnerCnt[k2]=(partnerCnt[k2]||0)+1;
+    });
+
     const typeLabel={mens:'남복',mixed:'혼복',ladies:'여복'};
     S.bracket.push({
       courts:bestCts,wait:waitSched[ri],
@@ -1252,30 +1429,8 @@ function genBracket(){
     return;
   }
 
-  if(waitSz<=0){
-    // 전원 매 라운드 참가
-    for(let ri=0;ri<r;ri++)
-      S.bracket.push({courts:assignC(shuffle(Array.from({length:n},(_,i)=>i)),c),wait:[]});
-  } else {
-    // ── 완벽 균등 보장 알고리즘 ──
-    // 각 선수 대기 횟수: floor(waitSz*r/n) 또는 +1
-    const tw=waitSz*r;
-    const bw=Math.floor(tw/n);
-    const ew=tw%n;
-    const wb=Array(n).fill(bw);
-    // ew명에게 1번 더 배정 (무작위 선택)
-    shuffle(Array.from({length:n},(_,i)=>i)).slice(0,ew).forEach(i=>wb[i]++);
-
-    // 그리디 배정: 남은 대기 횟수가 많은 선수를 우선
-    const schedule=buildWaitSchedule(n,r,waitSz,wb);
-
-    // 대진표 생성
-    for(let ri=0;ri<r;ri++){
-      const wl=schedule[ri];
-      const playing=shuffle(Array.from({length:n},(_,i)=>i).filter(i=>!wl.includes(i)));
-      S.bracket.push({courts:assignC(playing,c),wait:wl});
-    }
-  }
+  // 파트너 중복 방지 + 늦참자 처리
+  genSmartBracket(n,c,r,ppr,waitSz);
   const gc=Array(n).fill(0);S.bracket.forEach(rd=>rd.courts.forEach(ct=>ct.forEach(ai=>gc[ai]++)));
   console.log('게임수:',Math.min(...gc),'~',Math.max(...gc));
   renderBracket();document.getElementById('pubBtnWrap').style.display='block';
