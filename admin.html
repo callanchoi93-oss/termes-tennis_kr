@@ -1137,7 +1137,7 @@ function genSmartBracket(n,c,r,ppr,waitSz){
   function bestT4(pool){
     if(pool.length<4)return null;
     let best=null,bs=Infinity;
-    const p=pool.slice(0,6);
+    const p=pool.slice(0,4);
     for(let i=0;i<p.length-3;i++)for(let j=i+1;j<p.length-2;j++)
     for(let k=j+1;k<p.length-1;k++)for(let l=k+1;l<p.length;l++){
       const g=[p[i],p[j],p[k],p[l]];
@@ -1156,9 +1156,13 @@ function genSmartBracket(n,c,r,ppr,waitSz){
     const playing=roundAvail[ri].filter(i=>!ws.has(i));
     let bestCts=null,bs=Infinity;
 
-    for(let att=0;att<1000;att++){
+    // 시도 횟수 줄임 (성능 최적화)
+    for(let att=0;att<200;att++){
       const sp=[...playing];
-      for(let t=0;t<3;t++){const a=Math.floor(Math.random()*sp.length),b=Math.floor(Math.random()*sp.length);[sp[a],sp[b]]=[sp[b],sp[a]];}
+      for(let t=0;t<Math.min(4,sp.length);t++){
+        const a=Math.floor(Math.random()*sp.length),b=Math.floor(Math.random()*sp.length);
+        [sp[a],sp[b]]=[sp[b],sp[a]];
+      }
       const used=new Set();const cts=[];
       for(let ci=0;ci<c;ci++){
         const free=sp.filter(i=>!used.has(i));
@@ -1313,7 +1317,7 @@ function genGenderBracket(n,c,r,ppr,waitSz){
   function bestMixed(males,females){
     if(males.length<2||females.length<2)return null;
     let best=null,bs=Infinity;
-    const ml=males.slice(0,5),fl=females.slice(0,5);
+    const ml=males.slice(0,3),fl=females.slice(0,3);
     for(let mi=0;mi<ml.length-1;mi++)for(let mj=mi+1;mj<ml.length;mj++){
       const m0=ml[mi],m1=ml[mj];
       for(let fi=0;fi<fl.length-1;fi++)for(let fj=fi+1;fj<fl.length;fj++){
@@ -1335,7 +1339,7 @@ function genGenderBracket(n,c,r,ppr,waitSz){
   function bestTeam4(pool){
     if(pool.length<4)return null;
     let best=null,bs=Infinity;
-    const p=pool.slice(0,6);
+    const p=pool.slice(0,4);
     for(let i=0;i<p.length-3;i++)for(let j=i+1;j<p.length-2;j++)
     for(let k=j+1;k<p.length-1;k++)for(let l=k+1;l<p.length;l++){
       const g=[p[i],p[j],p[k],p[l]];
@@ -1357,7 +1361,7 @@ function genGenderBracket(n,c,r,ppr,waitSz){
 
     let bestCts=null,bestTps=null,bs=Infinity;
 
-    for(let att=0;att<2000;att++){
+    for(let att=0;att<300;att++){
       // 중복 많은 선수끼리 분리
       const sp=[...playing].sort((a,b)=>
         playing.reduce((s,j)=>s+(j!==a?pcost(a,j):0),0)-
@@ -1479,6 +1483,14 @@ function renderBracketGender(){
 // ── 대진표 생성 ──
 function genBracket(){
   if(!S.assigned.length){toast('래플을 먼저 진행해주세요');return;}
+  if(!S.players.length){toast('설정을 먼저 저장해주세요');return;}
+  // 기본값 보정
+  if(!S.courts||S.courts<1) S.courts=parseInt(document.getElementById('courtN')?.value)||3;
+  if(!S.rounds||S.rounds<1) S.rounds=parseInt(document.getElementById('roundN')?.value)||8;
+  if(!S.gameMode) S.gameMode=document.getElementById('gameM')?.value||'6';
+  // 늦참자/성별 설정 실시간 반영
+  try{S.lateArrivals=getLateArrivals();}catch(e){S.lateArrivals={};}
+  try{S.useGender=document.getElementById('useGenderCheck')?.checked||false;}catch(e){}
   const n=S.players.length,c=S.courts,r=S.rounds,ppr=c*4,waitSz=n-ppr;
   S.bracket=[];
 
@@ -1490,11 +1502,6 @@ function genBracket(){
 
   // 파트너 중복 방지 + 늦참자 처리
   genSmartBracket(n,c,r,ppr,waitSz);
-  const gc=Array(n).fill(0);S.bracket.forEach(rd=>rd.courts.forEach(ct=>ct.forEach(ai=>gc[ai]++)));
-  console.log('게임수:',Math.min(...gc),'~',Math.max(...gc));
-  renderBracket();document.getElementById('pubBtnWrap').style.display='block';
-  toast(`대진표 생성 완료 · 1인당 ${Math.min(...gc)}게임`);
-  goTab('bracket',document.querySelectorAll('.tn')[4]);
 }
 function assignC(playing,nc){
   const Ac=playing.filter(ai=>S.players[S.assigned[ai]]?.skill==='A').length;
