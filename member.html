@@ -1126,6 +1126,7 @@ function renderScoreUI(sess){
       const tpColor=tpLabel==='남복'?'#3182f6':tpLabel==='여복'?'#f04452':tpLabel==='혼복'?'#00b493':'';
       const tpBadge=tpLabel?`<span style="font-size:11px;font-weight:700;padding:2px 7px;border-radius:6px;background:${tpColor}20;color:${tpColor};margin-left:4px">${tpLabel}</span>`:'';
       cHtml+=`<div class="score-match" style="border-top-color:${col}">
+        ${tpBadge?`<div style="margin-bottom:10px">${tpBadge}</div>`:''}
         <div style="display:flex;align-items:center;gap:12px;margin-bottom:14px">
           <div class="m-team"><div class="m-name">${pname(sess,ct[0])}</div><div class="m-name">${pname(sess,ct[1])}</div></div>
           <div class="m-vs">VS</div>
