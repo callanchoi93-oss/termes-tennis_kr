@@ -768,10 +768,26 @@ function appendSlot(i,name){
 function appendGuestSlot(i){
   const list=document.getElementById('plist');
   const d=document.createElement('div');d.className='player-item';d.dataset.i=i;d.dataset.type='guest';
-  d.innerHTML=`<div class="p-num" style="background:#d97706">${i+1}</div>
-    <span class="guest-badge">GUEST</span>
-    <input class="p-guest" type="text" placeholder="게스트 이름">
-    <button class="p-del" onclick="delSlot(this)">×</button>`;
+  d.style.cssText='flex-wrap:wrap;gap:6px';
+  d.innerHTML=`
+    <div style="display:flex;align-items:center;gap:8px;width:100%">
+      <div class="p-num" style="background:#d97706;flex-shrink:0">${i+1}</div>
+      <span class="guest-badge" style="flex-shrink:0">GUEST</span>
+      <input class="p-guest" type="text" placeholder="게스트 이름" style="flex:1;min-width:80px">
+      <button class="p-del" onclick="delSlot(this)" style="flex-shrink:0">×</button>
+    </div>
+    <div style="display:flex;gap:6px;padding-left:36px;width:100%">
+      <select class="grade-select guest-gender" style="flex:1;text-align:center;font-size:13px;padding:6px 8px">
+        <option value="M">남성</option>
+        <option value="F">여성</option>
+      </select>
+      <select class="grade-select guest-grade" style="flex:1;text-align:center;font-size:13px;padding:6px 8px">
+        <option value="none">등급 없음</option>
+        <option value="A">A 상위</option>
+        <option value="B">B 중위</option>
+        <option value="C">C 하위</option>
+      </select>
+    </div>`;
   list.appendChild(d);
 }
 function onNameChange(sel){
@@ -792,7 +808,16 @@ function saveSetup(){
   const items=document.querySelectorAll('.player-item');if(!items.length){toast('참가자를 입력해주세요');return;}
   const names=Array.from(document.querySelectorAll('.p-select')).map(s=>s.value).filter(v=>v!=='');
   if(names.filter((v,i)=>names.indexOf(v)!==i).length>0){toast('중복된 이름이 있습니다');return;}
-  S.players=Array.from(items).map((el,i)=>{if(el.dataset.type==='guest')return{name:el.querySelector('.p-guest').value.trim()||'게스트',skill:'none',isGuest:true};const name=el.querySelector('.p-select').value||`${i+1}번`;return{name,skill:getGrade(name),isGuest:false};});
+  S.players=Array.from(items).map((el,i)=>{
+    if(el.dataset.type==='guest'){
+      const gname=el.querySelector('.p-guest').value.trim()||`게스트${i+1}`;
+      const ggender=el.querySelector('.guest-gender')?.value||'M';
+      const ggrade=el.querySelector('.guest-grade')?.value||'none';
+      return{name:gname,skill:ggrade,isGuest:true,guestGender:ggender,guestGrade:ggrade};
+    }
+    const name=el.querySelector('.p-select').value||`${i+1}번`;
+    return{name,skill:getGrade(name),isGuest:false};
+  });
   S.courts=parseInt(document.getElementById('courtN').value)||3;
   S.rounds=parseInt(document.getElementById('roundN').value)||8;
   S.gameMode=document.getElementById('gameM').value;
@@ -814,7 +839,22 @@ function doRaffle(seeded){
     else{const h=Math.ceil(g.B.length/2);S.assigned=[...g.A,...g.B.slice(0,h),...g.B.slice(h),...g.C,...g.none];}
   }
   const div=document.getElementById('rfResult');div.innerHTML='';
-  S.assigned.forEach((pi,ni)=>{const p=S.players[pi];const d=document.createElement('div');d.className='rf-item';const sb=p.isGuest?'<span class="rf-grade rf-G">G</span>':(p.skill!=='none'?`<span class="rf-grade rf-${p.skill}">${p.skill}</span>`:'');d.innerHTML=`<div class="rf-num">${ni+1}</div><div class="rf-name">${p.name}</div>${sb}`;div.appendChild(d);});
+  S.assigned.forEach((pi,ni)=>{
+    const p=S.players[pi];
+    const d=document.createElement('div');d.className='rf-item';
+    let sb='';
+    if(p.isGuest){
+      const gc=p.guestGender==='F'?'var(--red)':'var(--blue)';
+      const gl=p.guestGender==='F'?'여':'남';
+      sb=`<span class="rf-grade" style="background:${gc}20;color:${gc}">${gl}</span>`;
+      if(p.guestGrade&&p.guestGrade!=='none')
+        sb+=`<span class="rf-grade rf-${p.guestGrade}">${p.guestGrade}</span>`;
+    } else {
+      sb=p.skill!=='none'?`<span class="rf-grade rf-${p.skill}">${p.skill}</span>`:'';
+    }
+    d.innerHTML=`<div class="rf-num">${ni+1}</div><div class="rf-name">${p.name}</div>${sb}`;
+    div.appendChild(d);
+  });
   toast(seeded?'실력별 래플 완료':'래플 완료');
 }
 function pname(ai){return S.players[S.assigned[ai]]?.name??`${ai+1}번`;}
@@ -906,7 +946,10 @@ function genGenderBracket(n,c,r,ppr,waitSz){
   // 선수 정보: name, gender, grade
   const playerInfo=S.assigned.map(pi=>{
     const p=S.players[pi];
-    return {name:p.name,gender:genders[p.name]||'M',grade:grades[p.name]||'none',isGuest:p.isGuest};
+    // 게스트는 직접 입력한 성별/등급 사용, 일반 회원은 Firebase 저장값 사용
+    const gender=p.isGuest?(p.guestGender||'M'):(genders[p.name]||'M');
+    const grade=p.isGuest?(p.guestGrade||'none'):(grades[p.name]||'none');
+    return {name:p.name,gender,grade,isGuest:p.isGuest};
   });
 
   // 대기 스케줄
