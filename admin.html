@@ -356,7 +356,7 @@ body{background:var(--bg);color:var(--gray-900);font-family:'Pretendard',-apple-
             </select>
           </div>
         </div>
-        <div class="form-row">
+        <div class="form-row" style="margin-bottom:16px">
           <div class="form-item">
             <div class="form-label">총 라운드</div>
             <input class="form-input" type="number" id="roundN" min="1" max="20" value="8">
@@ -367,7 +367,17 @@ body{background:var(--bg);color:var(--gray-900);font-family:'Pretendard',-apple-
             <input class="form-input" type="number" id="playerN" min="4" max="32" value="18" onchange="syncSlots()">
           </div>
         </div>
-        <button class="btn btn-secondary" style="margin-top:16px" onclick="calcOptimal()">균등 라운드 자동 계산</button>
+        <div class="form-row" style="margin-bottom:16px">
+          <div class="form-item">
+            <div class="form-label">경기 시작 시간</div>
+            <input class="form-input" type="time" id="gameStartTime" value="07:00">
+          </div>
+          <div class="form-item">
+            <div class="form-label">게임당 소요 시간 (분)</div>
+            <input class="form-input" type="number" id="gameDuration" min="5" max="60" value="20">
+          </div>
+        </div>
+        <button class="btn btn-secondary" style="margin-top:4px" onclick="calcOptimal()">균등 라운드 자동 계산</button>
         <div style="margin-top:14px;display:flex;align-items:center;gap:10px;padding:12px 14px;background:var(--gray-50);border-radius:12px">
           <input type="checkbox" id="useGenderCheck" style="width:18px;height:18px;accent-color:var(--blue);cursor:pointer">
           <label for="useGenderCheck" style="font-size:15px;font-weight:600;color:var(--gray-800);cursor:pointer;line-height:1.5">
@@ -380,7 +390,7 @@ body{background:var(--bg);color:var(--gray-900);font-family:'Pretendard',-apple-
     <div class="section">
       <div class="section-title">늦참자 설정</div>
       <div class="card card-pad">
-        <div class="form-hint" style="margin-bottom:14px">늦게 합류하는 참가자의 시작 라운드를 설정하세요.<br>해당 라운드부터 대진에 포함됩니다.</div>
+        <div class="form-hint" style="margin-bottom:14px">참가자별 도착 시간을 입력하면 몇 번째 게임부터 참가할지 자동 계산됩니다.</div>
         <div id="lateList" style="display:flex;flex-direction:column;gap:8px;margin-bottom:12px"></div>
         <button class="btn btn-neutral btn-sm" onclick="addLatePlayer()">+ 늦참자 추가</button>
       </div>
@@ -589,7 +599,7 @@ const CC=['#3182f6','#00b493','#f7c244','#f04452','#8b5cf6','#f97316'];
 const NC=['#f04452','#3182f6','#00b493','#8b5cf6','#f97316','#ec4899','#0891b2','#65a30d'];
 const SEC_ANSWERS=['용테파','용인테니스파크'];
 let grades={},genders={},attendance={};
-let S={players:[],courts:3,rounds:8,gameMode:'6',assigned:[],bracket:[],useGender:false,lateArrivals:{}};
+let S={players:[],courts:3,rounds:8,gameMode:'6',assigned:[],bracket:[],useGender:false,lateArrivals:{},gameStartTime:'07:00',gameDuration:20};
 
 // 유틸
 function toast(m){const e=document.getElementById('toast');e.textContent=m;e.classList.add('on');setTimeout(()=>e.classList.remove('on'),2600);}
@@ -850,34 +860,66 @@ function addMember(){const list=document.getElementById('plist');const n=list.qu
 
 function addLatePlayer(){
   const lateList=document.getElementById('lateList');
-  const rounds=parseInt(document.getElementById('roundN').value)||8;
   const div=document.createElement('div');
-  div.style.cssText='display:flex;align-items:center;gap:8px;background:var(--white);border-radius:12px;padding:10px 14px;border:1.5px solid var(--gray-200)';
-  
-  // 참가자 선택
-  const sel=document.createElement('select');
-  sel.className='form-input';sel.style.cssText='flex:1;padding:8px 12px;font-size:14px';
-  sel.innerHTML='<option value="">참가자 선택</option>';
-  document.querySelectorAll('.player-item').forEach((el,i)=>{
+  div.style.cssText='background:var(--white);border-radius:14px;padding:12px 14px;border:1.5px solid var(--gray-200)';
+
+  // 참가자 선택 + 도착 시간 입력
+  const items=document.querySelectorAll('.player-item');
+  let opts='<option value="">참가자 선택</option>';
+  items.forEach((el,i)=>{
     const name=el.dataset.type==='guest'
-      ?(el.querySelector('.p-guest')?.value||'게스트')
+      ?(el.querySelector('.p-guest')?.value.trim()||`게스트${i+1}`)
       :(el.querySelector('.p-select')?.value||`${i+1}번`);
-    const o=document.createElement('option');o.value=i;o.textContent=name;sel.appendChild(o);
+    if(name) opts+=`<option value="${i}">${name}</option>`;
   });
-  
-  // 시작 라운드
-  const rndSel=document.createElement('select');
-  rndSel.className='form-input';rndSel.style.cssText='width:100px;padding:8px 12px;font-size:14px';
-  for(let r=2;r<=rounds;r++){
-    const o=document.createElement('option');o.value=r-1;o.textContent=`${r}게임부터`;rndSel.appendChild(o);
-  }
-  
-  const del=document.createElement('button');
-  del.style.cssText='background:none;border:none;font-size:20px;color:var(--gray-300);cursor:pointer;flex-shrink:0;line-height:1';
-  del.textContent='×';del.onclick=()=>div.remove();
-  
-  div.appendChild(sel);div.appendChild(rndSel);div.appendChild(del);
+
+  div.innerHTML=`
+    <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
+      <select class="form-input late-player-sel" style="flex:1;padding:8px 12px;font-size:14px">${opts}</select>
+      <button onclick="this.closest('div[style]').remove()" style="background:none;border:none;font-size:20px;color:var(--gray-300);cursor:pointer;flex-shrink:0;line-height:1">×</button>
+    </div>
+    <div style="display:flex;align-items:center;gap:8px">
+      <div style="font-size:13px;color:var(--gray-500);flex-shrink:0">도착 시간</div>
+      <input type="time" class="form-input late-time-inp" style="flex:1;padding:8px 12px;font-size:14px" value="07:30">
+      <div class="late-calc-result" style="font-size:13px;font-weight:700;color:var(--blue);flex-shrink:0;min-width:80px;text-align:right"></div>
+    </div>`;
+
+  // 시간 변경 시 자동 계산
+  const timeInp=div.querySelector('.late-time-inp');
+  const result=div.querySelector('.late-calc-result');
+  const calcLate=()=>{
+    const startTimeStr=document.getElementById('gameStartTime').value||'07:00';
+    const duration=parseInt(document.getElementById('gameDuration').value)||20;
+    const [sh,sm]=startTimeStr.split(':').map(Number);
+    const startMin=sh*60+sm;
+    const [ah,am]=timeInp.value.split(':').map(Number);
+    const arriveMin=ah*60+am;
+    if(arriveMin<=startMin){result.textContent='1게임부터';result.dataset.round='0';}
+    else{
+      const missed=Math.floor((arriveMin-startMin)/duration);
+      result.textContent=`${missed+1}게임부터`;
+      result.dataset.round=String(missed);
+    }
+  };
+  timeInp.addEventListener('input',calcLate);
+  calcLate();
+
   lateList.appendChild(div);
+}
+
+function getLateArrivals(){
+  const result={};
+  document.querySelectorAll('#lateList > div').forEach(div=>{
+    const sel=div.querySelector('.late-player-sel');
+    const res=div.querySelector('.late-calc-result');
+    if(!sel||!res)return;
+    const pi=parseInt(sel.value);
+    const ri=parseInt(res.dataset.round||'0');
+    if(isNaN(pi)||ri<=0)return;
+    if(!result[ri])result[ri]=[];
+    result[ri].push(pi);
+  });
+  return result;
 }
 
 function getLateArrivals(){
@@ -965,6 +1007,8 @@ function saveSetup(){
   S.gameMode=document.getElementById('gameM').value;
   S.useGender=document.getElementById('useGenderCheck')?.checked||false;
   S.lateArrivals=getLateArrivals();
+  S.gameStartTime=document.getElementById('gameStartTime')?.value||'07:00';
+  S.gameDuration=parseInt(document.getElementById('gameDuration')?.value)||20;
   document.getElementById('st-n').textContent=S.players.length;
   document.getElementById('st-c').textContent=S.courts;
   document.getElementById('st-r').textContent=S.rounds;
@@ -1075,10 +1119,8 @@ function genSmartBracket(n,c,r,ppr,waitSz){
     Array.from({length:n},(_,i)=>i).filter(i=>startRound[i]<=ri)
   );
   
-  // 파트너 카운트
-  const partnerCount={};
-  function pKey(a,b){return Math.min(a,b)+','+Math.max(a,b);}
-  function pScore(a,b){return partnerCount[pKey(a,b)]||0;}
+  // 파트너 카운트 초기화 (전역)
+  _partnerCnt={};
   
   // 라운드별 대기 스케줄 (게임수 균등 배분)
   const gameSoFar=Array(n).fill(0);
@@ -1117,7 +1159,7 @@ function genSmartBracket(n,c,r,ppr,waitSz){
       
       if(cts.length===c&&new Set(cts.flat()).size===playing.length){
         const score=cts.reduce((s,ct)=>
-          s+pScore(ct[0],ct[1])+pScore(ct[2],ct[3]),0);
+          s+_pscore(ct[0],ct[1])+_pscore(ct[2],ct[3]),0);
         if(score<bestScore){bestScore=score;bestCts=cts;}
         if(bestScore===0)break;
       }
@@ -1134,9 +1176,9 @@ function genSmartBracket(n,c,r,ppr,waitSz){
     
     // 파트너 업데이트
     bestCts.forEach(ct=>{
-      const k1=pKey(ct[0],ct[1]),k2=pKey(ct[2],ct[3]);
-      partnerCount[k1]=(partnerCount[k1]||0)+1;
-      partnerCount[k2]=(partnerCount[k2]||0)+1;
+      const k1=_pkey(ct[0],ct[1]),k2=_pkey(ct[2],ct[3]);
+      _partnerCnt[k1]=(_partnerCnt[k1]||0)+1;
+      _partnerCnt[k2]=(_partnerCnt[k2]||0)+1;
     });
     
     S.bracket.push({courts:bestCts,wait:[...waitSet],courtTypeLabels:null});
@@ -1160,6 +1202,11 @@ function assignBalanced(pool,ci){
 
 // ── 성별 대진 알고리즘 ──
 function gradeScore(grade){return {A:3,B:2,C:1,none:2}[grade]||2;}
+
+// 파트너 카운트 (전역)
+let _partnerCnt={};
+function _pkey(a,b){return Math.min(a,b)+','+Math.max(a,b);}
+function _pscore(a,b){return _partnerCnt[_pkey(a,b)]||0;}
 
 function makeBalancedMixedCourt(males,females,pInfo){
   // 혼복 정의: 팀1 = 남1+여1, 팀2 = 남1+여1 (반드시 각 팀 남녀 1명씩)
@@ -1248,18 +1295,20 @@ function genGenderBracket(n,c,r,ppr,waitSz){
 
   const gameCnt=gameSoFar2;
 
-  // 파트너 카운트
-  const partnerCnt={};
-  function gpKey(a,b){return Math.min(a,b)+','+Math.max(a,b);}
-  function gpScore(a,b){return partnerCnt[gpKey(a,b)]||0;}
+  // 파트너 카운트 초기화 (전역 사용)
+  _partnerCnt={};
 
   const typeRem=Array.from({length:n},(_,i)=>{
     const gc=gameCnt[i];const p=pInfo[i];
-    // 남C는 이미 gender='F'로 변환됨
-    if(p.gender==='M') // 진짜 남성 A/B
-      return{mens:Math.max(0,gc-1),mixed:Math.min(1,gc),ladies:0};
-    else // 여성 + 남C(여성 취급)
-      return{mens:0,mixed:Math.max(0,gc-1),ladies:Math.min(1,gc)};
+    if(p.gender==='M'){
+      // 남성 A/B: 4게임당 남복3+혼복1
+      const mxQ=Math.max(1,Math.floor(gc/4));
+      return{mens:Math.max(0,gc-mxQ),mixed:mxQ,ladies:0};
+    } else {
+      // 여성/남C: 4게임당 혼복3+여복1 (여복 인원 부족시 혼복 대체 허용)
+      const ldQ=Math.floor(gc/4);
+      return{mens:0,mixed:Math.max(0,gc-ldQ),ladies:ldQ};
+    }
   });
 
   for(let ri=0;ri<r;ri++){
@@ -1355,7 +1404,7 @@ function genGenderBracket(n,c,r,ppr,waitSz){
 
     // 파트너 카운트 업데이트
     bestCts.forEach(ct=>{
-      const k1=gpKey(ct[0],ct[1]),k2=gpKey(ct[2],ct[3]);
+      const k1=_pkey(ct[0],ct[1]),k2=_pkey(ct[2],ct[3]);
       partnerCnt[k1]=(partnerCnt[k1]||0)+1;
       partnerCnt[k2]=(partnerCnt[k2]||0)+1;
     });
