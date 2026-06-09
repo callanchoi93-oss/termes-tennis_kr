@@ -361,6 +361,12 @@ body{background:var(--bg);color:var(--gray-900);font-family:'Pretendard',-apple-
           </div>
         </div>
         <button class="btn btn-secondary" style="margin-top:16px" onclick="calcOptimal()">균등 라운드 자동 계산</button>
+        <div style="margin-top:14px;display:flex;align-items:center;gap:10px;padding:12px 14px;background:var(--gray-50);border-radius:12px">
+          <input type="checkbox" id="useGenderCheck" style="width:18px;height:18px;accent-color:var(--blue);cursor:pointer">
+          <label for="useGenderCheck" style="font-size:15px;font-weight:600;color:var(--gray-800);cursor:pointer;line-height:1.5">
+            성별 대진 적용<br><span style="font-size:12px;color:var(--gray-400);font-weight:400">남성 A/B: 남복 위주 · 남성 C/여성: 혼복 위주</span>
+          </label>
+        </div>
       </div>
     </div>
     <div class="section">
@@ -488,7 +494,10 @@ body{background:var(--bg);color:var(--gray-900);font-family:'Pretendard',-apple-
       <div class="section-title" style="margin-bottom:0">PIN 보관함</div>
       <button class="refresh-btn" onclick="loadVault()" style="float:none;display:inline-flex;align-items:center;gap:5px"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M23 4v6h-6M1 20v-6h6"/><path d="M3.51 9a9 9 0 0114.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0020.49 15"/></svg> 새로고침</button>
     </div>
-    <button class="btn btn-secondary" style="margin-bottom:16px" onclick="bulkSetPins()">미설정 회원 일괄 PIN 부여</button>
+    <div style="display:flex;gap:10px;margin-bottom:16px">
+      <button class="btn btn-secondary" style="flex:1" onclick="bulkSetPins()">미설정 회원 000000 부여</button>
+      <button class="btn btn-danger-light" style="flex:1" onclick="resetAllPins()">전체 000000 초기화</button>
+    </div>
     <div id="vaultList"><div class="empty-state">불러오는 중...</div></div>
   </div>
 </div>
@@ -553,12 +562,12 @@ async function sget(k){try{if(db){const s=await db.ref('termes/'+k).once('value'
 async function sset(k,v){try{if(db){await db.ref('termes/'+k).set(v);return true;}}catch(e){}try{localStorage.setItem('t-'+k,JSON.stringify(v));return true;}catch(e){return false;}}
 
 // 상수
-const MEMBERS=['곽주영','최민혁','정윤희','김진수A','김영민','이석용','이인애','이평화','강태민','이중호','최민지','한은주','유명현','유승은','이정욱','장한욱','김진수B','박현우','최우임','박희진','배충호','장태성','이광하','김제홍','이기훈','정혜정','오동현'];
+const MEMBERS=['곽주영','최민혁','정윤희','김진수A','김영민','이석용','이인애','이평화','강태민','이중호','최민지','한은주','유명현','유승은','이정욱','장한욱','김진수B','박현우','최우임','박희진','배충호','장태성','이광하','김제홍','이기훈','정혜정','오동현','정지용'];
 const CC=['#3182f6','#00b493','#f7c244','#f04452','#8b5cf6','#f97316'];
 const NC=['#f04452','#3182f6','#00b493','#8b5cf6','#f97316','#ec4899','#0891b2','#65a30d'];
 const SEC_ANSWERS=['용테파','용인테니스파크'];
-let grades={},attendance={};
-let S={players:[],courts:3,rounds:8,gameMode:'6',assigned:[],bracket:[]};
+let grades={},genders={},attendance={};
+let S={players:[],courts:3,rounds:8,gameMode:'6',assigned:[],bracket:[],useGender:false};
 
 // 유틸
 function toast(m){const e=document.getElementById('toast');e.textContent=m;e.classList.add('on');setTimeout(()=>e.classList.remove('on'),2600);}
@@ -671,31 +680,62 @@ async function loadAtt(){
 }
 
 // ── 등급 ──
-async function loadGrades(){const s=await sget('grades');if(s)grades=s;}
+async function loadGrades(){
+  const s=await sget('grades');if(s)grades=s;
+  const g=await sget('genders');if(g)genders=g;
+  else{try{const lg=localStorage.getItem('t-genders');if(lg)genders=JSON.parse(lg);}catch(e){}}
+}
 function renderGradeList(){
   const wrap=document.getElementById('gradeList');wrap.innerHTML='';
+  // 헤더
+  const hdr=document.createElement('div');
+  hdr.style.cssText='display:grid;grid-template-columns:1fr 110px 90px;padding:10px 18px;border-bottom:1px solid var(--gray-100)';
+  hdr.innerHTML='<div style="font-size:13px;font-weight:700;color:var(--gray-400)">이름</div><div style="font-size:13px;font-weight:700;color:var(--gray-400);text-align:center">등급</div><div style="font-size:13px;font-weight:700;color:var(--gray-400);text-align:center">성별</div>';
+  wrap.appendChild(hdr);
   MEMBERS.forEach(name=>{
     const g=grades[name]||'none';
+    const gd=genders[name]||'none';
     const row=document.createElement('div');row.className='grade-item';
+    row.style.cssText='display:grid;grid-template-columns:1fr 110px 90px;padding:12px 18px;border-bottom:1px solid var(--gray-100);align-items:center';
     row.innerHTML=`<div class="grade-name">${name}</div>
-      <select class="grade-select" data-n="${name}">
-        <option value="none"${g==='none'?' selected':''}>등급 없음</option>
+      <select class="grade-select" data-n="${name}" style="text-align:center">
+        <option value="none"${g==='none'?' selected':''}>—</option>
         <option value="A"${g==='A'?' selected':''}>A 상위</option>
         <option value="B"${g==='B'?' selected':''}>B 중위</option>
         <option value="C"${g==='C'?' selected':''}>C 하위</option>
+      </select>
+      <select class="grade-select" data-gn="${name}" style="text-align:center">
+        <option value="none"${gd==='none'?' selected':''}>—</option>
+        <option value="M"${gd==='M'?' selected':''}>남</option>
+        <option value="F"${gd==='F'?' selected':''}>여</option>
       </select>`;
     wrap.appendChild(row);
   });
 }
 async function saveGrades(){
-  document.querySelectorAll('.grade-select').forEach(s=>{grades[s.dataset.n]=s.value;});
-  const ok=await sset('grades',grades);
-  if(ok){localStorage.setItem('t-grades',JSON.stringify(grades));const now=new Date().toLocaleString('ko-KR');document.getElementById('gradeSavedMsg').style.display='block';document.getElementById('gradeSavedAt').textContent=now;toast('등급이 저장되었습니다');}
-  else toast('저장에 실패했습니다');
+  document.querySelectorAll('.grade-select[data-n]').forEach(s=>{grades[s.dataset.n]=s.value;});
+  document.querySelectorAll('.grade-select[data-gn]').forEach(s=>{genders[s.dataset.gn]=s.value;});
+  const ok1=await sset('grades',grades);
+  const ok2=await sset('genders',genders);
+  if(ok1&&ok2){
+    localStorage.setItem('t-grades',JSON.stringify(grades));
+    localStorage.setItem('t-genders',JSON.stringify(genders));
+    const now=new Date().toLocaleString('ko-KR');
+    document.getElementById('gradeSavedMsg').style.display='block';
+    document.getElementById('gradeSavedAt').textContent=now;
+    toast('등급/성별이 저장되었습니다');
+  } else toast('저장에 실패했습니다');
 }
 function getGrade(name){return grades[name]||'none';}
 function confirmResetGrades(){document.getElementById('gradeResetModal').classList.add('on');}
-async function resetGrades(){grades={};MEMBERS.forEach(n=>grades[n]='none');await sset('grades',grades);localStorage.setItem('t-grades',JSON.stringify(grades));renderGradeList();toast('등급이 초기화되었습니다');}
+async function resetGrades(){
+  grades={};genders={};
+  MEMBERS.forEach(n=>{grades[n]='none';genders[n]='none';});
+  await sset('grades',grades);await sset('genders',genders);
+  localStorage.setItem('t-grades',JSON.stringify(grades));
+  localStorage.setItem('t-genders',JSON.stringify(genders));
+  renderGradeList();toast('등급/성별이 초기화되었습니다');
+}
 
 // ── 설정 ──
 function calcOptimal(){
@@ -756,6 +796,7 @@ function saveSetup(){
   S.courts=parseInt(document.getElementById('courtN').value)||3;
   S.rounds=parseInt(document.getElementById('roundN').value)||8;
   S.gameMode=document.getElementById('gameM').value;
+  S.useGender=document.getElementById('useGenderCheck')?.checked||false;
   document.getElementById('st-n').textContent=S.players.length;
   document.getElementById('st-c').textContent=S.courts;
   document.getElementById('st-r').textContent=S.rounds;
@@ -836,11 +877,203 @@ function buildFallbackSchedule(n,r,waitSz,wb){
   return schedule;
 }
 
+// ── 성별 대진 알고리즘 ──
+function buildWaitSched(n,r,wz,wb){
+  for(let att=0;att<1000;att++){
+    const rem=[...wb];const sched=[];let valid=true;
+    for(let ri=0;ri<r;ri++){
+      let cands=Array.from({length:n},(_,i)=>i).filter(i=>rem[i]>0);
+      if(cands.length<wz){valid=false;break;}
+      cands.sort((a,b)=>rem[b]-rem[a]);
+      const thr=rem[cands[wz-1]];
+      const must=cands.filter(i=>rem[i]>thr);
+      const can=shuffle(cands.filter(i=>rem[i]===thr));
+      const sel=[...must,...can].slice(0,wz);
+      if(sel.length<wz){valid=false;break;}
+      sched.push(sel);sel.forEach(i=>rem[i]--);
+    }
+    if(valid&&rem.every(v=>v===0))return sched;
+  }
+  const rem=[...wb];const sched=[];
+  for(let ri=0;ri<r;ri++){
+    const avail=Array.from({length:n},(_,i)=>i).filter(i=>rem[i]>0).sort((a,b)=>rem[b]-rem[a]);
+    const sel=avail.slice(0,wz);sched.push(sel);sel.forEach(i=>rem[i]--);
+  }
+  return sched;
+}
+
+function genGenderBracket(n,c,r,ppr,waitSz){
+  // 선수 정보: name, gender, grade
+  const playerInfo=S.assigned.map(pi=>{
+    const p=S.players[pi];
+    return {name:p.name,gender:genders[p.name]||'M',grade:grades[p.name]||'none',isGuest:p.isGuest};
+  });
+
+  // 대기 스케줄
+  let waitSched;
+  if(waitSz>0){
+    const tw=waitSz*r;const bw=Math.floor(tw/n);const ew=tw%n;
+    const wb=Array(n).fill(bw);
+    shuffle(Array.from({length:n},(_,i)=>i)).slice(0,ew).forEach(i=>wb[i]++);
+    waitSched=buildWaitSched(n,r,waitSz,wb);
+  } else {
+    waitSched=Array.from({length:r},()=>[]);
+  }
+
+  // 타입 quota (대기 반영)
+  const wb2=Array(n).fill(0);
+  waitSched.forEach(wl=>wl.forEach(i=>wb2[i]++));
+  const gameCnt=Array.from({length:n},(_,i)=>r-wb2[i]);
+
+  const typeRem=Array.from({length:n},(_,i)=>{
+    const gc=gameCnt[i];const p=playerInfo[i];
+    if(p.gender==='M'&&p.grade!=='C')
+      return {mens:Math.max(0,gc-1),mixed:Math.min(1,gc),ladies:0};
+    else if(p.gender==='M')
+      return {mens:0,mixed:gc,ladies:0};
+    else
+      return {mens:0,mixed:Math.max(0,gc-1),ladies:Math.min(1,gc)};
+  });
+
+  const CC2=['#3182f6','#00b493','#f7c244','#f04452','#8b5cf6','#f97316'];
+
+  for(let ri=0;ri<r;ri++){
+    const waitSet=new Set(waitSched[ri]);
+    const playing=Array.from({length:n},(_,i)=>i).filter(i=>!waitSet.has(i));
+
+    let bestCts=null,bestTps=null,bestScore=-1;
+
+    for(let att=0;att<500;att++){
+      const used=new Set();const cts=[];const tps=[];
+
+      const mab=shuffle(playing.filter(i=>playerInfo[i].gender==='M'&&playerInfo[i].grade!=='C'));
+      const mc=shuffle(playing.filter(i=>playerInfo[i].gender==='M'&&playerInfo[i].grade==='C'));
+      const fem=shuffle(playing.filter(i=>playerInfo[i].gender==='F'));
+
+      let wm=shuffle(mab.filter(i=>typeRem[i].mixed>0));
+      let wf_l=shuffle(fem.filter(i=>typeRem[i].ladies>0));
+      let wf_m=shuffle(fem.filter(i=>typeRem[i].mixed>0));
+      let allF=shuffle(fem);
+
+      for(let ci=0;ci<c;ci++){
+        const fwm=wm.filter(i=>!used.has(i));
+        const fmc=mc.filter(i=>!used.has(i));
+        const ffem=allF.filter(i=>!used.has(i));
+        const ffwl=wf_l.filter(i=>!used.has(i));
+        const fmab=mab.filter(i=>!used.has(i));
+
+        let ct=null,tp=null;
+
+        // 여복: 여성 4명 + ladies quota
+        if(ffwl.length>=4&&tps.filter(t=>t==='ladies').length<Math.ceil(fem.length/4)){
+          ct=ffwl.slice(0,4);tp='ladies';
+        }
+        // 혼복: 남A/B mixed + 혼복풀
+        else if(fwm.length>=2){
+          const pool=fmc.concat(ffem).filter(i=>!used.has(i));
+          if(pool.length>=2){ct=fwm.slice(0,2).concat(pool.slice(0,2));tp='mixed';}
+        }
+        // 혼복: mc + 여
+        if(!ct&&fmc.length>=2&&ffem.length>=2){ct=fmc.slice(0,2).concat(ffem.slice(0,2));tp='mixed';}
+        // 남복
+        if(!ct&&fmab.length>=4){ct=fmab.slice(0,4);tp='mens';}
+        // 혼복 폴백
+        if(!ct){
+          const avail=playing.filter(i=>!used.has(i));
+          if(avail.length>=4){
+            const am=avail.filter(i=>playerInfo[i].gender==='M');
+            const af=avail.filter(i=>playerInfo[i].gender==='F');
+            if(am.length>=2&&af.length>=2){ct=am.slice(0,2).concat(af.slice(0,2));tp='mixed';}
+            else if(am.length>=4){ct=am.slice(0,4);tp='mens';}
+            else if(af.length>=4){ct=af.slice(0,4);tp='ladies';}
+            else{ct=avail.slice(0,4);tp='mixed';}
+          }
+        }
+        if(ct&&ct.length===4){cts.push(ct);tps.push(tp);ct.forEach(x=>used.add(x));}
+      }
+
+      if(cts.length===c){
+        const assigned=new Set(cts.flat());
+        if([...playing].every(p=>assigned.has(p))){
+          const score=cts.reduce((s,ct,ci)=>s+ct.filter(pi=>typeRem[pi][tps[ci]]>0).length,0);
+          if(score>bestScore){bestScore=score;bestCts=cts;bestTps=tps;}
+        }
+      }
+    }
+
+    if(!bestCts){
+      // fallback
+      bestCts=[];bestTps=[];
+      const used2=new Set();
+      for(let ci=0;ci<c;ci++){
+        const avail=playing.filter(i=>!used2.has(i));
+        bestCts.push(avail.slice(0,4));bestTps.push('mixed');
+        avail.slice(0,4).forEach(x=>used2.add(x));
+      }
+    }
+
+    // quota 업데이트
+    bestCts.forEach((ct,ci)=>{
+      const tp=bestTps[ci];
+      ct.forEach(pi=>{
+        if(typeRem[pi][tp]>0)typeRem[pi][tp]--;
+        else{['mens','mixed','ladies'].forEach(alt=>{if(typeRem[pi][alt]>0){typeRem[pi][alt]--;return;}});}
+      });
+    });
+
+    // 코트 타입 라벨
+    const typeLabel={'mens':'남복','mixed':'혼복','ladies':'여복'};
+    S.bracket.push({
+      courts:bestCts,
+      wait:waitSched[ri],
+      courtTypes:bestTps,
+      courtTypeLabels:bestTps.map(t=>typeLabel[t])
+    });
+  }
+
+  const gc2=Array(n).fill(0);
+  S.bracket.forEach(rd=>rd.courts.forEach(ct=>ct.forEach(ai=>gc2[ai]++)));
+  console.log('성별대진 게임수:',Math.min(...gc2),'~',Math.max(...gc2));
+  renderBracketGender();
+  document.getElementById('pubBtnWrap').style.display='block';
+  toast(`성별 대진표 생성 완료`);
+  goTab('bracket',document.querySelectorAll('.tn')[4]);
+}
+
+function renderBracketGender(){
+  const wrap=document.getElementById('bktWrap');wrap.innerHTML='';
+  S.bracket.forEach((round,ri)=>{
+    const bl=document.createElement('div');bl.className='round-block';
+    const ch=round.courts.map((ct,ci)=>{
+      if(ct.length<4)return '';
+      const col=CC[ci%CC.length];
+      const tpLabel=round.courtTypeLabels?round.courtTypeLabels[ci]:'';
+      const tpColor=tpLabel==='남복'?'#3182f6':tpLabel==='여복'?'#f04452':'#00b493';
+      const p=ai=>`<span class="p-chip">${pname(ai)}</span>`;
+      return `<div class="court-line" style="background:${col}0f;border-left:4px solid ${col}">
+        <div class="court-tag">코트 ${ci+1}</div>
+        <span style="font-size:11px;font-weight:700;padding:2px 8px;border-radius:6px;background:${tpColor}20;color:${tpColor};margin-right:4px">${tpLabel}</span>
+        <div class="match-group"><div class="team-pair">${p(ct[0])}${p(ct[1])}</div><span class="vs-label">VS</span><div class="team-pair">${p(ct[2])}${p(ct[3])}</div></div>
+      </div>`;
+    }).join('');
+    const wh=round.wait.length?round.wait.map(ai=>`<span class="wait-chip">${pname(ai)}</span>`).join(''):`<span class="wait-chip" style="color:var(--green)">전원 참가</span>`;
+    bl.innerHTML=`<div class="round-top"><div class="round-name">${ri+1}게임</div><div class="round-mode">${S.gameMode}게임제</div></div><div class="round-body">${ch}<div class="wait-line"><span class="wait-tag">대기</span>${wh}</div></div>`;
+    wrap.appendChild(bl);
+  });
+}
+
 // ── 대진표 생성 ──
 function genBracket(){
   if(!S.assigned.length){toast('래플을 먼저 진행해주세요');return;}
   const n=S.players.length,c=S.courts,r=S.rounds,ppr=c*4,waitSz=n-ppr;
   S.bracket=[];
+
+  // 성별 대진 모드
+  if(S.useGender){
+    genGenderBracket(n,c,r,ppr,waitSz);
+    return;
+  }
+
   if(waitSz<=0){
     // 전원 매 라운드 참가
     for(let ri=0;ri<r;ri++)
@@ -1186,13 +1419,33 @@ async function deleteMember(name){
 }
 
 async function bulkSetPins(){
-  if(!confirm('미설정 회원에게만 초기 PIN을 부여합니다.\n계속하시겠습니까?'))return;
+  if(!confirm('미설정 회원 전원에게 초기 PIN 000000을 부여합니다.\n계속하시겠습니까?'))return;
   let count=0;
   for(let i=0;i<MEMBERS.length;i++){
     const name=MEMBERS[i];const key=mkKey(name);const data=await sget(key);
-    if(!data||!data.pin){const pin=String(100001+i).slice(0,6);const nd=data||{};nd.pin=pin;await sset(key,nd);count++;}
+    if(!data||!data.pin){
+      const nd=data||{};
+      nd.pin='000000';
+      await sset(key,nd);
+      count++;
+    }
   }
-  toast(`${count}명에게 PIN이 부여되었습니다`);loadVault();
+  toast(`${count}명에게 초기 PIN 000000 부여 완료`);
+  loadVault();
+}
+
+async function resetAllPins(){
+  if(!confirm('전체 회원 PIN을 모두 000000으로 초기화합니다.\n계속하시겠습니까?'))return;
+  let count=0;
+  for(const name of MEMBERS){
+    const key=mkKey(name);
+    const data=await sget(key)||{};
+    data.pin='000000';
+    await sset(key,data);
+    count++;
+  }
+  toast(`전체 ${count}명 PIN 000000으로 초기화 완료`);
+  loadVault();
 }
 
 // 초기

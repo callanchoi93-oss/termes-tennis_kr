@@ -209,12 +209,8 @@ body{background:var(--bg);color:var(--gray-900);font-family:'Pretendard',-apple-
 .toast.on{opacity:1;transform:translateX(-50%) translateY(0)}
 .empty{text-align:center;padding:40px 20px;color:var(--gray-400);font-size:15px;line-height:2.2}
 .rfbtn{float:right;background:none;border:1.5px solid var(--gray-200);color:var(--gray-500);font-size:13px;font-weight:600;padding:6px 14px;border-radius:22px;cursor:pointer;font-family:'Pretendard',sans-serif;margin-bottom:12px}
-.grade-chip{font-size:11px;font-weight:700;padding:3px 7px;border-radius:6px;margin-right:4px}
 .nav-icon{display:flex;align-items:center;justify-content:center;margin-bottom:3px}
 .nb{display:flex;flex-direction:column;align-items:center;padding:10px 3px 8px}
-.chip-A{background:#fff1f0;color:var(--red)}
-.chip-B{background:var(--blue-l);color:var(--blue)}
-.chip-C{background:var(--green-l);color:var(--green)}
 </style>
 </head>
 <body>
@@ -246,6 +242,10 @@ body{background:var(--bg);color:var(--gray-900);font-family:'Pretendard',-apple-
       <input id="loginPin" type="password" inputmode="numeric" maxlength="6" placeholder="PIN 6자리 입력" style="width:100%;background:var(--gray-100);border:2px solid transparent;border-radius:14px;padding:14px 16px;font-size:16px;font-family:'Pretendard',sans-serif;color:var(--gray-900);outline:none;letter-spacing:4px;transition:border-color .15s" oninput="onLoginPinInput()" onfocus="this.style.borderColor='var(--blue)';this.style.background='var(--white)'" onblur="this.style.borderColor='transparent';this.style.background='var(--gray-100)'">
     </div>
     <div id="loginErr" style="font-size:13px;color:var(--red);font-weight:600;min-height:18px;margin-bottom:14px;padding-left:4px"></div>
+    <div style="display:flex;align-items:center;gap:8px;margin-bottom:16px">
+      <input type="checkbox" id="keepLogin" style="width:18px;height:18px;accent-color:var(--blue);cursor:pointer;flex-shrink:0">
+      <label for="keepLogin" style="font-size:14px;font-weight:600;color:var(--gray-600);cursor:pointer">로그인 유지</label>
+    </div>
     <button onclick="doLogin()" style="width:100%;padding:15px;background:var(--blue);color:#fff;border:none;border-radius:14px;font-family:'Pretendard',sans-serif;font-size:16px;font-weight:700;cursor:pointer;margin-bottom:12px">로그인</button>
     <div style="display:flex;justify-content:space-between;align-items:center;padding:0 4px">
       <button onclick="showForgot()" style="background:none;border:none;font-size:14px;color:var(--blue);cursor:pointer;font-family:'Pretendard',sans-serif;font-weight:600">비밀번호 찾기</button>
@@ -395,12 +395,7 @@ body{background:var(--bg);color:var(--gray-900);font-family:'Pretendard',-apple-
       <div class="rank-hero-sub">연간 누적 포인트 순위</div>
     </div>
     <div class="year-tabs" id="yearTabs"></div>
-    <div class="group-tabs"><div class="group-tabs-inner">
-      <button class="gt on" id="gt-all" onclick="setGT('all',this)">전체</button>
-      <button class="gt" id="gt-A" onclick="setGT('A',this)">A 상위</button>
-      <button class="gt" id="gt-B" onclick="setGT('B',this)">B 중위</button>
-      <button class="gt" id="gt-C" onclick="setGT('C',this)">C 하위</button>
-    </div></div>
+
     <div id="rankContent"><div class="empty">불러오는 중...</div></div>
   </div>
 
@@ -530,10 +525,10 @@ async function sset(k,v){
 }
 
 // ── 상수 ──
-const MEMBERS=['곽주영','최민혁','정윤희','김진수A','김영민','이석용','이인애','이평화','강태민','이중호','최민지','한은주','유명현','유승은','이정욱','장한욱','김진수B','박현우','최우임','박희진','배충호','장태성','이광하','김제홍','이기훈','정혜정','오동현'];
+const MEMBERS=['곽주영','최민혁','정윤희','김진수A','김영민','이석용','이인애','이평화','강태민','이중호','최민지','한은주','유명현','유승은','이정욱','장한욱','김진수B','박현우','최우임','박희진','배충호','장태성','이광하','김제홍','이기훈','정혜정','오동현','정지용'];
 const CC=['#3182f6','#00b493','#f7c244','#f04452','#8b5cf6','#f97316'];
 const RP=[100,80,60,40,20,10];
-let me=null,curYear=new Date().getFullYear(),curGT='all',curSess=null,autoTimer=null,pmTab='history';
+let me=null,curYear=new Date().getFullYear(),curSess=null,autoTimer=null,pmTab='history';
 let _pmH='',_pmP=[],_pmPr={};
 function mkKey(n){return 'mp-'+n.replace(/\s/g,'');}
 function getRankPts(r){return r<=0?0:r<=RP.length?RP[r-1]:RP[RP.length-1];}
@@ -647,6 +642,13 @@ async function doLogin(){
     document.getElementById('loginPin').value='';return;
   }
   window._fq=data.question||'';window._fa=data.answer||'';
+  // 로그인 유지 체크 시 localStorage에 저장
+  const keep=document.getElementById('keepLogin')?.checked;
+  if(keep){
+    try{localStorage.setItem('termes-saved-login',JSON.stringify({name,pin}));}catch(e){}
+  } else {
+    try{localStorage.removeItem('termes-saved-login');}catch(e){}
+  }
   loginOK(name);
 }
 
@@ -781,7 +783,13 @@ function checkForgot(){const a=document.getElementById('forgotA').value.trim();i
 
 // ── PIN 설정 ──
 let _ss=0,_sf='',_sb='',_sReset=false,_sTarget='';
-function showSetup(step,title){document.getElementById('setupStep').textContent=step;document.getElementById('setupTitle').textContent=title;document.getElementById('setupDisplay').textContent='— — — — — —';document.getElementById('setupErr').textContent='';document.getElementById('setupScreen').style.display='flex';}
+function showSetup(step,title){
+  document.getElementById('setupStep').textContent=step;
+  document.getElementById('setupTitle').textContent=title;
+  document.getElementById('setupDisplay').textContent='— — — — — —';
+  document.getElementById('setupErr').textContent='';
+  document.getElementById('setupScreen').style.cssText='position:fixed;inset:0;background:var(--white);z-index:500;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:40px 28px';
+}
 function sp(n){if(_sb.length>=6)return;_sb+=n;document.getElementById('setupDisplay').textContent=(_sb.split('').map(()=>'●').join(' ')+'            ').slice(0,11);if(_sb.length===6)setTimeout(confirmSetup,150);}
 function spDel(){if(_sb.length>0){_sb=_sb.slice(0,-1);document.getElementById('setupDisplay').textContent=(_sb.split('').map(()=>'●').join(' ')+'— — — — — —').slice(0,11);}}
 async function confirmSetup(){
@@ -791,16 +799,40 @@ async function confirmSetup(){
     if(_sb!==_sf){document.getElementById('setupErr').textContent='PIN이 일치하지 않습니다';_sb='';_sf='';_ss=0;document.getElementById('setupStep').textContent=(_sReset?'PIN 재설정':'PIN 설정')+' 1단계';document.getElementById('setupTitle').textContent='새 PIN을 입력하세요';document.getElementById('setupDisplay').textContent='— — — — — —';return;}
     const ex=await sget(mkKey(_sTarget))||{};ex.pin=_sb;await sset(mkKey(_sTarget),ex);
     document.getElementById('setupScreen').style.display='none';
-    if(_sReset){_sReset=false;toast('PIN이 변경되었습니다');loginOK(_sTarget);}
-    else{document.getElementById('qScreen').style.display='flex';}
+    if(_sReset){
+      _sReset=false;
+      toast('비밀번호가 변경되었습니다');
+      // 비밀번호 변경 후 메인 앱 복귀 (이미 로그인 상태면 그대로)
+      if(me&&document.getElementById('mainApp').style.display!=='none'){
+        // 이미 로그인 중이면 그냥 계속
+      } else {
+        loginOK(_sTarget);
+      }
+    } else {
+      document.getElementById('qScreen').style.cssText='position:fixed;inset:0;background:var(--white);z-index:500;display:flex;flex-direction:column;padding:64px 28px 40px;overflow-y:auto';
+    }
   }
 }
-async function saveQuestion(){const q=document.getElementById('qInput').value.trim(),a=document.getElementById('aInput').value.trim();if(!q||!a){toast('질문과 답변을 모두 입력하세요');return;}const ex=await sget(mkKey(_sTarget))||{};ex.question=q;ex.answer=a;await sset(mkKey(_sTarget),ex);document.getElementById('qScreen').style.display='none';toast('질문이 등록되었습니다');loginOK(_sTarget);}
+async function saveQuestion(){
+  const q=document.getElementById('qInput').value.trim(),a=document.getElementById('aInput').value.trim();
+  if(!q||!a){toast('질문과 답변을 모두 입력하세요');return;}
+  const ex=await sget(mkKey(_sTarget))||{};
+  ex.question=q;ex.answer=a;
+  await sset(mkKey(_sTarget),ex);
+  document.getElementById('qScreen').style.display='none';
+  toast('질문이 등록되었습니다');
+  if(me&&document.getElementById('mainApp').style.display!=='none'){
+    // 이미 로그인 중
+  } else {
+    loginOK(_sTarget);
+  }
+}
 async function skipQuestion(){document.getElementById('qScreen').style.display='none';loginOK(_sTarget);}
 
 // ── 내 정보 ──
 function logoutMember(){
   me=null;curSess=null;clearInterval(autoTimer);
+  try{localStorage.removeItem('termes-saved-login');}catch(e){}
   document.getElementById('mainApp').style.display='none';
   document.getElementById('loginScreen').style.display='flex';
   document.getElementById('loginPin').value='';
@@ -808,7 +840,16 @@ function logoutMember(){
   buildNameList();
 }
 function openMyPage(){if(!me)return;document.getElementById('myPageName').textContent=me==='__super__'?'관리자':me;const b=document.getElementById('myPageBody');if(me==='__super__'){b.innerHTML='<p style="font-size:15px;color:var(--gray-500)">관리자 계정은 임원진 PIN과 동일합니다</p>';}else{b.innerHTML=`<button class="btn btn-primary" style="margin-bottom:12px" onclick="changePIN()">PIN 변경</button><button class="btn btn-gray" onclick="changeQuestion()">비밀번호 찾기 질문 변경</button>`;}document.getElementById('myPageModal').classList.add('on');}
-function changePIN(){document.getElementById('myPageModal').classList.remove('on');_ss=0;_sf='';_sb='';_sReset=true;_sTarget=me;showSetup('PIN 변경 1단계','새 PIN을 입력하세요');document.getElementById('mainApp').style.display='none';}
+function changePIN(){
+  document.getElementById('myPageModal').classList.remove('on');
+  _ss=0;_sf='';_sb='';_sReset=true;_sTarget=me;
+  // setupScreen을 mainApp 위에 오버레이로 표시
+  document.getElementById('setupScreen').style.cssText='position:fixed;inset:0;background:var(--white);z-index:500;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:40px 28px';
+  document.getElementById('setupStep').textContent='PIN 변경 1단계';
+  document.getElementById('setupTitle').textContent='새 PIN을 입력하세요';
+  document.getElementById('setupDisplay').textContent='— — — — — —';
+  document.getElementById('setupErr').textContent='';
+}
 async function changeQuestion(){document.getElementById('myPageModal').classList.remove('on');const d=await sget(mkKey(me))||{};document.getElementById('qInput').value=d.question||'';document.getElementById('aInput').value='';_sTarget=me;document.getElementById('qScreen').style.display='flex';}
 
 // ── 네비 ──
@@ -834,7 +875,7 @@ function buildYearTabs(){
     el.appendChild(b);
   }
 }
-function setGT(t,btn){curGT=t;document.querySelectorAll('.gt').forEach(b=>b.classList.remove('on'));btn.classList.add('on');loadRanking(curYear);}
+
 
 // ── 랭킹 ──
 async function loadRanking(year){
@@ -862,7 +903,6 @@ async function loadRanking(year){
     }
   }
   let ranked=Object.entries(pm).map(([n,d])=>({name:n,...d})).sort((a,b)=>b.pts-a.pts);
-  if(curGT!=='all')ranked=ranked.filter(p=>p.grade===curGT);
   if(!ranked.length){el.innerHTML=`<div class="empty">${year}년 기록이 없습니다</div>`;return;}
   let html='';
   if(curGT==='all'&&ranked.length>=3){
@@ -872,10 +912,9 @@ async function loadRanking(year){
   let dr=1;
   ranked.forEach((p,i)=>{
     if(i>0&&p.pts<ranked[i-1].pts)dr=i+1;
-    const gc=p.grade&&p.grade!=='none'?`<span class="grade-chip chip-${p.grade}">${p.grade}</span>`:'';
     html+=`<div class="rank-row" onclick="showPlayer('${p.name}',${year})">
       <div class="rank-num">${dr}</div>
-      <div style="flex:1"><div class="rank-name">${gc}${p.name}</div><div class="rank-sub">${p.sessions}회 참가 · ${p.totalGames}게임 · 최고 ${p.best}점</div></div>
+      <div style="flex:1"><div class="rank-name">${p.name}</div><div class="rank-sub">${p.sessions}회 참가 · ${p.totalGames}게임 · 최고 ${p.best}점</div></div>
       <div style="display:flex;align-items:center;gap:5px"><span class="rank-pts">${p.pts}</span><span class="rank-pts-lbl">PTS</span><span style="color:var(--gray-300);font-size:18px">›</span></div>
     </div>`;
   });
@@ -1256,7 +1295,26 @@ async function loadNotices(){
   wrap.innerHTML=list.map(n=>`<div class="notice-card"><div class="notice-date">${n.dateStr||''}</div><div class="notice-text">${(n.text||'').replace(/\n/g,'<br>')}</div></div>`).join('');
 }
 
-buildNameList();
+// 로그인 유지 복원
+async function restoreLogin(){
+  try{
+    const saved=localStorage.getItem('termes-saved-login');
+    if(!saved)return;
+    const {name,pin}=JSON.parse(saved);
+    if(!name||!pin)return;
+    const data=await sget(mkKey(name));
+    if(data&&data.pin===pin&&(data.approved||MEMBERS.includes(name))){
+      window._fq=data.question||'';window._fa=data.answer||'';
+      loginOK(name);
+      return;
+    }
+    localStorage.removeItem('termes-saved-login');
+  }catch(e){}
+}
+
+buildNameList().then(()=>{
+  restoreLogin();
+});
 if('serviceWorker' in navigator)navigator.serviceWorker.register('sw.js').catch(()=>{});
 
 // ── 홈 화면 추가 (PWA) ──
