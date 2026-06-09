@@ -348,12 +348,7 @@ body{background:var(--bg);color:var(--gray-900);font-family:'Pretendard',-apple-
           </div>
           <div class="form-item">
             <div class="form-label">게임 방식</div>
-            <select class="form-input" id="gameM">
-              <option value="6">6게임제</option>
-              <option value="16">16점제</option>
-              <option value="4">4게임제</option>
-              <option value="7">7점제</option>
-            </select>
+            <div class="form-input" id="gameM" style="background:var(--gray-100);color:var(--gray-500);cursor:default;display:flex;align-items:center">4게임제 (고정)</div>
           </div>
         </div>
         <div class="form-row" style="margin-bottom:16px">
@@ -599,7 +594,7 @@ const CC=['#3182f6','#00b493','#f7c244','#f04452','#8b5cf6','#f97316'];
 const NC=['#f04452','#3182f6','#00b493','#8b5cf6','#f97316','#ec4899','#0891b2','#65a30d'];
 const SEC_ANSWERS=['용테파','용인테니스파크'];
 let grades={},genders={},attendance={};
-let S={players:[],courts:3,rounds:8,gameMode:'6',assigned:[],bracket:[],useGender:false,lateArrivals:{},gameStartTime:'07:00',gameDuration:20};
+let S={players:[],courts:3,rounds:8,gameMode:'4',assigned:[],bracket:[],useGender:false,lateArrivals:{},gameStartTime:'07:00',gameDuration:20};
 
 // 유틸
 function toast(m){const e=document.getElementById('toast');e.textContent=m;e.classList.add('on');setTimeout(()=>e.classList.remove('on'),2600);}
@@ -1004,7 +999,7 @@ function saveSetup(){
   });
   S.courts=parseInt(document.getElementById('courtN').value)||3;
   S.rounds=parseInt(document.getElementById('roundN').value)||8;
-  S.gameMode=document.getElementById('gameM').value;
+  S.gameMode='4';
   S.useGender=document.getElementById('useGenderCheck')?.checked||false;
   S.lateArrivals=getLateArrivals();
   S.gameStartTime=document.getElementById('gameStartTime')?.value||'07:00';
@@ -1385,9 +1380,10 @@ function genGenderBracket(n,c,r,ppr,waitSz){
         if(bp){cts.push(bp);tps.push('mixed');bp.forEach(x=>used.add(x));}
       }
 
-      // 남복/여복
+      // 남복/여복 (남복 우선, 코트 부족 시 혼복/여복 추가)
       while(cts.length<c){
         const fm=wme.filter(i=>!used.has(i)),ff=rFem.filter(i=>!used.has(i)),av=playing.filter(i=>!used.has(i));
+        const allM=av.filter(i=>pInfo[i].gender==='M');
         if(fm.length>=4){
           let bt=null,bs=Infinity;
           for(const g4 of getComb(fm.slice(0,6),4).slice(0,15))
@@ -1395,19 +1391,46 @@ function genGenderBracket(n,c,r,ppr,waitSz){
               const sc=Math.max(pc(a,b2),pc(c2,d))*10000+(pc(a,b2)+pc(c2,d))*100+Math.abs((gradeScore(pInfo[a].grade)+gradeScore(pInfo[b2].grade))-(gradeScore(pInfo[c2].grade)+gradeScore(pInfo[d].grade)));
               if(sc<bs){bs=sc;bt=[a,b2,c2,d];}
             }
-          if(bt){cts.push(bt);tps.push('mens');bt.forEach(x=>used.add(x));}else break;
+          if(bt){cts.push(bt);tps.push('mens');bt.forEach(x=>used.add(x));}
+          else if(allM.length>=2&&ff.length>=2){
+            let bp=null,bs2=Infinity;
+            for(const[m0,m1]of getComb(allM.slice(0,4),2))for(const[f0,f1]of getComb(ff.slice(0,4),2))for(const[fa,fb]of[[f0,f1],[f1,f0]]){
+              const sc=Math.max(pc(m0,fa),pc(m1,fb))*10000+(pc(m0,fa)+pc(m1,fb))*100+Math.abs((gradeScore(pInfo[m0].grade)+gradeScore(pInfo[fa].grade))-(gradeScore(pInfo[m1].grade)+gradeScore(pInfo[fb].grade)));
+              if(sc<bs2){bs2=sc;bp=[m0,fa,m1,fb];}
+            }
+            if(bp){cts.push(bp);tps.push('mixed');bp.forEach(x=>used.add(x));}else break;
+          }else break;
+        }else if(allM.length>=2&&ff.length>=2){
+          let bp=null,bs=Infinity;
+          for(const[m0,m1]of getComb(allM.slice(0,4),2))for(const[f0,f1]of getComb(ff.slice(0,4),2))for(const[fa,fb]of[[f0,f1],[f1,f0]]){
+            const mx=Math.max(pc(m0,fa),pc(m1,fb)),su=pc(m0,fa)+pc(m1,fb);
+            const bal=Math.abs((gradeScore(pInfo[m0].grade)+gradeScore(pInfo[fa].grade))-(gradeScore(pInfo[m1].grade)+gradeScore(pInfo[fb].grade)));
+            const ac=(Math.abs(gradeScore(pInfo[m0].grade)-gradeScore(pInfo[fa].grade))>=2?1:0)+(Math.abs(gradeScore(pInfo[m1].grade)-gradeScore(pInfo[fb].grade))>=2?1:0);
+            const sc=mx*10000+su*100+bal-ac;
+            if(sc<bs){bs=sc;bp=[m0,fa,m1,fb];}
+          }
+          if(bp){cts.push(bp);tps.push('mixed');bp.forEach(x=>used.add(x));}
+          else if(ff.length>=4){
+            let bt=null,bs2=Infinity;
+            for(const g4 of getComb(ff.slice(0,4),4).slice(0,3))for(const[[a,b2],[c2,d]]of[[[g4[0],g4[1]],[g4[2],g4[3]]],[[g4[0],g4[2]],[g4[1],g4[3]]],[[g4[0],g4[3]],[g4[1],g4[2]]]]){
+              const sc=Math.max(pc(a,b2),pc(c2,d))*10000+(pc(a,b2)+pc(c2,d))*100;
+              if(sc<bs2){bs2=sc;bt=[a,b2,c2,d];}
+            }
+            if(bt){cts.push(bt);tps.push('ladies');bt.forEach(x=>used.add(x));}else break;
+          }else break;
         }else if(ff.length>=4){
           let bt=null,bs=Infinity;
-          for(const g4 of getComb(ff.slice(0,4),4).slice(0,3))
-            for(const[[a,b2],[c2,d]]of[[[g4[0],g4[1]],[g4[2],g4[3]]],[[g4[0],g4[2]],[g4[1],g4[3]]],[[g4[0],g4[3]],[g4[1],g4[2]]]]){
-              const sc=Math.max(pc(a,b2),pc(c2,d))*10000+(pc(a,b2)+pc(c2,d))*100;
-              if(sc<bs){bs=sc;bt=[a,b2,c2,d];}
-            }
+          for(const g4 of getComb(ff.slice(0,4),4).slice(0,3))for(const[[a,b2],[c2,d]]of[[[g4[0],g4[1]],[g4[2],g4[3]]],[[g4[0],g4[2]],[g4[1],g4[3]]],[[g4[0],g4[3]],[g4[1],g4[2]]]]){
+            const sc=Math.max(pc(a,b2),pc(c2,d))*10000+(pc(a,b2)+pc(c2,d))*100;
+            if(sc<bs){bs=sc;bt=[a,b2,c2,d];}
+          }
           if(bt){cts.push(bt);tps.push('ladies');bt.forEach(x=>used.add(x));}else break;
         }else if(av.length>=4){
           const am=av.filter(i=>pInfo[i].gender==='M'),af=av.filter(i=>pInfo[i].gender==='F');
-          const ct=am.length>=2&&af.length>=2?[am[0],af[0],am[1],af[1]]:am.length>=4?am.slice(0,4):av.slice(0,4);
-          const tp=am.length>=2&&af.length>=2?'mixed':am.length>=4?'mens':'mixed';
+          let ct,tp;
+          if(am.length>=2&&af.length>=2){ct=[am[0],af[0],am[1],af[1]];tp='mixed';}
+          else if(am.length>=4){ct=am.slice(0,4);tp='mens';}
+          else{ct=av.slice(0,4);tp='mixed';}
           cts.push(ct);tps.push(tp);ct.forEach(x=>used.add(x));
         }else break;
       }
@@ -1487,7 +1510,7 @@ function genBracket(){
   // 기본값 보정
   if(!S.courts||S.courts<1) S.courts=parseInt(document.getElementById('courtN')?.value)||3;
   if(!S.rounds||S.rounds<1) S.rounds=parseInt(document.getElementById('roundN')?.value)||8;
-  if(!S.gameMode) S.gameMode=document.getElementById('gameM')?.value||'6';
+  S.gameMode='4';
   // 늦참자/성별 설정 실시간 반영
   try{S.lateArrivals=getLateArrivals();}catch(e){S.lateArrivals={};}
   try{S.useGender=document.getElementById('useGenderCheck')?.checked||false;}catch(e){}
