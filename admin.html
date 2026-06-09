@@ -1001,18 +1001,31 @@ function buildFallbackSchedule(n,r,waitSz,wb){
 function gradeScore(grade){return {A:3,B:2,C:1,none:2}[grade]||2;}
 
 function makeBalancedMixedCourt(males,females,pInfo){
-  // 각 팀 남1+여1 구성, 실력 균형 (강+약 vs 강+약)
+  // 혼복 정의: 팀1 = 남1+여1, 팀2 = 남1+여1 (반드시 각 팀 남녀 1명씩)
+  // 팀 구성 원칙: A+C 조합 우선 (강약 파트너) → 점수 차이 최소화
   if(males.length<2||females.length<2)return null;
   const m=[males[0],males[1]];
   const f=[females[0],females[1]];
-  const ms=m.map(i=>gradeScore(pInfo[i].grade));
-  const fs=f.map(i=>gradeScore(pInfo[i].grade));
-  // opt1: m[0]+f[0] vs m[1]+f[1]
-  const d1=Math.abs((ms[0]+fs[0])-(ms[1]+fs[1]));
-  // opt2: m[0]+f[1] vs m[1]+f[0]
-  const d2=Math.abs((ms[0]+fs[1])-(ms[1]+fs[0]));
-  if(d1<=d2) return [m[0],f[0],m[1],f[1]];
-  else        return [m[0],f[1],m[1],f[0]];
+  const ms=m.map(i=>gradeScore(pInfo[i]?.grade||'none'));
+  const fs=f.map(i=>gradeScore(pInfo[i]?.grade||'none'));
+  
+  // opt1: 팀1(남0+여0) vs 팀2(남1+여1)
+  const t1a=ms[0]+fs[0], t2a=ms[1]+fs[1];
+  const d1=Math.abs(t1a-t2a);
+  // 내부 팀 균형 점수도 고려 (A+C가 같은 팀이면 보너스)
+  const acBonus1=(Math.abs(ms[0]-fs[0])>=2?1:0)+(Math.abs(ms[1]-fs[1])>=2?1:0);
+  
+  // opt2: 팀1(남0+여1) vs 팀2(남1+여0)
+  const t1b=ms[0]+fs[1], t2b=ms[1]+fs[0];
+  const d2=Math.abs(t1b-t2b);
+  const acBonus2=(Math.abs(ms[0]-fs[1])>=2?1:0)+(Math.abs(ms[1]-fs[0])>=2?1:0);
+  
+  // 점수차 작고 A-C 조합 많은 쪽 선택
+  const score1 = -d1 + acBonus1;
+  const score2 = -d2 + acBonus2;
+  
+  if(score1>=score2) return [m[0],f[0],m[1],f[1]]; // 팀1:남0+여0, 팀2:남1+여1
+  else               return [m[0],f[1],m[1],f[0]]; // 팀1:남0+여1, 팀2:남1+여0
 }
 
 function buildWaitSched(n,r,wz,wb){
@@ -1042,9 +1055,11 @@ function buildWaitSched(n,r,wz,wb){
 function genGenderBracket(n,c,r,ppr,waitSz){
   const pInfo=S.assigned.map(pi=>{
     const p=S.players[pi];
-    const gender=p.isGuest?(p.guestGender||'M'):(genders[p.name]||'M');
+    let gender=p.isGuest?(p.guestGender||'M'):(genders[p.name]||'M');
     const grade=p.isGuest?(p.guestGrade||'none'):(grades[p.name]||'none');
-    return{name:p.name,gender,grade,isGuest:p.isGuest};
+    // 남자 C등급은 여성으로 간주 (혼복 풀에 포함)
+    if(gender==='M'&&grade==='C') gender='F';
+    return{name:p.name,gender,grade,isGuest:p.isGuest,origGender:p.isGuest?(p.guestGender||'M'):(genders[p.name]||'M')};
   });
 
   // 대기 스케줄
@@ -1064,11 +1079,10 @@ function genGenderBracket(n,c,r,ppr,waitSz){
 
   const typeRem=Array.from({length:n},(_,i)=>{
     const gc=gameCnt[i];const p=pInfo[i];
-    if(p.gender==='M'&&p.grade!=='C')
+    // 남C는 이미 gender='F'로 변환됨
+    if(p.gender==='M') // 진짜 남성 A/B
       return{mens:Math.max(0,gc-1),mixed:Math.min(1,gc),ladies:0};
-    else if(p.gender==='M')
-      return{mens:0,mixed:gc,ladies:0};
-    else
+    else // 여성 + 남C(여성 취급)
       return{mens:0,mixed:Math.max(0,gc-1),ladies:Math.min(1,gc)};
   });
 
@@ -1081,9 +1095,10 @@ function genGenderBracket(n,c,r,ppr,waitSz){
     for(let att=0;att<500;att++){
       const used=new Set();const cts=[];const tps=[];
 
-      const rmab=shuffle(playing.filter(i=>pInfo[i].gender==='M'&&pInfo[i].grade!=='C'));
-      const rmc =shuffle(playing.filter(i=>pInfo[i].gender==='M'&&pInfo[i].grade==='C'));
-      const rfem=playing.filter(i=>pInfo[i].gender==='F').sort((a,b)=>gradeScore(pInfo[b].grade)-gradeScore(pInfo[a].grade));
+      // 남C는 pInfo에서 이미 F로 변환됨 → rfem에 포함
+      const rmab=shuffle(playing.filter(i=>pInfo[i].gender==='M')); // 진짜 남성 A/B만
+      const rfem=playing.filter(i=>pInfo[i].gender==='F') // 여성 + 남C(F로 변환됨)
+        .sort((a,b)=>gradeScore(pInfo[b].grade)-gradeScore(pInfo[a].grade));
       const rmabS=rmab.slice().sort((a,b)=>gradeScore(pInfo[b].grade)-gradeScore(pInfo[a].grade));
 
       let wm=shuffle(rmab.filter(i=>typeRem[i].mixed>0));
@@ -1091,11 +1106,10 @@ function genGenderBracket(n,c,r,ppr,waitSz){
 
       for(let ci=0;ci<c;ci++){
         const fwm=wm.filter(i=>!used.has(i));
-        const fmc=rmc.filter(i=>!used.has(i));
-        const ff =rfem.filter(i=>!used.has(i));
+        const ff =rfem.filter(i=>!used.has(i)); // 여성 + 남C 포함
         const fwl=wfl.filter(i=>!used.has(i));
         const fmab=rmabS.filter(i=>!used.has(i));
-        const fallM=playing.filter(i=>pInfo[i].gender==='M'&&!used.has(i));
+        const fallM=playing.filter(i=>pInfo[i].gender==='M'&&!used.has(i)); // 진짜 남성만
 
         let ct=null,tp=null;
 
@@ -1107,10 +1121,6 @@ function genGenderBracket(n,c,r,ppr,waitSz){
         // 혼복: 남A/B mixed 필요 + 여
         else if(fwm.length>=2&&ff.length>=2){
           ct=makeBalancedMixedCourt(fwm,ff,pInfo);tp='mixed';
-        }
-        // 혼복: 남C + 여
-        else if(fmc.length>=2&&ff.length>=2){
-          ct=makeBalancedMixedCourt(fmc,ff,pInfo);tp='mixed';
         }
         // 혼복: 남(any) + 여
         else if(fallM.length>=2&&ff.length>=2){
@@ -1194,10 +1204,28 @@ function renderBracketGender(){
       const tpLabel=round.courtTypeLabels?round.courtTypeLabels[ci]:'';
       const tpColor=tpLabel==='남복'?'#3182f6':tpLabel==='여복'?'#f04452':'#00b493';
       const p=ai=>`<span class="p-chip">${pname(ai)}</span>`;
+      
+      // 혼복: 팀마다 남+여 구분해서 표시
+      let matchHtml='';
+      if(tpLabel==='혼복'){
+        // ct[0]+ct[1] vs ct[2]+ct[3] (각 팀 남1+여1)
+        matchHtml=`<div class="match-group">
+          <div class="team-pair">${p(ct[0])}${p(ct[1])}</div>
+          <span class="vs-label">VS</span>
+          <div class="team-pair">${p(ct[2])}${p(ct[3])}</div>
+        </div>`;
+      } else {
+        matchHtml=`<div class="match-group">
+          <div class="team-pair">${p(ct[0])}${p(ct[1])}</div>
+          <span class="vs-label">VS</span>
+          <div class="team-pair">${p(ct[2])}${p(ct[3])}</div>
+        </div>`;
+      }
+      
       return `<div class="court-line" style="background:${col}0f;border-left:4px solid ${col}">
         <div class="court-tag">코트 ${ci+1}</div>
         <span style="font-size:11px;font-weight:700;padding:2px 8px;border-radius:6px;background:${tpColor}20;color:${tpColor};margin-right:4px">${tpLabel}</span>
-        <div class="match-group"><div class="team-pair">${p(ct[0])}${p(ct[1])}</div><span class="vs-label">VS</span><div class="team-pair">${p(ct[2])}${p(ct[3])}</div></div>
+        ${matchHtml}
       </div>`;
     }).join('');
     const wh=round.wait.length?round.wait.map(ai=>`<span class="wait-chip">${pname(ai)}</span>`).join(''):`<span class="wait-chip" style="color:var(--green)">전원 참가</span>`;
