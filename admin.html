@@ -1275,126 +1275,112 @@ function buildWaitSched(n,r,wz,wb){
 function genGenderBracket(n,c,r,ppr,waitSz){
   _partnerCnt={};
 
-  // 선수 성별 변환 (남C → F)
   const pInfo=S.assigned.map(pi=>{
     const p=S.players[pi];
     let gender=p.isGuest?(p.guestGender||'M'):(genders[p.name]||'M');
     const grade=p.isGuest?(p.guestGrade||'none'):(grades[p.name]||'none');
     if(gender==='M'&&grade==='C') gender='F';
-    return{name:p.name,gender,grade,isGuest:p.isGuest};
+    return{name:p.name,gender,grade};
   });
 
   const lateMap=S.lateArrivals||{};
   const startRound=Array(n).fill(0);
   Object.entries(lateMap).forEach(([ri,pl])=>{pl.forEach(pi=>{if(pi<n)startRound[pi]=parseInt(ri);});});
-  const roundAvail=Array.from({length:r},(_,ri)=>Array.from({length:n},(_,i)=>i).filter(i=>startRound[i]<=ri));
 
   const mab=Array.from({length:n},(_,i)=>i).filter(i=>pInfo[i].gender==='M');
   const fem=Array.from({length:n},(_,i)=>i).filter(i=>pInfo[i].gender==='F');
+  const nm=mab.length;
 
-  // ── 대기 스케줄: 여성 참가 조합 다양화 ──
+  // ── 라운드 타입 결정 ──
+  // 남복라운드(M): 남nm명+여(ppr-nm)명 → 혼복2+남복1
+  // 여복라운드(L): 남(nm//2)명+여(ppr-nm//2)명 → 혼복2+여복1
+  // nm*4게임 목표: nM*nm + nL*(nm/2) = nm*4, nM+nL=r
+  const nM=Math.max(0,Math.round((nm*4-(nm/2)*r)/(nm-nm/2)));
+  const nL=r-nM;
+  const rtArr=[...Array(nM).fill('M'),...Array(nL).fill('L')];
+  // 셔플
+  for(let i=rtArr.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[rtArr[i],rtArr[j]]=[rtArr[j],rtArr[i]];}
+
+  // ── 여복라운드별 참가 남성 순환 배정 ──
+  const ladiesRounds=rtArr.map((t,i)=>t==='L'?i:-1).filter(i=>i>=0);
+  const mensRounds=rtArr.map((t,i)=>t==='M'?i:-1).filter(i=>i>=0);
+  const mabS=shuffle(mab); const half=Math.floor(nm/2);
+  const maleInLadies={};
+  ladiesRounds.forEach((ri,idx)=>{
+    maleInLadies[ri]=[];
+    for(let k=0;k<half;k++) maleInLadies[ri].push(mabS[(idx*half+k)%nm]);
+  });
+
+  // ── 남성 혼복 라운드 배정 (각 1번) ──
+  const mmr=Object.fromEntries(mab.map(i=>[i,-1]));
+  ladiesRounds.forEach(ri=>{
+    (maleInLadies[ri]||[]).forEach(i=>{if(mmr[i]===-1)mmr[i]=ri;});
+  });
+  const unassigned=mab.filter(i=>mmr[i]===-1);
+  mensRounds.forEach((ri,idx)=>{
+    unassigned.slice(idx*half,(idx+1)*half).forEach(i=>mmr[i]=ri);
+  });
+  mab.forEach(i=>{if(mmr[i]===-1)mmr[i]=(mensRounds[0]??ladiesRounds[0]??0);});
+
+  // ── 대기 스케줄 ──
   const gameSoFar=Array(n).fill(0);
   const waitSched=[];
-  const femPairCnt={};
-  const fpk=(a,b)=>Math.min(a,b)+','+Math.max(a,b);
-
-  for(let ri=0;ri<r;ri++){
-    const avail=roundAvail[ri];
-    const wz=Math.max(0,avail.length-ppr);
-    if(wz<=0){waitSched.push([]);avail.forEach(i=>gameSoFar[i]++);continue;}
-
-    const fAvail=fem.filter(i=>avail.includes(i));
-    const mAvail=mab.filter(i=>avail.includes(i));
-    const fWz=Math.min(Math.max(0,wz-Math.max(0,mAvail.length-ppr+fAvail.length)),fAvail.length,wz);
-
-    let fWait=[];
-    if(fWz>0&&fAvail.length<=9){
-      // 여성 대기 조합 중 참가자 쌍 중복이 최소인 것 선택
-      const combos=getCombinations(fAvail,fWz);
-      let bf=null,bs=Infinity;
-      for(const fw of combos.slice(0,30)){
-        const fp=fAvail.filter(i=>!fw.includes(i));
-        let sc=0;
-        for(let a=0;a<fp.length-1;a++)for(let b=a+1;b<fp.length;b++){
-          const v=femPairCnt[fpk(fp[a],fp[b])]||0;sc+=v*v;
-        }
-        sc=sc*100+fw.reduce((s,i)=>s+gameSoFar[i],0);
-        if(sc<bs){bs=sc;bf=fw;}
-      }
-      fWait=bf||fAvail.slice().sort((a,b)=>gameSoFar[b]-gameSoFar[a]).slice(0,fWz);
+  rtArr.forEach((rt,ri)=>{
+    if(rt==='M'){
+      const nF=ppr-nm;
+      const fPlay=[...fem].sort((a,b)=>gameSoFar[a]-gameSoFar[b]).slice(0,nF);
+      const wl=fem.filter(i=>!fPlay.includes(i));
+      waitSched.push(wl);
+      [...mab,...fPlay].forEach(i=>gameSoFar[i]++);
     } else {
-      fWait=fAvail.slice().sort((a,b)=>gameSoFar[b]-gameSoFar[a]).slice(0,fWz);
-    }
-
-    const mWait=mAvail.filter(i=>!fWait.includes(i)).sort((a,b)=>gameSoFar[b]-gameSoFar[a]).slice(0,wz-fWait.length);
-    let wl=[...fWait,...mWait];
-    if(wl.length<wz){
-      const extra=avail.filter(i=>!wl.includes(i)).sort((a,b)=>gameSoFar[b]-gameSoFar[a]);
-      wl=[...wl,...extra.slice(0,wz-wl.length)];
-    }
-    waitSched.push(wl.slice(0,wz));
-    const fp=fAvail.filter(i=>!wl.includes(i));
-    for(let a=0;a<fp.length-1;a++)for(let b=a+1;b<fp.length;b++)
-      femPairCnt[fpk(fp[a],fp[b])]=(femPairCnt[fpk(fp[a],fp[b])]||0)+1;
-    avail.filter(i=>!wl.includes(i)).forEach(i=>gameSoFar[i]++);
-  }
-
-  // ── 남성 혼복 라운드 사전 배정 (정확히 1번) ──
-  const maleMixedRound=Object.fromEntries(mab.map(i=>[i,-1]));
-  for(let ri=0;ri<r;ri++){
-    const ws=new Set(waitSched[ri]);
-    const pm=mab.filter(i=>roundAvail[ri].includes(i)&&!ws.has(i));
-    const pf=fem.filter(i=>roundAvail[ri].includes(i)&&!ws.has(i));
-    const nMc=Math.min(Math.floor(pm.length/2),Math.floor(pf.length/2));
-    const ua=pm.filter(i=>maleMixedRound[i]===-1);
-    const last=ua.filter(i=>!Array.from({length:r-ri-1},(_,k)=>ri+1+k)
-      .some(rj=>roundAvail[rj].includes(i)&&!new Set(waitSched[rj]).has(i)));
-    const priority=[...last,...ua.filter(i=>!last.includes(i))];
-    priority.slice(0,nMc*2).forEach(i=>maleMixedRound[i]=ri);
-  }
-  mab.forEach(i=>{
-    if(maleMixedRound[i]===-1){
-      for(let ri=0;ri<r;ri++){
-        if(roundAvail[ri].includes(i)&&!new Set(waitSched[ri]).has(i)){maleMixedRound[i]=ri;break;}
+      let mPlay=[...(maleInLadies[ri]||[])];
+      if(mPlay.length<half){
+        const extra=mab.filter(i=>!mPlay.includes(i)).sort((a,b)=>gameSoFar[a]-gameSoFar[b]);
+        mPlay=[...mPlay,...extra.slice(0,half-mPlay.length)];
       }
+      mPlay=mPlay.slice(0,half);
+      const wl=mab.filter(i=>!mPlay.includes(i));
+      waitSched.push(wl);
+      [...mPlay,...fem].forEach(i=>gameSoFar[i]++);
     }
   });
 
-  // ── 파트너 사용 추적 ──
+  // ── 파트너 추적 ──
   const pu={};
   function pc(a,b){return pu[_pkey(a,b)]||0;}
 
   // ── 라운드별 코트 배정 ──
-  for(let ri=0;ri<r;ri++){
+  function getComb(arr,k){
+    if(k===0)return[[]];if(!arr.length)return[];
+    const[f,...rest]=arr;
+    return[...getComb(rest,k-1).map(c=>[f,...c]),...getComb(rest,k)];
+  }
+
+  rtArr.forEach((rt,ri)=>{
     const ws=new Set(waitSched[ri]);
-    const playing=roundAvail[ri].filter(i=>!ws.has(i));
+    const playing=Array.from({length:n},(_,i)=>i).filter(i=>!ws.has(i)&&startRound[i]<=ri);
     const rMab=mab.filter(i=>playing.includes(i));
     const rFem=fem.filter(i=>playing.includes(i));
-    const mixM=rMab.filter(i=>maleMixedRound[i]===ri);
-    const menM=rMab.filter(i=>maleMixedRound[i]!==ri);
+    const mixM=rMab.filter(i=>mmr[i]===ri);
+    const menM=rMab.filter(i=>mmr[i]!==ri);
 
     let bestCts=null,bestTps=null,bestSc=Infinity;
 
-    for(let att=0;att<400;att++){
+    for(let att=0;att<300;att++){
       const used=new Set();const cts=[];const tps=[];
       const wm=shuffle(mixM),wf=shuffle(rFem),wme=shuffle(menM);
 
       // 혼복
-      for(let _=0;_<Math.floor(mixM.length/2);_++){
+      for(let _=0;_<Math.min(Math.floor(wm.length/2),Math.floor(wf.length/2));_++){
         const fm=wm.filter(i=>!used.has(i)),ff=wf.filter(i=>!used.has(i));
         if(fm.length<2||ff.length<2)break;
         let bp=null,bs=Infinity;
-        for(let mi=0;mi<Math.min(fm.length,4)-1;mi++)for(let mj=mi+1;mj<Math.min(fm.length,4);mj++){
-          for(let fi=0;fi<Math.min(ff.length,4)-1;fi++)for(let fj=fi+1;fj<Math.min(ff.length,4);fj++){
-            for(const [fa,fb] of [[ff[fi],ff[fj]],[ff[fj],ff[fi]]]){
-              const mx=Math.max(pc(fm[mi],fa),pc(fm[mj],fb));
-              const su=pc(fm[mi],fa)+pc(fm[mj],fb);
-              const bal=Math.abs((gradeScore(pInfo[fm[mi]].grade)+gradeScore(pInfo[fa].grade))-(gradeScore(pInfo[fm[mj]].grade)+gradeScore(pInfo[fb].grade)));
-              const ac=(Math.abs(gradeScore(pInfo[fm[mi]].grade)-gradeScore(pInfo[fa].grade))>=2?1:0)+(Math.abs(gradeScore(pInfo[fm[mj]].grade)-gradeScore(pInfo[fb].grade))>=2?1:0);
-              const sc=mx*10000+su*100+bal-ac;
-              if(sc<bs){bs=sc;bp=[fm[mi],fa,fm[mj],fb];}
-            }
-          }
+        for(const[m0,m1]of getComb(fm.slice(0,4),2))for(const[f0,f1]of getComb(ff.slice(0,4),2))for(const[fa,fb]of[[f0,f1],[f1,f0]]){
+          const mx=Math.max(pc(m0,fa),pc(m1,fb)),su=pc(m0,fa)+pc(m1,fb);
+          const bal=Math.abs((gradeScore(pInfo[m0].grade)+gradeScore(pInfo[fa].grade))-(gradeScore(pInfo[m1].grade)+gradeScore(pInfo[fb].grade)));
+          const ac=(Math.abs(gradeScore(pInfo[m0].grade)-gradeScore(pInfo[fa].grade))>=2?1:0)+(Math.abs(gradeScore(pInfo[m1].grade)-gradeScore(pInfo[fb].grade))>=2?1:0);
+          const sc=mx*10000+su*100+bal-ac;
+          if(sc<bs){bs=sc;bp=[m0,fa,m1,fb];}
         }
         if(bp){cts.push(bp);tps.push('mixed');bp.forEach(x=>used.add(x));}
       }
@@ -1403,38 +1389,31 @@ function genGenderBracket(n,c,r,ppr,waitSz){
       while(cts.length<c){
         const fm=wme.filter(i=>!used.has(i)),ff=rFem.filter(i=>!used.has(i)),av=playing.filter(i=>!used.has(i));
         if(fm.length>=4){
-          const pool=fm.slice(0,6);
-          const combos=getCombinations(pool,4).slice(0,15);
           let bt=null,bs=Infinity;
-          for(const g4 of combos){
-            for(const [[a,b],[c2,d]] of [[[g4[0],g4[1]],[g4[2],g4[3]]],[[g4[0],g4[2]],[g4[1],g4[3]]],[[g4[0],g4[3]],[g4[1],g4[2]]]]){
-              const sc=Math.max(pc(a,b),pc(c2,d))*10000+(pc(a,b)+pc(c2,d))*100+
-                Math.abs((gradeScore(pInfo[a].grade)+gradeScore(pInfo[b].grade))-(gradeScore(pInfo[c2].grade)+gradeScore(pInfo[d].grade)));
-              if(sc<bs){bs=sc;bt=[a,b,c2,d];}
+          for(const g4 of getComb(fm.slice(0,6),4).slice(0,15))
+            for(const[[a,b2],[c2,d]]of[[[g4[0],g4[1]],[g4[2],g4[3]]],[[g4[0],g4[2]],[g4[1],g4[3]]],[[g4[0],g4[3]],[g4[1],g4[2]]]]){
+              const sc=Math.max(pc(a,b2),pc(c2,d))*10000+(pc(a,b2)+pc(c2,d))*100+Math.abs((gradeScore(pInfo[a].grade)+gradeScore(pInfo[b2].grade))-(gradeScore(pInfo[c2].grade)+gradeScore(pInfo[d].grade)));
+              if(sc<bs){bs=sc;bt=[a,b2,c2,d];}
             }
-          }
           if(bt){cts.push(bt);tps.push('mens');bt.forEach(x=>used.add(x));}else break;
-        } else if(ff.length>=4){
-          const pool=ff.slice(0,4);
+        }else if(ff.length>=4){
           let bt=null,bs=Infinity;
-          for(const [[a,b],[c2,d]] of [[[pool[0],pool[1]],[pool[2],pool[3]]],[[pool[0],pool[2]],[pool[1],pool[3]]],[[pool[0],pool[3]],[pool[1],pool[2]]]]){
-            const sc=Math.max(pc(a,b),pc(c2,d))*10000+(pc(a,b)+pc(c2,d))*100;
-            if(sc<bs){bs=sc;bt=[a,b,c2,d];}
-          }
+          for(const g4 of getComb(ff.slice(0,4),4).slice(0,3))
+            for(const[[a,b2],[c2,d]]of[[[g4[0],g4[1]],[g4[2],g4[3]]],[[g4[0],g4[2]],[g4[1],g4[3]]],[[g4[0],g4[3]],[g4[1],g4[2]]]]){
+              const sc=Math.max(pc(a,b2),pc(c2,d))*10000+(pc(a,b2)+pc(c2,d))*100;
+              if(sc<bs){bs=sc;bt=[a,b2,c2,d];}
+            }
           if(bt){cts.push(bt);tps.push('ladies');bt.forEach(x=>used.add(x));}else break;
-        } else if(av.length>=4){
+        }else if(av.length>=4){
           const am=av.filter(i=>pInfo[i].gender==='M'),af=av.filter(i=>pInfo[i].gender==='F');
-          let ct,tp;
-          if(am.length>=2&&af.length>=2){ct=[am[0],af[0],am[1],af[1]];tp='mixed';}
-          else if(am.length>=4){ct=am.slice(0,4);tp='mens';}
-          else{ct=av.slice(0,4);tp='mixed';}
+          const ct=am.length>=2&&af.length>=2?[am[0],af[0],am[1],af[1]]:am.length>=4?am.slice(0,4):av.slice(0,4);
+          const tp=am.length>=2&&af.length>=2?'mixed':am.length>=4?'mens':'mixed';
           cts.push(ct);tps.push(tp);ct.forEach(x=>used.add(x));
-        } else break;
+        }else break;
       }
 
       if(cts.length===c&&new Set(cts.flat()).size===playing.length){
-        const sc=Math.max(...cts.map(ct=>Math.max(pc(ct[0],ct[1]),pc(ct[2],ct[3]))))*10000+
-          cts.reduce((s,ct)=>s+pc(ct[0],ct[1])+pc(ct[2],ct[3]),0);
+        const sc=(cts.length?Math.max(...cts.map(ct=>Math.max(pc(ct[0],ct[1]),pc(ct[2],ct[3])))):0)*10000+cts.reduce((s,ct)=>s+pc(ct[0],ct[1])+pc(ct[2],ct[3]),0);
         if(sc<bestSc){bestSc=sc;bestCts=cts;bestTps=tps;}
         if(bestSc===0)break;
       }
@@ -1442,10 +1421,7 @@ function genGenderBracket(n,c,r,ppr,waitSz){
 
     if(!bestCts){
       bestCts=[];bestTps=[];const u2=new Set();
-      for(let ci=0;ci<c;ci++){
-        const av=playing.filter(i=>!u2.has(i));
-        if(av.length>=4){bestCts.push(av.slice(0,4));bestTps.push('mixed');av.slice(0,4).forEach(x=>u2.add(x));}
-      }
+      for(let ci=0;ci<c;ci++){const av=playing.filter(i=>!u2.has(i));if(av.length>=4){bestCts.push(av.slice(0,4));bestTps.push('mixed');av.slice(0,4).forEach(x=>u2.add(x));}}
     }
 
     bestCts.forEach(ct=>{
@@ -1455,14 +1431,7 @@ function genGenderBracket(n,c,r,ppr,waitSz){
 
     const tl={mens:'남복',mixed:'혼복',ladies:'여복'};
     S.bracket.push({courts:bestCts,wait:[...ws],courtTypeLabels:bestTps.map(t=>tl[t])});
-  }
-
-  // getCombinations 헬퍼
-  function getCombinations(arr,k){
-    if(k===0)return[[]];if(arr.length===0)return[];
-    const [first,...rest]=arr;
-    return[...getCombinations(rest,k-1).map(c=>[first,...c]),...getCombinations(rest,k)];
-  }
+  });
 
   renderBracketGender();
   document.getElementById('pubBtnWrap').style.display='block';
