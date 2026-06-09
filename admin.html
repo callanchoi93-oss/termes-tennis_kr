@@ -1129,6 +1129,11 @@ function genSmartBracket(n,c,r,ppr,waitSz){
 
   function pcost(a,b){const v=_partnerCnt[_pkey(a,b)]||0;return v*v;}
 
+  function getGr(ai){
+    const p=S.players[S.assigned[ai]];
+    if(!p)return 'none';
+    return grades[p.name]||p.skill||'none';
+  }
   function bestT4(pool){
     if(pool.length<4)return null;
     let best=null,bs=Infinity;
@@ -1138,10 +1143,8 @@ function genSmartBracket(n,c,r,ppr,waitSz){
       const g=[p[i],p[j],p[k],p[l]];
       for(const [[a,b],[c,d]] of [[[g[0],g[1]],[g[2],g[3]]],[[g[0],g[2]],[g[1],g[3]]],[[g[0],g[3]],[g[1],g[2]]]]){
         const sc=(pcost(a,b)+pcost(c,d))*100+Math.abs(
-          (gradeScore(S.players[S.assigned[a]]?grades[S.players[S.assigned[a]].name]||'none':'none')+
-           gradeScore(S.players[S.assigned[b]]?grades[S.players[S.assigned[b]].name]||'none':'none'))-
-          (gradeScore(S.players[S.assigned[c]]?grades[S.players[S.assigned[c]].name]||'none':'none')+
-           gradeScore(S.players[S.assigned[d]]?grades[S.players[S.assigned[d]].name]||'none':'none')));
+          (gradeScore(getGr(a))+gradeScore(getGr(b)))-
+          (gradeScore(getGr(c))+gradeScore(getGr(d))));
         if(sc<bs){bs=sc;best=[a,b,c,d];}
       }
     }
