@@ -81,7 +81,7 @@ body{background:var(--bg);color:var(--gray-900);font-family:'Pretendard',-apple-
 /* ── 하단 네비 ── */
 .nav{background:var(--white);display:flex;border-top:1px solid var(--gray-200);position:fixed;bottom:0;left:0;right:0;max-width:480px;margin:0 auto;z-index:100;padding-bottom:env(safe-area-inset-bottom,0);box-shadow:0 -2px 12px rgba(0,0,0,0.04)}
 .nav::-webkit-scrollbar{display:none}
-.nb{flex:1;min-width:52px;padding:9px 3px 7px;background:none;border:none;color:var(--gray-500);font-family:'Pretendard',sans-serif;font-size:12px;font-weight:600;cursor:pointer;border-bottom:2px solid transparent;white-space:nowrap;transition:all .15s}
+.nb{flex:1;min-width:0;padding:9px 2px 7px;background:none;border:none;color:var(--gray-500);font-family:'Pretendard',sans-serif;font-size:11px;font-weight:600;cursor:pointer;border-bottom:2px solid transparent;white-space:nowrap;transition:all .15s}
 .nb.on{color:var(--blue);border-bottom-color:var(--blue)}
 
 /* ── 페이지 ── */
@@ -385,6 +385,7 @@ body{background:var(--bg);color:var(--gray-900);font-family:'Pretendard',-apple-
     <button class="nb" onclick="gTab('bracket',this)"><div class="nav-icon"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="16" rx="2"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg></div>대진표</button>
     <button class="nb" onclick="gTab('score',this)"><div class="nav-icon"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11"/></svg></div>점수</button>
     <button class="nb" onclick="gTab('history',this)"><div class="nav-icon"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 3"/></svg></div>기록</button>
+    <button class="nb" onclick="gTab('rankboard',this)"><div class="nav-icon"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="12" width="4" height="9" rx="1"/><rect x="10" y="6" width="4" height="15" rx="1"/><rect x="17" y="9" width="4" height="12" rx="1"/></svg></div>순위</button>
     <button class="nb" onclick="gTab('career',this)"><div class="nav-icon"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 3.6-7 8-7s8 3 8 7"/></svg></div>내 정보</button>
   </nav>
 
@@ -441,6 +442,10 @@ body{background:var(--bg);color:var(--gray-900);font-family:'Pretendard',-apple-
   </div>
 
   <!-- 구력 -->
+  <div id="p-rankboard" class="page" style="background:var(--warm-bg,#faf6f2);min-height:100vh">
+    <div id="rankBoardContent"><div class="empty" style="padding-top:40px">불러오는 중...</div></div>
+  </div>
+
   <div id="p-career" class="page">
     <div class="page-title">구력 관리</div>
     <div class="page-sub" id="careerDesc">나의 테니스 구력을 입력하세요</div>
@@ -866,6 +871,7 @@ function gTab(id,btn){
   else if(id==='bracket')loadBracket();
   else if(id==='score')loadScore();
   else if(id==='history')loadHistory();
+  else if(id==='rankboard')loadRankBoard();
   else if(id==='notice')loadNotices();
   else if(id==='career')loadCareer();
 }
@@ -1110,6 +1116,100 @@ function formatDate(key){
 }
 
 // ── 랭킹 (기존 유지) ──
+async function loadRankBoard(){
+  const wrap=document.getElementById('rankBoardContent');
+  if(!wrap)return;
+  wrap.innerHTML='<div class="empty" style="padding-top:40px">불러오는 중...</div>';
+
+  // 전체 연도 집계 (포인트 / 경기수 / 참여일수)
+  const idx=await sget('index'),aidx=await sget('archive-index');
+  const list=idx?(Array.isArray(idx)?idx:Object.values(idx)):[];
+  const alist=aidx?(Array.isArray(aidx)?aidx:Object.values(aidx)):[];
+  const pm={};
+  for(const k of [...list.map(d=>'sessions/'+d),...alist.map(k=>'archives/'+k)]){
+    const s=await sget(k);if(!s||s.del)continue;
+    const n=getP(s).length;if(!n)continue;
+    const pre=getSc(s)._totals||calcTotals(s);
+    const ps=Array.from({length:n},(_,ai)=>({name:pname(s,ai),total:pre[ai]||0,games:countGames(s,ai)})).sort((a,b)=>b.total-a.total);
+    let rank=1;
+    for(let i=0;i<ps.length;i++){
+      if(i>0&&ps[i].total<ps[i-1].total)rank=i+1;
+      const{name,total,games}=ps[i];
+      if(name&&name.indexOf('번')>=0)continue; // 게스트 제외
+      if(!pm[name])pm[name]={pts:0,days:0,games:0,best:0};
+      pm[name].pts+=getRankPts(rank);
+      pm[name].days++;
+      pm[name].games+=games;
+      if(total>pm[name].best)pm[name].best=total;
+    }
+  }
+
+  let ranked=Object.entries(pm).map(([n,d])=>({name:n,...d})).sort((a,b)=>b.pts-a.pts);
+  const myName=me==='__super__'?'':me;
+
+  let html=`<div style="min-height:100vh;background:var(--warm-bg,#faf6f2);padding:20px 16px 90px">`;
+
+  // 헤더
+  html+=`<div style="text-align:center;margin-bottom:6px">
+    <div style="font-size:22px;font-weight:800;color:#3a2e28;letter-spacing:-0.3px">전체 순위</div>
+    <div style="font-size:12px;color:#a89b8e;font-weight:500;margin-top:3px">누적 포인트 기준 · 전체 기간</div>
+  </div>`;
+
+  if(!ranked.length){
+    html+=`<div class="empty" style="padding-top:40px">아직 기록이 없습니다</div></div>`;
+    wrap.innerHTML=html;return;
+  }
+
+  // ── 상위 3명 시상대 ──
+  if(ranked.length>=3){
+    const podColors=['#e8845a','#c4a35a','#cf7a52'];
+    const heights=[78,96,66];
+    const order=[1,0,2]; // 2위 1위 3위 순서
+    html+=`<div style="display:flex;align-items:flex-end;justify-content:center;gap:8px;margin:18px 0 22px">`;
+    order.forEach(oi=>{
+      const p=ranked[oi];if(!p)return;
+      const medal=oi+1;
+      const isMe=p.name===myName;
+      html+=`<div onclick="showPlayer('${p.name}',new Date().getFullYear())" style="flex:1;max-width:100px;cursor:pointer;text-align:center">
+        <div style="font-size:13px;font-weight:800;color:${isMe?'#d4506a':'#3a2e28'};margin-bottom:4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${p.name}${isMe?' (나)':''}</div>
+        <div style="font-size:18px;font-weight:900;color:${podColors[oi]};line-height:1">${p.pts}</div>
+        <div style="font-size:9px;color:#a89b8e;font-weight:600;margin-bottom:6px">PTS</div>
+        <div style="height:${heights[oi]}px;border-radius:14px 14px 0 0;background:linear-gradient(180deg,${podColors[oi]},${podColors[oi]}cc);display:flex;align-items:flex-start;justify-content:center;padding-top:8px">
+          <span style="font-size:20px;font-weight:900;color:#fff">${medal}</span>
+        </div>
+      </div>`;
+    });
+    html+=`</div>`;
+  }
+
+  // ── 컬럼 헤더 ──
+  html+=`<div style="display:flex;align-items:center;padding:0 14px 8px;font-size:10px;font-weight:700;color:#a89b8e;letter-spacing:0.5px">
+    <div style="width:30px">순위</div>
+    <div style="flex:1">이름</div>
+    <div style="width:52px;text-align:center">포인트</div>
+    <div style="width:46px;text-align:center">경기</div>
+    <div style="width:46px;text-align:center">참여일</div>
+  </div>`;
+
+  // ── 전체 순위 리스트 ──
+  let dr=1;
+  ranked.forEach((p,i)=>{
+    if(i>0&&p.pts<ranked[i-1].pts)dr=i+1;
+    const isMe=p.name===myName;
+    const medalColor=dr===1?'#e8845a':dr===2?'#c4a35a':dr===3?'#cf7a52':'#c4b5a9';
+    html+=`<div onclick="showPlayer('${p.name}',new Date().getFullYear())" style="display:flex;align-items:center;padding:12px 14px;margin-bottom:7px;background:${isMe?'#fdf0ec':'#fff'};border-radius:14px;cursor:pointer;box-shadow:0 2px 8px rgba(120,90,70,0.05);${isMe?'border:1.5px solid #e8845a':''}">
+      <div style="width:30px;font-size:15px;font-weight:800;color:${medalColor}">${dr}</div>
+      <div style="flex:1;font-size:14px;font-weight:700;color:#3a2e28;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${p.name}${isMe?' <span style="font-size:10px;color:#d4506a">(나)</span>':''}</div>
+      <div style="width:52px;text-align:center"><span style="font-size:15px;font-weight:800;color:#d4506a">${p.pts}</span></div>
+      <div style="width:46px;text-align:center;font-size:13px;font-weight:600;color:#7c6b5e">${p.games}</div>
+      <div style="width:46px;text-align:center;font-size:13px;font-weight:600;color:#7c6b5e">${p.days}</div>
+    </div>`;
+  });
+
+  html+=`</div>`;
+  wrap.innerHTML=html;
+}
+
 async function loadRanking(year){
   buildYearTabs();
   const el=document.getElementById('rankContent');el.innerHTML='<div class="empty">불러오는 중...</div>';
