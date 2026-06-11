@@ -483,6 +483,7 @@ body{background:var(--bg);color:var(--gray-900);font-family:'Pretendard',-apple-
       <button onclick="document.getElementById('playerModal').classList.remove('on')" style="background:none;border:none;font-size:24px;color:var(--gray-400);cursor:pointer">×</button>
     </div>
     <div style="font-size:26px;font-weight:900;color:var(--blue);margin-bottom:6px;flex-shrink:0;letter-spacing:-0.5px" id="pmPts"></div>
+    <div id="pmCareer" style="margin-bottom:10px;flex-shrink:0"></div>
     <div id="pmStatRow" style="display:flex;gap:8px;margin-bottom:10px;flex-shrink:0"></div>
     <div class="pm-tabs" id="pmTabs"></div>
     <div class="sheet-body" id="pmBody"></div>
@@ -1267,7 +1268,26 @@ async function showPlayer(name,year){
   document.getElementById('pmName').textContent=name;
   document.getElementById('pmPts').textContent='불러오는 중...';
   document.getElementById('pmBody').innerHTML='<div class="empty">불러오는 중...</div>';
+  const pmc=document.getElementById('pmCareer');if(pmc)pmc.innerHTML='';
   document.getElementById('playerModal').classList.add('on');
+  // 구력 / 한 줄 소개 표시
+  (async()=>{
+    try{
+      const cd=await sget('career-'+name.replace(/\s/g,''));
+      const pmc=document.getElementById('pmCareer');
+      if(pmc&&cd&&(cd.years||cd.desc)){
+        let h='<div style="display:flex;flex-direction:column;gap:6px">';
+        if(cd.years){
+          h+=`<div style="display:inline-flex;align-items:center;gap:6px"><span style="font-size:11px;font-weight:700;color:var(--blue);background:var(--blue-l);padding:3px 10px;border-radius:20px">🎾 구력 ${cd.years}</span></div>`;
+        }
+        if(cd.desc){
+          h+=`<div style="font-size:13px;color:var(--gray-600);font-style:italic;line-height:1.5">"${cd.desc}"</div>`;
+        }
+        h+='</div>';
+        pmc.innerHTML=h;
+      }
+    }catch(e){}
+  })();
   renderPMTabs(name,year);
   const idx=await sget('index'),aidx=await sget('archive-index');
   const list=idx?(Array.isArray(idx)?idx:Object.values(idx)):[];

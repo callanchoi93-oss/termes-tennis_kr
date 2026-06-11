@@ -348,7 +348,10 @@ body{background:var(--bg);color:var(--gray-900);font-family:'Pretendard',-apple-
           </div>
           <div class="form-item">
             <div class="form-label">게임 방식</div>
-            <div class="form-input" id="gameM" style="background:var(--gray-100);color:var(--gray-500);cursor:default;display:flex;align-items:center">4게임제 (고정)</div>
+            <select class="form-input" id="gameM">
+              <option value="4">4게임제</option>
+              <option value="6">6게임제</option>
+            </select>
           </div>
         </div>
         <div class="form-row" style="margin-bottom:16px">
@@ -373,12 +376,7 @@ body{background:var(--bg);color:var(--gray-900);font-family:'Pretendard',-apple-
           </div>
         </div>
         <button class="btn btn-secondary" style="margin-top:4px" onclick="calcOptimal()">균등 라운드 자동 계산</button>
-        <div style="margin-top:14px;display:flex;align-items:center;gap:10px;padding:12px 14px;background:var(--gray-50);border-radius:12px">
-          <input type="checkbox" id="useGenderCheck" style="width:18px;height:18px;accent-color:var(--blue);cursor:pointer">
-          <label for="useGenderCheck" style="font-size:15px;font-weight:600;color:var(--gray-800);cursor:pointer;line-height:1.5">
-            성별 대진 적용<br><span style="font-size:12px;color:var(--gray-400);font-weight:400">남성 A/B: 남복 위주 · 남성 C/여성: 혼복 위주</span>
-          </label>
-        </div>
+
       </div>
     </div>
 
@@ -430,10 +428,7 @@ body{background:var(--bg);color:var(--gray-900);font-family:'Pretendard',-apple-
     </div>
     <div class="section">
       <div class="section-title">래플 방식</div>
-      <div class="btn-row" style="margin-bottom:10px">
-        <button class="btn btn-neutral" style="flex:1" onclick="doRaffle(false)">일반 래플</button>
-        <button class="btn btn-secondary" style="flex:1" onclick="doRaffle(true)">실력별 래플</button>
-      </div>
+      <button class="btn btn-secondary" style="width:100%;margin-bottom:10px" onclick="doRaffle(true)">실력별 래플</button>
       <div class="form-hint">A↔B, B↔C 허용 · A↔C 같은 코트 최대한 차단 (불가피 시 허용)</div>
     </div>
     <div id="rfWarn" style="display:none;background:var(--red-l);border-radius:10px;padding:10px 14px;font-size:14px;color:var(--red);font-weight:600;margin-bottom:14px"></div>
@@ -594,7 +589,7 @@ const CC=['#3182f6','#00b493','#f7c244','#f04452','#8b5cf6','#f97316'];
 const NC=['#f04452','#3182f6','#00b493','#8b5cf6','#f97316','#ec4899','#0891b2','#65a30d'];
 const SEC_ANSWERS=['용테파','용인테니스파크'];
 let grades={},genders={},attendance={};
-let S={players:[],courts:3,rounds:8,gameMode:'4',assigned:[],bracket:[],useGender:false,lateArrivals:{},gameStartTime:'07:00',gameDuration:20};
+let S={players:[],courts:3,rounds:8,gameMode:'4',assigned:[],bracket:[],useGender:true,lateArrivals:{},gameStartTime:'07:00',gameDuration:20};
 
 // 유틸
 function toast(m){const e=document.getElementById('toast');e.textContent=m;e.classList.add('on');setTimeout(()=>e.classList.remove('on'),2600);}
@@ -999,8 +994,8 @@ function saveSetup(){
   });
   S.courts=parseInt(document.getElementById('courtN').value)||3;
   S.rounds=parseInt(document.getElementById('roundN').value)||8;
-  S.gameMode='4';
-  S.useGender=document.getElementById('useGenderCheck')?.checked||false;
+  S.gameMode=document.getElementById('gameM')?.value||'4';
+  S.useGender=true;
   S.lateArrivals=getLateArrivals();
   S.gameStartTime=document.getElementById('gameStartTime')?.value||'07:00';
   S.gameDuration=parseInt(document.getElementById('gameDuration')?.value)||20;
@@ -1017,7 +1012,7 @@ function doRaffle(seeded){
   if(!seeded){S.assigned=shuffle(Array.from({length:n},(_,i)=>i));}
   else{
     const g={A:[],B:[],C:[],none:[]};S.players.forEach((p,i)=>(g[p.skill]||g.none).push(i));Object.keys(g).forEach(k=>g[k]=shuffle(g[k]));
-    if(g.A.length&&g.C.length&&!g.B.length){w.textContent='B등급 없음 — 일반 래플로 진행합니다';w.style.display='block';S.assigned=shuffle(Array.from({length:n},(_,i)=>i));}
+    if(g.A.length&&g.C.length&&!g.B.length){w.textContent='B등급 없음 — 실력 순서로 배정합니다';w.style.display='block';S.assigned=shuffle(Array.from({length:n},(_,i)=>i));}
     else{const h=Math.ceil(g.B.length/2);S.assigned=[...g.A,...g.B.slice(0,h),...g.B.slice(h),...g.C,...g.none];}
   }
   const div=document.getElementById('rfResult');div.innerHTML='';
@@ -1510,10 +1505,10 @@ function genBracket(){
   // 기본값 보정
   if(!S.courts||S.courts<1) S.courts=parseInt(document.getElementById('courtN')?.value)||3;
   if(!S.rounds||S.rounds<1) S.rounds=parseInt(document.getElementById('roundN')?.value)||8;
-  S.gameMode='4';
+  S.gameMode=document.getElementById('gameM')?.value||'4';
   // 늦참자/성별 설정 실시간 반영
   try{S.lateArrivals=getLateArrivals();}catch(e){S.lateArrivals={};}
-  try{S.useGender=document.getElementById('useGenderCheck')?.checked||false;}catch(e){}
+  S.useGender=true;
   const n=S.players.length,c=S.courts,r=S.rounds,ppr=c*4,waitSz=n-ppr;
   S.bracket=[];
 
