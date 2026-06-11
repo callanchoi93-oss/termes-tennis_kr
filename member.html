@@ -483,6 +483,7 @@ body{background:var(--bg);color:var(--gray-900);font-family:'Pretendard',-apple-
       <button onclick="document.getElementById('playerModal').classList.remove('on')" style="background:none;border:none;font-size:24px;color:var(--gray-400);cursor:pointer">×</button>
     </div>
     <div style="font-size:26px;font-weight:900;color:var(--blue);margin-bottom:6px;flex-shrink:0;letter-spacing:-0.5px" id="pmPts"></div>
+    <div id="pmStatRow" style="display:flex;gap:8px;margin-bottom:10px;flex-shrink:0"></div>
     <div class="pm-tabs" id="pmTabs"></div>
     <div class="sheet-body" id="pmBody"></div>
   </div>
@@ -1273,7 +1274,7 @@ async function showPlayer(name,year){
   const alist=aidx?(Array.isArray(aidx)?aidx:Object.values(aidx)):[];
   const ySess=list.filter(d=>String(d).startsWith(String(year)));
   const yArch=alist.filter(k=>String(k).startsWith(String(year)));
-  let totalPts=0,histHtml='';
+  let totalPts=0,histHtml='',totalScored=0,totalConceded=0,totalWins=0,totalLosses=0,totalDraws=0;
   for(const [k,dk] of [...ySess.map(d=>['sessions/'+d,String(d)]),...yArch.map(k=>['archives/'+k,String(k).slice(0,8)])]){
     const s=await sget(k);if(!s||s.del)continue;
     const n=getP(s).length;let ai=-1;
@@ -1294,6 +1295,7 @@ async function showPlayer(name,year){
         const s1=sv.s1!==undefined?sv.s1:'-',s2=sv.s2!==undefined?sv.s2:'-';
         const isT1=ct[0]===ai||ct[1]===ai,myS=isT1?s1:s2,opS=isT1?s2:s1;
         const won=typeof myS==='number'&&typeof opS==='number'&&myS>opS,lost=typeof myS==='number'&&typeof opS==='number'&&myS<opS;
+        if(typeof myS==='number'&&typeof opS==='number'){totalScored+=myS;totalConceded+=opS;if(won)totalWins++;else if(lost)totalLosses++;else totalDraws++;}
         const pAi=isT1?ct.find(x=>x!==ai&&(x===ct[0]||x===ct[1])):ct.find(x=>x!==ai&&(x===ct[2]||x===ct[3]));
         const pNm=pname(s,pAi),o1=isT1?ct[2]:ct[0],o2=isT1?ct[3]:ct[1];
         if(!_pmPr[pNm])_pmPr[pNm]={games:0,wins:0,losses:0};
@@ -1321,6 +1323,29 @@ async function showPlayer(name,year){
   }
   _pmH=histHtml||'<div class="empty">기록이 없습니다</div>';
   document.getElementById('pmPts').textContent=totalPts+' PTS';
+  // 득점/실점 요약
+  const diff=totalScored-totalConceded;
+  const diffColor=diff>0?'var(--blue)':diff<0?'var(--red)':'var(--gray-500)';
+  const sr=document.getElementById('pmStatRow');
+  if(sr){
+    sr.innerHTML=`
+      <div style="flex:1;background:var(--blue-l);border-radius:11px;padding:8px 6px;text-align:center">
+        <div style="font-size:16px;font-weight:800;color:var(--blue)">${totalScored}</div>
+        <div style="font-size:10px;color:var(--gray-500);font-weight:600;margin-top:1px">총 득점</div>
+      </div>
+      <div style="flex:1;background:var(--red-l);border-radius:11px;padding:8px 6px;text-align:center">
+        <div style="font-size:16px;font-weight:800;color:var(--red)">${totalConceded}</div>
+        <div style="font-size:10px;color:var(--gray-500);font-weight:600;margin-top:1px">총 실점</div>
+      </div>
+      <div style="flex:1;background:var(--gray-100);border-radius:11px;padding:8px 6px;text-align:center">
+        <div style="font-size:16px;font-weight:800;color:${diffColor}">${diff>0?'+':''}${diff}</div>
+        <div style="font-size:10px;color:var(--gray-500);font-weight:600;margin-top:1px">득실차</div>
+      </div>
+      <div style="flex:1;background:var(--green-l);border-radius:11px;padding:8px 6px;text-align:center">
+        <div style="font-size:16px;font-weight:800;color:var(--green)">${totalWins}<span style="font-size:11px;color:var(--gray-400)">승</span> ${totalLosses}<span style="font-size:11px;color:var(--gray-400)">패</span></div>
+        <div style="font-size:10px;color:var(--gray-500);font-weight:600;margin-top:1px">전적</div>
+      </div>`;
+  }
   renderPMTabs(name,year);renderPMContent();
 }
 function togSess(id){const e=document.getElementById(id),a=document.getElementById(id+'a');if(!e)return;const o=e.style.display!=='none';e.style.display=o?'none':'block';if(a)a.style.transform=o?'':'rotate(90deg)';}
