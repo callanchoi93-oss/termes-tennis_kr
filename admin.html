@@ -837,8 +837,11 @@ function calcOptimal(){
   const n=parseInt(document.getElementById('playerN').value)||18;
   const c=parseInt(document.getElementById('courtN').value)||3;
   const p=c*4;
-  if(p>=n){document.getElementById('roundN').value=4;document.getElementById('roundHint').textContent='전원 매 라운드 참가';return;}
-  for(let g=4;g<=12;g++){if((n*g)%p===0){const r=n*g/p;document.getElementById('roundN').value=r;document.getElementById('roundHint').textContent=`${r}라운드 · 1인당 ${g}게임 보장`;return;}}
+  // 무조건 1인당 4게임 보장 → 필요한 라운드 수 = ceil(n*4 / (c*4)) = ceil(n/c)
+  const games=4;
+  const r=Math.ceil(n*games/p);
+  document.getElementById('roundN').value=r;
+  document.getElementById('roundHint').textContent=`${r}라운드 · 1인당 ${games}게임 보장`;
 }
 function syncSlots(){
   const n=parseInt(document.getElementById('playerN').value)||18;
