@@ -3,14 +3,14 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1">
-<meta name="theme-color" content="#3182f6">
+<meta name="theme-color" content="#e8845a">
 <title>TERMES 임원진</title>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
 <style>
 @import url('https://cdn.jsdelivr.net/gh/orioncactus/pretendard/dist/web/static/pretendard.css');
 :root{
-  --bg:#f5f6f8;--white:#ffffff;--blue:#3182f6;--blue-l:#e8f1fe;
+  --bg:#faf6f2;--white:#ffffff;--blue:#e8845a;--blue-l:#fdf0ec;
   --red:#f04452;--red-l:#fff0f1;--green:#00b493;--green-l:#e6f8f5;
   --gray-50:#f9fafb;--gray-100:#f2f4f6;--gray-200:#e5e8eb;
   --gray-300:#d1d6db;--gray-400:#b0b8c1;--gray-500:#8b95a1;
@@ -23,7 +23,7 @@ body{background:var(--bg);color:var(--gray-900);font-family:'Pretendard',-apple-
 /* PIN 화면 */
 #pinWrap{position:fixed;inset:0;background:var(--white);z-index:999;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:48px 32px}
 .pin-logo{font-size:28px;font-weight:900;letter-spacing:2px;margin-bottom:4px}
-.pin-logo b{color:var(--blue)}
+.pin-logo b{background:linear-gradient(135deg,#e8845a,#d4506a);-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent}
 .pin-role{font-size:13px;color:var(--gray-400);letter-spacing:2px;margin-bottom:48px;font-weight:500}
 .pin-label{font-size:16px;font-weight:700;color:var(--gray-700);margin-bottom:24px}
 .pdots{display:flex;gap:14px;margin-bottom:10px}
@@ -60,17 +60,17 @@ body{background:var(--bg);color:var(--gray-900);font-family:'Pretendard',-apple-
 .hdr-left{display:flex;align-items:center;gap:14px}
 .hdr-back{font-size:14px;color:var(--gray-500);text-decoration:none;font-weight:600}
 .hdr-title{font-size:20px;font-weight:900;letter-spacing:-0.5px}
-.hdr-title b{color:var(--blue)}
+.hdr-title b{background:linear-gradient(135deg,#e8845a,#d4506a);-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent}
 .hdr-right{display:flex;align-items:center;gap:8px}
 .hdr-badge{font-size:13px;font-weight:700;padding:5px 12px;border-radius:20px;background:var(--blue-l);color:var(--blue)}
 .db-indicator{width:8px;height:8px;border-radius:50%;background:var(--gray-300);transition:background .3s}
 .db-indicator.on{background:var(--green)}
 
 /* 탭 네비 */
-.tab-nav{background:var(--white);display:flex;border-bottom:2px solid var(--gray-100);overflow-x:auto;-ms-overflow-style:none;scrollbar-width:none}
+.tab-nav{background:var(--white);display:flex;border-top:1px solid var(--gray-200);position:fixed;bottom:0;left:0;right:0;max-width:480px;margin:0 auto;z-index:100;padding-bottom:env(safe-area-inset-bottom,0);box-shadow:0 -2px 12px rgba(0,0,0,0.04)}
 .tab-nav::-webkit-scrollbar{display:none}
-.tn{flex:1;min-width:56px;padding:10px 4px 8px;background:none;border:none;color:var(--gray-400);font-family:'Pretendard',sans-serif;font-size:12px;font-weight:600;cursor:pointer;border-bottom:2.5px solid transparent;margin-bottom:-2px;white-space:nowrap;transition:all .15s;display:flex;flex-direction:column;align-items:center;gap:3px}
-.tn.on{color:var(--blue);border-bottom-color:var(--blue);font-weight:700}
+.tn{flex:1;min-width:0;padding:8px 2px 6px;background:none;border:none;color:var(--gray-400);font-family:'Pretendard',sans-serif;font-size:10px;font-weight:600;cursor:pointer;border-top:2.5px solid transparent;white-space:nowrap;transition:all .15s;display:flex;flex-direction:column;align-items:center;gap:3px}
+.tn.on{color:var(--blue);border-top-color:var(--blue);font-weight:700}
 
 /* 페이지 */
 .page{display:none;padding:24px 20px 100px;max-width:600px;margin:0 auto}
@@ -585,8 +585,8 @@ async function sset(k,v){try{if(db){await db.ref('termes/'+k).set(v);return true
 
 // 상수
 const MEMBERS=['곽주영','최민혁','정윤희','김진수A','김영민','이석용','이인애','이평화','강태민','이중호','최민지','한은주','유명현','유승은','이정욱','장한욱','김진수B','박현우','최우임','박희진','배충호','장태성','이광하','김제홍','이기훈','정혜정','오동현','정지용'];
-const CC=['#3182f6','#00b493','#f7c244','#f04452','#8b5cf6','#f97316'];
-const NC=['#f04452','#3182f6','#00b493','#8b5cf6','#f97316','#ec4899','#0891b2','#65a30d'];
+const CC=['#e8845a','#00b493','#f7c244','#f04452','#8b5cf6','#f97316'];
+const NC=['#f04452','#e8845a','#00b493','#8b5cf6','#f97316','#ec4899','#0891b2','#65a30d'];
 const SEC_ANSWERS=['용테파','용인테니스파크'];
 let grades={},genders={},attendance={};
 let S={players:[],courts:3,rounds:8,gameMode:'4',assigned:[],bracket:[],useGender:true,lateArrivals:{},gameStartTime:'07:00',gameDuration:20};
@@ -655,6 +655,8 @@ async function renderAttendance(){
   document.getElementById('attDateLabel').textContent=fmt(today);
   const saved=await sget('attendance-'+today);
   if(saved)attendance=saved;else{attendance={};MEMBERS.forEach(n=>attendance[n]=false);}
+  attGuests=[];  // 게스트는 1회성 — 탭 열 때 초기화
+  const gl=document.getElementById('guestList');if(gl)gl.innerHTML='';
   renderAttGrid();
 }
 function renderAttGrid(){
@@ -667,12 +669,25 @@ function renderAttGrid(){
     div.innerHTML=`<div class="att-name">${name}</div><div class="att-grade" style="${gc[g]}">${g!=='none'?g+'등급':' '}</div><div class="att-check">${isIn?'참석':'—'}</div>`;
     grid.appendChild(div);
   });
-  const cnt=Object.values(attendance).filter(Boolean).length;
+  // 확정된 게스트 카드 (1회성, 삭제 가능)
+  attGuests.forEach(gst=>{
+    const div=document.createElement('div');div.className='att-item checked';
+    div.style.position='relative';
+    const gLabel=gst.gender==='F'?'여성':'남성';
+    const grLabel=gst.grade!=='none'?gst.grade+'등급':'게스트';
+    div.innerHTML=`<button onclick="event.stopPropagation();removeAttGuest('${gst.name}')" style="position:absolute;top:4px;right:6px;background:none;border:none;font-size:16px;color:var(--gray-400);cursor:pointer;line-height:1">×</button>
+      <div class="att-name">${gst.name}</div>
+      <div class="att-grade" style="color:#d97706">GUEST · ${gLabel}</div>
+      <div class="att-check">${grLabel}</div>`;
+    grid.appendChild(div);
+  });
+  const cnt=Object.values(attendance).filter(Boolean).length+attGuests.length;
   document.getElementById('attCount').textContent=cnt+'명 참석';
 }
 function attAll(){MEMBERS.forEach(n=>attendance[n]=true);renderAttGrid();}
 
 // 참석 탭 게스트 추가
+let attGuests=[];
 let guestCount = 0;
 function addAttGuest(){
   guestCount++;
@@ -688,7 +703,7 @@ function addAttGuest(){
         style="flex:1;background:var(--gray-100);border:none;border-radius:10px;padding:9px 12px;font-size:15px;font-family:'Pretendard',sans-serif;outline:none">
       <button onclick="document.getElementById('${id}').remove()" style="background:none;border:none;font-size:20px;color:var(--gray-300);cursor:pointer;line-height:1">×</button>
     </div>
-    <div style="display:flex;gap:8px">
+    <div style="display:flex;gap:8px;margin-bottom:10px">
       <select id="${id}-gender" style="flex:1;background:var(--gray-100);border:none;border-radius:10px;padding:9px 12px;font-size:14px;font-family:'Pretendard',sans-serif;outline:none;color:var(--gray-900)">
         <option value="M">남성</option>
         <option value="F">여성</option>
@@ -699,21 +714,36 @@ function addAttGuest(){
         <option value="B">B 중위</option>
         <option value="C">C 하위</option>
       </select>
-    </div>`;
+    </div>
+    <button onclick="confirmAttGuest('${id}')" style="width:100%;background:var(--blue);color:#fff;border:none;border-radius:10px;padding:9px;font-size:14px;font-weight:700;font-family:'Pretendard',sans-serif;cursor:pointer">게스트 확정</button>`;
   wrap.appendChild(d);
 }
 
+// 게스트 확정 → 참석 그리드에 카드로 추가 (1회성)
+function confirmAttGuest(id){
+  const nameEl=document.getElementById(id+'-name');
+  const name=(nameEl?.value||'').trim();
+  if(!name){toast('게스트 이름을 입력해주세요');return;}
+  // 중복 방지
+  if(MEMBERS.includes(name)||attGuests.some(g=>g.name===name)){toast('이미 있는 이름입니다');return;}
+  const gender=document.getElementById(id+'-gender').value;
+  const grade=document.getElementById(id+'-grade').value;
+  attGuests.push({name,gender,grade});
+  // 입력 행 제거
+  document.getElementById(id).remove();
+  renderAttGrid();
+  toast(name+' 게스트가 추가되었습니다');
+}
+
+// 게스트 삭제
+function removeAttGuest(name){
+  attGuests=attGuests.filter(g=>g.name!==name);
+  renderAttGrid();
+}
+
 function getAttGuests(){
-  // 참석 탭에서 추가된 게스트 목록 반환
-  const guests=[];
-  document.querySelectorAll('#guestList > div[id^="ag-"]').forEach(d=>{
-    const name=d.querySelector('input').value.trim();
-    if(!name)return;
-    const gender=d.querySelector('select:nth-of-type(1)').value;
-    const grade=d.querySelector('select:nth-of-type(2)').value;
-    guests.push({name,gender,grade});
-  });
-  return guests;
+  // 확정된 게스트 목록 (1회성)
+  return attGuests.slice();
 }
 function attNone(){MEMBERS.forEach(n=>attendance[n]=false);renderAttGrid();}
 async function saveAttendance(){
@@ -1464,7 +1494,7 @@ function renderBracketGender(){
       if(ct.length<4)return '';
       const col=CC[ci%CC.length];
       const tpLabel=round.courtTypeLabels?round.courtTypeLabels[ci]:'';
-      const tpColor=tpLabel==='남복'?'#3182f6':tpLabel==='여복'?'#f04452':'#00b493';
+      const tpColor=tpLabel==='남복'?'#e8845a':tpLabel==='여복'?'#f04452':'#00b493';
       const p=ai=>`<span class="p-chip">${pname(ai)}</span>`;
       
       // 혼복: 팀마다 남+여 구분해서 표시
@@ -1536,7 +1566,7 @@ function renderBracket(){
       const col=CC[ci%CC.length];
       const p=ai=>`<span class="p-chip">${pname(ai)}</span>`;
       const tpLabel=round.courtTypeLabels?round.courtTypeLabels[ci]:'';
-      const tpColor=tpLabel==='남복'?'#3182f6':tpLabel==='여복'?'#f04452':tpLabel==='혼복'?'#00b493':'';
+      const tpColor=tpLabel==='남복'?'#e8845a':tpLabel==='여복'?'#f04452':tpLabel==='혼복'?'#00b493':'';
       const tpBadge=tpLabel?`<span style="font-size:11px;font-weight:700;padding:2px 8px;border-radius:6px;background:${tpColor}20;color:${tpColor};margin-right:6px;flex-shrink:0">${tpLabel}</span>`:'';
       return `<div class="court-line" style="background:${col}0f;border-left:4px solid ${col}"><div class="court-tag">코트 ${ci+1}</div>${tpBadge}<div class="match-group"><div class="team-pair">${p(ct[0])}${p(ct[1])}</div><span class="vs-label">VS</span><div class="team-pair">${p(ct[2])}${p(ct[3])}</div></div></div>`;
     }).join('');
@@ -1578,8 +1608,25 @@ async function loadHistory(){
   const alist=aidx?(Array.isArray(aidx)?aidx:Object.values(aidx)):[];
   if(!list.length&&!alist.length){wrap.innerHTML='<div class="empty-state">발행된 기록이 없습니다</div>';return;}
   wrap.innerHTML='';
-  for(const dk of list){const rec=await sget('sessions/'+dk);if(!rec)continue;renderHistCard(wrap,rec,'sessions/'+dk,dk,false);}
+  const active=[],trash=[];
+  for(const dk of list){const rec=await sget('sessions/'+dk);if(!rec)continue;(rec.del===true?trash:active).push({rec,key:'sessions/'+dk,dk,isArch:false});}
+  // 활성 기록
+  if(active.length){active.forEach(o=>renderHistCard(wrap,o.rec,o.key,o.dk,o.isArch));}
+  else{const e=document.createElement('div');e.className='empty-state';e.textContent='활성 기록이 없습니다';wrap.appendChild(e);}
+  // 아카이브
   if(alist.length){const sep=document.createElement('div');sep.style.cssText='font-size:13px;font-weight:700;color:var(--gray-400);letter-spacing:1px;margin:20px 4px 12px';sep.textContent='아카이브';wrap.appendChild(sep);for(const ak of alist){const rec=await sget('archives/'+ak);if(!rec)continue;renderHistCard(wrap,rec,'archives/'+ak,ak.slice(0,8),true);}}
+  // 휴지통
+  if(trash.length){
+    const sep=document.createElement('div');
+    sep.style.cssText='display:flex;align-items:center;gap:8px;font-size:13px;font-weight:700;color:var(--gray-500);margin:24px 4px 12px';
+    sep.innerHTML='<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg> 휴지통 ('+trash.length+')';
+    wrap.appendChild(sep);
+    const hint=document.createElement('div');
+    hint.style.cssText='font-size:12px;color:var(--gray-400);margin:0 4px 12px';
+    hint.textContent='복원하거나 영구 삭제할 수 있습니다.';
+    wrap.appendChild(hint);
+    trash.forEach(o=>renderHistCard(wrap,o.rec,o.key,o.dk,o.isArch));
+  }
 }
 function renderHistCard(wrap,rec,key,dk,isArch){
   const isDel=rec.del===true,fin=rec.finished===true,arch=rec.archived===true,expired=(rec.exp||0)<Date.now(),seq=rec.seq||1;
@@ -1593,12 +1640,46 @@ function renderHistCard(wrap,rec,key,dk,isArch){
   const seqL=seq>1?` (${seq}번째)`:'';
   el.innerHTML=`<div class="h-top"><div class="h-date">${fmt(String(dk).slice(0,8))}${seqL}</div><span class="h-badge" style="background:${sb};color:${sc}">${st}</span></div>
     <div class="h-info">${(rec.p||[]).length}명 · 코트 ${rec.ct} · ${rec.r}라운드 · ${rec.gm}게임제</div>
-    <div class="h-actions">${!isDel?`<button class="btn btn-neutral btn-xs" onclick="openScoreEdit('${key}',this)">스코어 ${arch?'확인':'수정'}</button>${!arch?`<button class="btn btn-danger-light btn-xs" onclick="confirmDel('${dk}','${fmt(String(dk).slice(0,8))}')">삭제</button>`:''}`:''}</div>`;
+    <div class="h-actions">${isDel
+      ?`<button class="btn btn-neutral btn-xs" onclick="restoreSession('${dk}')">복원</button><button class="btn btn-danger-light btn-xs" onclick="confirmPurge('${dk}','${fmt(String(dk).slice(0,8))}')">영구삭제</button>`
+      :`<button class="btn btn-neutral btn-xs" onclick="openScoreEdit('${key}',this)">스코어 ${arch?'확인':'수정'}</button>${!arch?`<button class="btn btn-danger-light btn-xs" onclick="confirmDel('${dk}','${fmt(String(dk).slice(0,8))}')">삭제</button>`:''}`}</div>`;
   wrap.appendChild(el);
 }
 let pendingDk=null;
 function confirmDel(dk,label){pendingDk=dk;document.getElementById('delMsg').textContent=`${label} 대진을 삭제합니다. 정회원 화면에서 보이지 않게 됩니다.`;document.getElementById('delConfirmBtn').onclick=doDel;document.getElementById('delModal').classList.add('on');}
-async function doDel(){if(!pendingDk)return;const rec=await sget('sessions/'+pendingDk);if(rec){rec.del=true;await sset('sessions/'+pendingDk,rec);}closeModal('delModal');toast('삭제되었습니다');loadHistory();}
+async function doDel(){if(!pendingDk)return;const rec=await sget('sessions/'+pendingDk);if(rec){rec.del=true;await sset('sessions/'+pendingDk,rec);}closeModal('delModal');toast('휴지통으로 이동했습니다');loadHistory();}
+
+// 휴지통: 복원
+async function restoreSession(dk){
+  const rec=await sget('sessions/'+dk);
+  if(rec){rec.del=false;await sset('sessions/'+dk,rec);toast('복원되었습니다');loadHistory();}
+}
+// 휴지통: 영구삭제 확인 (삭제 모달 재활용)
+function confirmPurge(dk,label){
+  pendingDk=dk;
+  document.getElementById('delModal').querySelector('.modal-title').textContent='영구 삭제';
+  document.getElementById('delMsg').textContent=`${label} 대진을 완전히 삭제합니다. 이 작업은 되돌릴 수 없습니다.`;
+  const btn=document.getElementById('delConfirmBtn');
+  btn.textContent='영구삭제';btn.onclick=doPurge;
+  document.getElementById('delModal').classList.add('on');
+}
+// 휴지통: 영구삭제 실행 (DB + 인덱스에서 제거)
+async function doPurge(){
+  if(!pendingDk)return;
+  // 세션 데이터 삭제
+  await sset('sessions/'+pendingDk,null);
+  // index에서 제거
+  let idx=await sget('index');
+  let list=idx?(Array.isArray(idx)?idx:Object.values(idx)):[];
+  list=list.filter(d=>String(d)!==String(pendingDk));
+  await sset('index',list);
+  // 모달 원복
+  document.getElementById('delModal').querySelector('.modal-title').textContent='대진 삭제';
+  const btn=document.getElementById('delConfirmBtn');btn.textContent='삭제';
+  closeModal('delModal');
+  toast('영구 삭제되었습니다');
+  loadHistory();
+}
 
 // 스코어 수정
 let editKey=null,editSess=null;
@@ -1876,7 +1957,7 @@ function adminPrintPDF(){
   if(!S.bracket.length){toast('대진표를 먼저 생성해주세요');return;}
   const today=dateKey();
   const dateStr=`${today.slice(0,4)}년 ${parseInt(today.slice(4,6))}월 ${parseInt(today.slice(6,8))}일`;
-  const CC2=['#3182f6','#00b493','#f7c244','#f04452','#8b5cf6','#f97316'];
+  const CC2=['#e8845a','#00b493','#f7c244','#f04452','#8b5cf6','#f97316'];
   const CC2bg=['#ebf3fe','#e6f8f5','#fefce8','#fff0f1','#f5f3ff','#fff7ed'];
 
   let html=`<!DOCTYPE html><html lang="ko"><head>
@@ -1886,14 +1967,14 @@ function adminPrintPDF(){
     @import url('https://cdn.jsdelivr.net/gh/orioncactus/pretendard/dist/web/static/pretendard.css');
     *{box-sizing:border-box;margin:0;padding:0}
     body{font-family:'Pretendard',-apple-system,sans-serif;color:#191f28;background:#fff;padding:28px;font-size:14px}
-    .header{display:flex;align-items:center;justify-content:space-between;margin-bottom:24px;padding-bottom:16px;border-bottom:2px solid #3182f6}
+    .header{display:flex;align-items:center;justify-content:space-between;margin-bottom:24px;padding-bottom:16px;border-bottom:2px solid #e8845a}
     .logo{font-size:24px;font-weight:900;letter-spacing:2px}
-    .logo b{color:#3182f6}
+    .logo b{color:#e8845a}
     .date{font-size:15px;color:#6b7684;font-weight:600}
     .info{font-size:13px;color:#8b95a1;margin-top:4px}
     .round{margin-bottom:18px;break-inside:avoid}
     .round-title{font-size:16px;font-weight:800;color:#191f28;margin-bottom:10px;padding:8px 14px;background:#f2f4f6;border-radius:8px;display:flex;align-items:center;justify-content:space-between}
-    .round-badge{font-size:12px;font-weight:700;color:#3182f6;background:#ebf3fe;padding:3px 10px;border-radius:6px}
+    .round-badge{font-size:12px;font-weight:700;color:#e8845a;background:#ebf3fe;padding:3px 10px;border-radius:6px}
     .courts{display:flex;flex-direction:column;gap:8px}
     .court{display:flex;align-items:center;gap:10px;padding:10px 14px;border-radius:10px;border-left:4px solid;flex-wrap:wrap}
     .court-num{font-size:12px;font-weight:700;color:#8b95a1;min-width:44px}
@@ -1919,7 +2000,7 @@ function adminPrintPDF(){
       const col=CC2[ci%CC2.length];
       const bg=CC2bg[ci%CC2bg.length];
       const tp=tpLabels?tpLabels[ci]:'';
-      const tpCol=tp==='남복'?'#3182f6':tp==='여복'?'#f04452':tp==='혼복'?'#00b493':'';
+      const tpCol=tp==='남복'?'#e8845a':tp==='여복'?'#f04452':tp==='혼복'?'#00b493':'';
       const tpBg=tp==='남복'?'#ebf3fe':tp==='여복'?'#fff0f1':tp==='혼복'?'#e6f8f5':'';
       const tpSpan=tp?`<span class="type-badge" style="background:${tpBg};color:${tpCol}">${tp}</span>`:'';
       const pn=ai=>pname(ai);
