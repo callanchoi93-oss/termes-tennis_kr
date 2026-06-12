@@ -786,6 +786,19 @@ function loginOK(name){
   document.getElementById('adminLoginForm')&&(document.getElementById('adminLoginForm').style.display='none');
   document.getElementById('loginScreen').style.display='none';
   enterApp(isSuper?'관리자':name, isSuper);
+  // 접속 기록 (게스트 제외, 정회원만)
+  if(name&&name!=='__super__'&&MEMBERS.includes(name))logAccess(name);
+}
+
+// 접속 기록 저장 (최근 200건 유지)
+async function logAccess(name){
+  try{
+    let log=await sget('access-log');
+    log=Array.isArray(log)?log:[];
+    log.unshift({name,ts:Date.now()});
+    if(log.length>200)log=log.slice(0,200);
+    await sset('access-log',log);
+  }catch(e){}
 }
 function enterApp(label,isAdmin){
   const b=document.getElementById('memberBadge');
