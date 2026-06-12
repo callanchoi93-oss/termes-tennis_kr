@@ -1017,7 +1017,7 @@ async function loadHome(){
 
   // 출석 상세
   html+=`<div style="text-align:center;font-size:12px;color:#9aa0b5;font-weight:500;padding-bottom:14px">
-    화 · 목 기준 (공휴일 제외) — ${att.attended}/${att.total}회 참석
+    화 · 금 기준 (공휴일 제외) — ${att.attended}/${att.total}회 참석
   </div>`;
 
   // ── 3개 스탯 카드 ──
@@ -1093,7 +1093,7 @@ async function calcAttendance(name){
   const d=new Date(year,month,1);
   while(d.getMonth()===month&&d<=now){
     const dow=d.getDay();
-    if(dow===2||dow===4){
+    if(dow===2||dow===5){
       days.push(`${year}${String(month+1).padStart(2,'0')}${String(d.getDate()).padStart(2,'0')}`);
     }
     d.setDate(d.getDate()+1);
