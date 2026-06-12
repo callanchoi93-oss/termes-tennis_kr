@@ -1336,6 +1336,62 @@ function genGenderBracket(n,c,r,ppr,waitSz){
     return best;
   }
 
+  // ── 파트너 중복 보정 (같은 라운드 내 동성 선수 교환) ──
+  function pairCount(){
+    const cnt={};
+    S.bracket.forEach(rd=>rd.courts.forEach(ct=>{
+      cnt[_pkey(ct[0],ct[1])]=(cnt[_pkey(ct[0],ct[1])]||0)+1;
+      cnt[_pkey(ct[2],ct[3])]=(cnt[_pkey(ct[2],ct[3])]||0)+1;
+    }));
+    return cnt;
+  }
+  function maxDup(cnt){const v=Object.values(cnt);return v.length?Math.max(...v):0;}
+  function repairPartnerDup(){
+    for(let pass=0;pass<60;pass++){
+      const cnt=pairCount();
+      if(maxDup(cnt)<2)break;
+      // 2회 이상 중복 쌍 하나 선택
+      let dk=null;
+      for(const[k,v]of Object.entries(cnt))if(v>=2){dk=k;break;}
+      if(!dk)break;
+      const[da,db]=dk.split(',').map(Number);
+      let fixed=false;
+      // 이 쌍이 팀을 이룬 라운드/코트를 찾아 db를 교환
+      for(let ri=0;ri<S.bracket.length&&!fixed;ri++){
+        const rd=S.bracket[ri];
+        for(let ci=0;ci<rd.courts.length&&!fixed;ci++){
+          const ct=rd.courts[ci];
+          // 팀1=(0,1), 팀2=(2,3)
+          let pj=-1;
+          if((ct[0]===da&&ct[1]===db)||(ct[0]===db&&ct[1]===da))pj=(ct[0]===db?0:1);
+          else if((ct[2]===da&&ct[3]===db)||(ct[2]===db&&ct[3]===da))pj=(ct[2]===db?2:3);
+          if(pj<0)continue;
+          // 같은 라운드 다른 코트의 동성 선수와 교환 시도
+          for(let cj=0;cj<rd.courts.length&&!fixed;cj++){
+            if(cj===ci)continue;
+            const oct=rd.courts[cj];
+            for(let oi=0;oi<4;oi++){
+              if(pInfo[oct[oi]].gender!==pInfo[ct[pj]].gender)continue;
+              // 교환
+              const tmp=ct[pj];ct[pj]=oct[oi];oct[oi]=tmp;
+              if(maxDup(pairCount())<maxDup(cnt)){fixed=true;break;}
+              // 개선 없으면 되돌림
+              oct[oi]=ct[pj];ct[pj]=tmp;
+            }
+          }
+        }
+      }
+      if(!fixed)break;
+    }
+    // 보정 후 라벨 재계산
+    S.bracket.forEach(rd=>{
+      rd.courtTypeLabels=rd.courts.map(ct=>{
+        const tl={mens:'남복',mixed:'혼복',ladies:'여복'};
+        return tl[courtType(ct)];
+      });
+    });
+  }
+
   // 코트 타입 라벨 결정
   function courtType(four){
     const m=four.filter(isM).length, f=four.filter(isF).length;
@@ -1386,6 +1442,9 @@ function genGenderBracket(n,c,r,ppr,waitSz){
     const tl={mens:'남복',mixed:'혼복',ladies:'여복'};
     S.bracket.push({courts:cts,wait:wl,courtTypeLabels:tps.map(t=>tl[t])});
   }
+
+  // ── 사후 보정: 파트너 2회 이상 중복 제거 (같은 라운드 내 선수 교환) ──
+  repairPartnerDup();
 
   _partnerCnt=pu;
 
