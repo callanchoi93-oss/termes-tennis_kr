@@ -548,6 +548,22 @@ function getSc(s){return s.sc||{};}
 function pname(s,ai){const p=getP(s),a=s.a||[],pi=a[ai];if(pi===undefined||!p[pi])return `${ai+1}번`;return p[pi].n||p[pi].name||`${ai+1}번`;}
 function countGames(s,ai){let c=0;getB(s).forEach(r=>{if(r.wait.includes(ai))return;r.courts.forEach(ct=>{if(ct&&ct.includes(ai))c++;});});return c;}
 function calcTotals(s){const sc=getSc(s),b=getB(s),t={};b.forEach((r,ri)=>{r.courts.forEach((ct,ci)=>{if(!ct||ct.length<4)return;const sv=sc[`${ri}-${ci}`]||{},s1=parseInt(sv.s1)||0,s2=parseInt(sv.s2)||0;ct.slice(0,2).forEach(ai=>{t[ai]=(t[ai]||0)+s1;});ct.slice(2,4).forEach(ai=>{t[ai]=(t[ai]||0)+s2;});});});return t;}
+
+// 선수별 득점/실점 (전체 세션 1개 기준)
+function calcScoreDiff(s){
+  const sc=getSc(s),b=getB(s),scored={},conceded={};
+  b.forEach((r,ri)=>{
+    r.courts.forEach((ct,ci)=>{
+      if(!ct||ct.length<4)return;
+      const sv=sc[`${ri}-${ci}`]||{},s1=parseInt(sv.s1)||0,s2=parseInt(sv.s2)||0;
+      // 팀1(0,1): 득점 s1, 실점 s2
+      ct.slice(0,2).forEach(ai=>{scored[ai]=(scored[ai]||0)+s1;conceded[ai]=(conceded[ai]||0)+s2;});
+      // 팀2(2,3): 득점 s2, 실점 s1
+      ct.slice(2,4).forEach(ai=>{scored[ai]=(scored[ai]||0)+s2;conceded[ai]=(conceded[ai]||0)+s1;});
+    });
+  });
+  return{scored,conceded};
+}
 function checkDone(s){const b=getB(s),sc=getSc(s);for(let ri=0;ri<b.length;ri++){for(let ci=0;ci<b[ri].courts.length;ci++){const ct=b[ri].courts[ci];if(!ct||ct.length<4)continue;const sv=sc[`${ri}-${ci}`]||{};if(sv.s1===undefined||sv.s1===null||sv.s2===undefined||sv.s2===null)return false;}}return true;}
 
 // ── 이름 실시간 검증 (신규 회원 누구나 가입 가능) ──
@@ -1132,21 +1148,25 @@ async function loadRankBoard(){
     const s=await sget(k);if(!s||s.del)continue;
     const n=getP(s).length;if(!n)continue;
     const pre=getSc(s)._totals||calcTotals(s);
-    const ps=Array.from({length:n},(_,ai)=>({name:pname(s,ai),total:pre[ai]||0,games:countGames(s,ai)})).sort((a,b)=>b.total-a.total);
+    const sd=calcScoreDiff(s);
+    const ps=Array.from({length:n},(_,ai)=>({name:pname(s,ai),total:pre[ai]||0,games:countGames(s,ai),ai})).sort((a,b)=>b.total-a.total);
     let rank=1;
     for(let i=0;i<ps.length;i++){
       if(i>0&&ps[i].total<ps[i-1].total)rank=i+1;
-      const{name,total,games}=ps[i];
+      const{name,total,games,ai}=ps[i];
       if(name&&name.indexOf('번')>=0)continue; // 게스트 제외
-      if(!pm[name])pm[name]={pts:0,days:0,games:0,best:0};
+      if(!pm[name])pm[name]={pts:0,days:0,games:0,best:0,scored:0,conceded:0};
       pm[name].pts+=getRankPts(rank);
       pm[name].days++;
       pm[name].games+=games;
+      pm[name].scored+=(sd.scored[ai]||0);
+      pm[name].conceded+=(sd.conceded[ai]||0);
       if(total>pm[name].best)pm[name].best=total;
     }
   }
 
-  let ranked=Object.entries(pm).map(([n,d])=>({name:n,...d})).sort((a,b)=>b.pts-a.pts);
+  let ranked=Object.entries(pm).map(([n,d])=>({name:n,...d,diff:(d.scored||0)-(d.conceded||0)}))
+    .sort((a,b)=>b.pts-a.pts||b.diff-a.diff||b.games-a.games);
   const myName=me==='__super__'?'':me;
 
   let html=`<div style="min-height:100vh;background:var(--warm-bg,#faf6f2);padding:20px 16px 90px">`;
@@ -1185,26 +1205,32 @@ async function loadRankBoard(){
   }
 
   // ── 컬럼 헤더 ──
-  html+=`<div style="display:flex;align-items:center;padding:0 14px 8px;font-size:10px;font-weight:700;color:#a89b8e;letter-spacing:0.5px">
-    <div style="width:30px">순위</div>
+  html+=`<div style="display:flex;align-items:center;padding:0 12px 8px;font-size:10px;font-weight:700;color:#a89b8e;letter-spacing:0.3px">
+    <div style="width:28px">순위</div>
     <div style="flex:1">이름</div>
-    <div style="width:52px;text-align:center">포인트</div>
-    <div style="width:46px;text-align:center">경기</div>
-    <div style="width:46px;text-align:center">참여일</div>
+    <div style="width:46px;text-align:center">포인트</div>
+    <div style="width:48px;text-align:center">득실차</div>
+    <div style="width:38px;text-align:center">경기</div>
+    <div style="width:40px;text-align:center">참여일</div>
   </div>`;
 
   // ── 전체 순위 리스트 ──
   let dr=1;
   ranked.forEach((p,i)=>{
-    if(i>0&&p.pts<ranked[i-1].pts)dr=i+1;
+    // 포인트+득실차가 모두 같을 때만 공동 순위
+    if(i>0&&!(p.pts===ranked[i-1].pts&&p.diff===ranked[i-1].diff))dr=i+1;
     const isMe=p.name===myName;
     const medalColor=dr===1?'#e8845a':dr===2?'#c4a35a':dr===3?'#cf7a52':'#c4b5a9';
-    html+=`<div onclick="showPlayer('${p.name}',new Date().getFullYear())" style="display:flex;align-items:center;padding:12px 14px;margin-bottom:7px;background:${isMe?'#fdf0ec':'#fff'};border-radius:14px;cursor:pointer;box-shadow:0 2px 8px rgba(120,90,70,0.05);${isMe?'border:1.5px solid #e8845a':''}">
-      <div style="width:30px;font-size:15px;font-weight:800;color:${medalColor}">${dr}</div>
+    const diff=p.diff||0;
+    const diffColor=diff>0?'#16a34a':diff<0?'#d4506a':'#a89b8e';
+    const diffTxt=(diff>0?'+':'')+diff;
+    html+=`<div onclick="showPlayer('${p.name}',new Date().getFullYear())" style="display:flex;align-items:center;padding:12px;margin-bottom:7px;background:${isMe?'#fdf0ec':'#fff'};border-radius:14px;cursor:pointer;box-shadow:0 2px 8px rgba(120,90,70,0.05);${isMe?'border:1.5px solid #e8845a':''}">
+      <div style="width:28px;font-size:15px;font-weight:800;color:${medalColor}">${dr}</div>
       <div style="flex:1;font-size:14px;font-weight:700;color:#3a2e28;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${p.name}${isMe?' <span style="font-size:10px;color:#d4506a">(나)</span>':''}</div>
-      <div style="width:52px;text-align:center"><span style="font-size:15px;font-weight:800;color:#d4506a">${p.pts}</span></div>
-      <div style="width:46px;text-align:center;font-size:13px;font-weight:600;color:#7c6b5e">${p.games}</div>
-      <div style="width:46px;text-align:center;font-size:13px;font-weight:600;color:#7c6b5e">${p.days}</div>
+      <div style="width:46px;text-align:center"><span style="font-size:15px;font-weight:800;color:#d4506a">${p.pts}</span></div>
+      <div style="width:48px;text-align:center"><span style="font-size:13px;font-weight:700;color:${diffColor}">${diffTxt}</span></div>
+      <div style="width:38px;text-align:center;font-size:13px;font-weight:600;color:#7c6b5e">${p.games}</div>
+      <div style="width:40px;text-align:center;font-size:13px;font-weight:600;color:#7c6b5e">${p.days}</div>
     </div>`;
   });
 
@@ -1236,7 +1262,8 @@ async function loadRanking(year){
       if(total>pm[name].best)pm[name].best=total;
     }
   }
-  let ranked=Object.entries(pm).map(([n,d])=>({name:n,...d})).sort((a,b)=>b.pts-a.pts);
+  let ranked=Object.entries(pm).map(([n,d])=>({name:n,...d,diff:(d.scored||0)-(d.conceded||0)}))
+    .sort((a,b)=>b.pts-a.pts||b.diff-a.diff||b.games-a.games);
   if(!ranked.length){el.innerHTML=`<div class="empty">${year}년 기록이 없습니다</div>`;return;}
   let html='';
   if(curGT==='all'&&ranked.length>=3){
