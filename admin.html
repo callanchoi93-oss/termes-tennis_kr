@@ -1309,8 +1309,9 @@ function genGenderBracket(n,c,r,ppr,waitSz){
     const p=S.players[pi];
     let gender=p.isGuest?(p.guestGender||'M'):(genders[p.name]||'M');
     const grade=p.isGuest?(p.guestGrade||'none'):(grades[p.name]||'none');
-    if(gender==='M'&&grade==='C') gender='F';
-    return{name:p.name,gender,grade};
+    const realGender=gender;  // 실제 성별 (라벨용)
+    if(gender==='M'&&grade==='C') gender='F';  // 대진 풀에서만 여성 취급 (혼복 가능)
+    return{name:p.name,gender,grade,realGender};
   });
 
   const lateMap=S.lateArrivals||{};
@@ -1326,7 +1327,9 @@ function genGenderBracket(n,c,r,ppr,waitSz){
   const isM=i=>pInfo[i].gender==='M';
   const isF=i=>pInfo[i].gender==='F';
   const GAMES=4;                 // 1인당 정확히 4게임
+  const MENS_TARGET=2;           // 남성 1인당 남복 최소 게임 수
   const gameSoFar=Array(n).fill(0);
+  const mensGames=Array(n).fill(0);  // 각자 남복 게임 수
 
   S.bracket=[];
 
@@ -1352,7 +1355,13 @@ function genGenderBracket(n,c,r,ppr,waitSz){
     // A↔C 같은 코트 소프트 페널티
     const gscores=four.map(x=>gradeScore(pInfo[x].grade));
     const acPenalty=(Math.max(...gscores)-Math.min(...gscores)>=2)?500:0;
-    return splitCourt(four).cost+acPenalty;
+    // 남복 우선: 실제 남성 4명 코트이고 남복 목표 미달자가 있으면 비용 감소(보너스)
+    let mensBonus=0;
+    const realMaleCnt=four.filter(x=>pInfo[x].realGender==='M').length;
+    if(realMaleCnt===4){
+      four.forEach(x=>{if(mensGames[x]<MENS_TARGET)mensBonus-=3000;});
+    }
+    return splitCourt(four).cost+acPenalty+mensBonus;
   }
 
   // 한 라운드: 주어진 인원(멀티플of4)을 코트로 묶기 (best-of-N)
@@ -1430,7 +1439,9 @@ function genGenderBracket(n,c,r,ppr,waitSz){
 
   // 코트 타입 라벨 결정
   function courtType(four){
-    const m=four.filter(isM).length, f=four.filter(isF).length;
+    // 실제 성별 기준 라벨 (C 남성은 남자로 카운트)
+    const m=four.filter(x=>pInfo[x].realGender==='M').length;
+    const f=four.filter(x=>pInfo[x].realGender==='F').length;
     if(m===4)return'mens';
     if(f===4)return'ladies';
     return'mixed';
@@ -1467,8 +1478,9 @@ function genGenderBracket(n,c,r,ppr,waitSz){
       sp.t1.forEach(x=>sp.t2.forEach(y=>{ou[_pkey(x,y)]=(ou[_pkey(x,y)]||0)+1;}));
       // 코트 순서를 팀1+팀2로 재배열 (점수입력 일관성)
       ct.length=0;ct.push(sp.t1[0],sp.t1[1],sp.t2[0],sp.t2[1]);
-      tps.push(courtType(ct));
-      ct.forEach(x=>gameSoFar[x]++);
+      const ctType=courtType(ct);
+      tps.push(ctType);
+      ct.forEach(x=>{gameSoFar[x]++;if(ctType==='mens')mensGames[x]++;});
     });
 
     // 이번 라운드 대기자
