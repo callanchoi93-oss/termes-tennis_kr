@@ -836,10 +836,11 @@ async function resetGrades(){
 function calcOptimal(){
   const n=parseInt(document.getElementById('playerN').value)||18;
   const c=parseInt(document.getElementById('courtN').value)||3;
-  const p=c*4;
-  // 무조건 1인당 4게임 보장 → 필요한 라운드 수 = ceil(n*4 / (c*4)) = ceil(n/c)
   const games=4;
-  const r=Math.ceil(n*games/p);
+  // 실제 동시 사용 코트 = min(코트수, floor(인원/4))
+  const actualCourts=Math.max(1,Math.min(c,Math.floor(n/4)));
+  // 1인당 정확히 4게임 → 라운드 = ceil(인원*4 / (실제코트*4))
+  const r=Math.ceil(n*games/(actualCourts*4));
   document.getElementById('roundN').value=r;
   document.getElementById('roundHint').textContent=`${r}라운드 · 1인당 ${games}게임 보장`;
 }
@@ -1280,202 +1281,119 @@ function genGenderBracket(n,c,r,ppr,waitSz){
   const startRound=Array(n).fill(0);
   Object.entries(lateMap).forEach(([ri,pl])=>{pl.forEach(pi=>{if(pi<n)startRound[pi]=parseInt(ri);});});
 
-  const mab=Array.from({length:n},(_,i)=>i).filter(i=>pInfo[i].gender==='M');
-  const fem=Array.from({length:n},(_,i)=>i).filter(i=>pInfo[i].gender==='F');
-  const nm=mab.length;
-
-  // ── 라운드 타입 결정 ──
-  // 남복라운드(M): 남nm명+여(ppr-nm)명 → 혼복2+남복1
-  // 여복라운드(L): 남(nm//2)명+여(ppr-nm//2)명 → 혼복2+여복1
-  // nm*4게임 목표: nM*nm + nL*(nm/2) = nm*4, nM+nL=r
-  const nM=Math.max(0,Math.round((nm*4-(nm/2)*r)/(nm-nm/2)));
-  const nL=r-nM;
-  const rtArr=[...Array(nM).fill('M'),...Array(nL).fill('L')];
-  // 셔플
-  for(let i=rtArr.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[rtArr[i],rtArr[j]]=[rtArr[j],rtArr[i]];}
-
-  // ── 여복라운드별 참가 남성 순환 배정 ──
-  const ladiesRounds=rtArr.map((t,i)=>t==='L'?i:-1).filter(i=>i>=0);
-  const mensRounds=rtArr.map((t,i)=>t==='M'?i:-1).filter(i=>i>=0);
-  const mabS=shuffle(mab); const half=Math.floor(nm/2);
-  const maleInLadies={};
-  ladiesRounds.forEach((ri,idx)=>{
-    maleInLadies[ri]=[];
-    for(let k=0;k<half;k++) maleInLadies[ri].push(mabS[(idx*half+k)%nm]);
-  });
-
-  // ── 남성 혼복 라운드 배정 (각 1번) ──
-  const mmr=Object.fromEntries(mab.map(i=>[i,-1]));
-  ladiesRounds.forEach(ri=>{
-    (maleInLadies[ri]||[]).forEach(i=>{if(mmr[i]===-1)mmr[i]=ri;});
-  });
-  const unassigned=mab.filter(i=>mmr[i]===-1);
-  mensRounds.forEach((ri,idx)=>{
-    unassigned.slice(idx*half,(idx+1)*half).forEach(i=>mmr[i]=ri);
-  });
-  mab.forEach(i=>{if(mmr[i]===-1)mmr[i]=(mensRounds[0]??ladiesRounds[0]??0);});
-
-  // ── 대기 스케줄 ──
-  const gameSoFar=Array(n).fill(0);
-  const waitSched=[];
-  rtArr.forEach((rt,ri)=>{
-    if(rt==='M'){
-      const nF=ppr-nm;
-      const fPlay=[...fem].sort((a,b)=>gameSoFar[a]-gameSoFar[b]).slice(0,nF);
-      const wl=fem.filter(i=>!fPlay.includes(i));
-      waitSched.push(wl);
-      [...mab,...fPlay].forEach(i=>gameSoFar[i]++);
-    } else {
-      let mPlay=[...(maleInLadies[ri]||[])];
-      if(mPlay.length<half){
-        const extra=mab.filter(i=>!mPlay.includes(i)).sort((a,b)=>gameSoFar[a]-gameSoFar[b]);
-        mPlay=[...mPlay,...extra.slice(0,half-mPlay.length)];
-      }
-      mPlay=mPlay.slice(0,half);
-      const wl=mab.filter(i=>!mPlay.includes(i));
-      waitSched.push(wl);
-      [...mPlay,...fem].forEach(i=>gameSoFar[i]++);
-    }
-  });
-
-  // ── 파트너 추적 ──
-  const pu={};
+  // ── 파트너/상대 추적 ──
+  const pu={};   // 파트너(같은 팀) 만남 횟수
+  const ou={};   // 상대(다른 팀) 만남 횟수
   function pc(a,b){return pu[_pkey(a,b)]||0;}
-  const ou={};  // 상대(다른 팀) 만남 추적
   function oc(a,b){return ou[_pkey(a,b)]||0;}
-  // 코트(4명)에서 두 팀으로 나눌 때, 상대 중복까지 고려한 최적 분할 비용
-  function teamCost(a,b2,c2,d){
-    return (pc(a,b2)+pc(c2,d))*1000 + (oc(a,c2)+oc(a,d)+oc(b2,c2)+oc(b2,d))*30;
+
+  const isM=i=>pInfo[i].gender==='M';
+  const isF=i=>pInfo[i].gender==='F';
+  const GAMES=4;                 // 1인당 정확히 4게임
+  const gameSoFar=Array(n).fill(0);
+
+  S.bracket=[];
+
+  // 코트(4명)를 두 팀으로 나눌 최적 분할 + 비용
+  function splitCourt(four){
+    const opts=[[[four[0],four[1]],[four[2],four[3]]],
+                [[four[0],four[2]],[four[1],four[3]]],
+                [[four[0],four[3]],[four[1],four[2]]]];
+    let best=null,bs=Infinity;
+    for(const[[a,b],[d,e]]of opts){
+      // 파트너 제곱 페널티 + A↔C 같은 팀 회피 + 팀 밸런스
+      const pCost=Math.pow(pc(a,b)+1,2)*1000+Math.pow(pc(d,e)+1,2)*1000;
+      const oCost=(oc(a,d)+oc(a,e)+oc(b,d)+oc(b,e));
+      const bal=Math.abs((gradeScore(pInfo[a].grade)+gradeScore(pInfo[b].grade))-(gradeScore(pInfo[d].grade)+gradeScore(pInfo[e].grade)));
+      const sc=pCost+oCost*10+bal;
+      if(sc<bs){bs=sc;best={t1:[a,b],t2:[d,e],cost:sc};}
+    }
+    return best;
   }
 
-  // ── 라운드별 코트 배정 ──
-  function getComb(arr,k){
-    if(k===0)return[[]];if(!arr.length)return[];
-    const[f,...rest]=arr;
-    return[...getComb(rest,k-1).map(c=>[f,...c]),...getComb(rest,k)];
+  // 4명 그룹의 "코트 비용" (이 4명을 한 코트에 묶는 비용)
+  function courtCost(four){
+    // A↔C 같은 코트 소프트 페널티
+    const gscores=four.map(x=>gradeScore(pInfo[x].grade));
+    const acPenalty=(Math.max(...gscores)-Math.min(...gscores)>=2)?500:0;
+    return splitCourt(four).cost+acPenalty;
   }
 
-  rtArr.forEach((rt,ri)=>{
-    const ws=new Set(waitSched[ri]);
-    const playing=Array.from({length:n},(_,i)=>i).filter(i=>!ws.has(i)&&startRound[i]<=ri);
-    const rMab=mab.filter(i=>playing.includes(i));
-    const rFem=fem.filter(i=>playing.includes(i));
-    const mixM=rMab.filter(i=>mmr[i]===ri);
-    const menM=rMab.filter(i=>mmr[i]!==ri);
-
-    let bestCts=null,bestTps=null,bestSc=Infinity;
-
-    for(let att=0;att<300;att++){
-      const used=new Set();const cts=[];const tps=[];
-      const wm=shuffle(mixM),wf=shuffle(rFem),wme=shuffle(menM);
-
-      // 혼복
-      for(let _=0;_<Math.min(Math.floor(wm.length/2),Math.floor(wf.length/2));_++){
-        const fm=wm.filter(i=>!used.has(i)),ff=wf.filter(i=>!used.has(i));
-        if(fm.length<2||ff.length<2)break;
-        let bp=null,bs=Infinity;
-        for(const[m0,m1]of getComb(fm.slice(0,4),2))for(const[f0,f1]of getComb(ff.slice(0,4),2))for(const[fa,fb]of[[f0,f1],[f1,f0]]){
-          const mx=Math.max(pc(m0,fa),pc(m1,fb)),su=pc(m0,fa)+pc(m1,fb);
-          const oppD=(oc(m0,m1)+oc(m0,fb)+oc(fa,m1)+oc(fa,fb))*30;
-          const bal=Math.abs((gradeScore(pInfo[m0].grade)+gradeScore(pInfo[fa].grade))-(gradeScore(pInfo[m1].grade)+gradeScore(pInfo[fb].grade)));
-          const ac=(Math.abs(gradeScore(pInfo[m0].grade)-gradeScore(pInfo[fa].grade))>=2?1:0)+(Math.abs(gradeScore(pInfo[m1].grade)-gradeScore(pInfo[fb].grade))>=2?1:0);
-          const sc=mx*10000+su*100+oppD+bal-ac;
-          if(sc<bs){bs=sc;bp=[m0,fa,m1,fb];}
-        }
-        if(bp){cts.push(bp);tps.push('mixed');bp.forEach(x=>used.add(x));}
-      }
-
-      // 남복/여복 (남복 우선, 코트 부족 시 혼복/여복 추가)
-      while(cts.length<c){
-        const fm=wme.filter(i=>!used.has(i)),ff=rFem.filter(i=>!used.has(i)),av=playing.filter(i=>!used.has(i));
-        const allM=av.filter(i=>pInfo[i].gender==='M');
-        if(fm.length>=4){
-          let bt=null,bs=Infinity;
-          for(const g4 of getComb(fm.slice(0,6),4).slice(0,15)){
-            // A↔C 같은 코트 페널티 (불가피 시 허용 - 소프트 제약)
-            const gscores=g4.map(x=>gradeScore(pInfo[x].grade));
-            const acPenalty=(Math.max(...gscores)-Math.min(...gscores)>=2)?5000:0;
-            for(const[[a,b2],[c2,d]]of[[[g4[0],g4[1]],[g4[2],g4[3]]],[[g4[0],g4[2]],[g4[1],g4[3]]],[[g4[0],g4[3]],[g4[1],g4[2]]]]){
-              const oppDup=(oc(a,c2)+oc(a,d)+oc(b2,c2)+oc(b2,d));
-              const sc=Math.max(pc(a,b2),pc(c2,d))*10000+acPenalty+(pc(a,b2)+pc(c2,d))*100+oppDup*30+Math.abs((gradeScore(pInfo[a].grade)+gradeScore(pInfo[b2].grade))-(gradeScore(pInfo[c2].grade)+gradeScore(pInfo[d].grade)));
-              if(sc<bs){bs=sc;bt=[a,b2,c2,d];}
-            }
-          }
-          if(bt){cts.push(bt);tps.push('mens');bt.forEach(x=>used.add(x));}
-          else if(allM.length>=2&&ff.length>=2){
-            let bp=null,bs2=Infinity;
-            for(const[m0,m1]of getComb(allM.slice(0,4),2))for(const[f0,f1]of getComb(ff.slice(0,4),2))for(const[fa,fb]of[[f0,f1],[f1,f0]]){
-              const sc=Math.max(pc(m0,fa),pc(m1,fb))*10000+(pc(m0,fa)+pc(m1,fb))*100+(oc(m0,m1)+oc(m0,fb)+oc(fa,m1)+oc(fa,fb))*30+Math.abs((gradeScore(pInfo[m0].grade)+gradeScore(pInfo[fa].grade))-(gradeScore(pInfo[m1].grade)+gradeScore(pInfo[fb].grade)));
-              if(sc<bs2){bs2=sc;bp=[m0,fa,m1,fb];}
-            }
-            if(bp){cts.push(bp);tps.push('mixed');bp.forEach(x=>used.add(x));}else break;
-          }else break;
-        }else if(allM.length>=2&&ff.length>=2){
-          let bp=null,bs=Infinity;
-          for(const[m0,m1]of getComb(allM.slice(0,4),2))for(const[f0,f1]of getComb(ff.slice(0,4),2))for(const[fa,fb]of[[f0,f1],[f1,f0]]){
-            const mx=Math.max(pc(m0,fa),pc(m1,fb)),su=pc(m0,fa)+pc(m1,fb);
-            const oppD=(oc(m0,m1)+oc(m0,fb)+oc(fa,m1)+oc(fa,fb))*30;
-            const bal=Math.abs((gradeScore(pInfo[m0].grade)+gradeScore(pInfo[fa].grade))-(gradeScore(pInfo[m1].grade)+gradeScore(pInfo[fb].grade)));
-            const ac=(Math.abs(gradeScore(pInfo[m0].grade)-gradeScore(pInfo[fa].grade))>=2?1:0)+(Math.abs(gradeScore(pInfo[m1].grade)-gradeScore(pInfo[fb].grade))>=2?1:0);
-            const sc=mx*10000+su*100+oppD+bal-ac;
-            if(sc<bs){bs=sc;bp=[m0,fa,m1,fb];}
-          }
-          if(bp){cts.push(bp);tps.push('mixed');bp.forEach(x=>used.add(x));}
-          else if(ff.length>=4){
-            let bt=null,bs2=Infinity;
-            for(const g4 of getComb(ff.slice(0,4),4).slice(0,3))for(const[[a,b2],[c2,d]]of[[[g4[0],g4[1]],[g4[2],g4[3]]],[[g4[0],g4[2]],[g4[1],g4[3]]],[[g4[0],g4[3]],[g4[1],g4[2]]]]){
-              const sc=Math.max(pc(a,b2),pc(c2,d))*10000+(pc(a,b2)+pc(c2,d))*100;
-              if(sc<bs2){bs2=sc;bt=[a,b2,c2,d];}
-            }
-            if(bt){cts.push(bt);tps.push('ladies');bt.forEach(x=>used.add(x));}else break;
-          }else break;
-        }else if(ff.length>=4){
-          let bt=null,bs=Infinity;
-          for(const g4 of getComb(ff.slice(0,4),4).slice(0,3))for(const[[a,b2],[c2,d]]of[[[g4[0],g4[1]],[g4[2],g4[3]]],[[g4[0],g4[2]],[g4[1],g4[3]]],[[g4[0],g4[3]],[g4[1],g4[2]]]]){
-            const sc=Math.max(pc(a,b2),pc(c2,d))*10000+(pc(a,b2)+pc(c2,d))*100;
-            if(sc<bs){bs=sc;bt=[a,b2,c2,d];}
-          }
-          if(bt){cts.push(bt);tps.push('ladies');bt.forEach(x=>used.add(x));}else break;
-        }else if(av.length>=4){
-          const am=av.filter(i=>pInfo[i].gender==='M'),af=av.filter(i=>pInfo[i].gender==='F');
-          let ct,tp;
-          if(am.length>=2&&af.length>=2){ct=[am[0],af[0],am[1],af[1]];tp='mixed';}
-          else if(am.length>=4){ct=am.slice(0,4);tp='mens';}
-          else{ct=av.slice(0,4);tp='mixed';}
-          cts.push(ct);tps.push(tp);ct.forEach(x=>used.add(x));
-        }else break;
-      }
-
-      if(cts.length===c&&new Set(cts.flat()).size===playing.length){
-        const sc=(cts.length?Math.max(...cts.map(ct=>Math.max(pc(ct[0],ct[1]),pc(ct[2],ct[3])))):0)*10000+cts.reduce((s,ct)=>s+pc(ct[0],ct[1])+pc(ct[2],ct[3]),0);
-        if(sc<bestSc){bestSc=sc;bestCts=cts;bestTps=tps;}
-        if(bestSc===0)break;
-      }
+  // 한 라운드: 주어진 인원(멀티플of4)을 코트로 묶기 (best-of-N)
+  function buildRound(playing){
+    const cnum=Math.floor(playing.length/4);
+    if(cnum<1)return null;
+    let best=null,bestSc=Infinity;
+    for(let att=0;att<120;att++){
+      const sp=shuffle(playing);
+      const cts=[];
+      for(let k=0;k<cnum;k++)cts.push(sp.slice(k*4,k*4+4));
+      let sc=0;
+      for(const ct of cts)sc+=courtCost(ct);
+      if(sc<bestSc){bestSc=sc;best=cts;}
+      if(bestSc===0)break;
     }
+    return best;
+  }
 
-    if(!bestCts){
-      bestCts=[];bestTps=[];const u2=new Set();
-      for(let ci=0;ci<c;ci++){const av=playing.filter(i=>!u2.has(i));if(av.length>=4){bestCts.push(av.slice(0,4));bestTps.push('mixed');av.slice(0,4).forEach(x=>u2.add(x));}}
+  // 코트 타입 라벨 결정
+  function courtType(four){
+    const m=four.filter(isM).length, f=four.filter(isF).length;
+    if(m===4)return'mens';
+    if(f===4)return'ladies';
+    return'mixed';
+  }
+
+  // ── 라운드별 배정 ──
+  for(let ri=0;ri<r;ri++){
+    // 아직 4게임 못 채운 + 도착한 사람
+    const elig=Array.from({length:n},(_,i)=>i).filter(i=>gameSoFar[i]<GAMES&&startRound[i]<=ri);
+    // 게임 적게 한 순(공평) + 약간 랜덤
+    elig.sort((a,b)=>gameSoFar[a]-gameSoFar[b]||Math.random()-0.5);
+    // 이번 라운드 실제 게임 가능 코트 수
+    const cnum=Math.min(c,Math.floor(elig.length/4));
+    if(cnum<1){
+      // 남은 인원 4명 미만 → 빈 라운드 없이 종료
+      break;
     }
+    const need=cnum*4;
+    // 혼복 우선 배정을 위해: 성비 맞춰 선발
+    // 기본: 게임 적은 순 need명
+    let playing=elig.slice(0,need);
 
-    bestCts.forEach(ct=>{
-      // 파트너 기록: 팀1=(0,1), 팀2=(2,3)
-      pu[_pkey(ct[0],ct[1])]=(pu[_pkey(ct[0],ct[1])]||0)+1;
-      pu[_pkey(ct[2],ct[3])]=(pu[_pkey(ct[2],ct[3])]||0)+1;
-      // 상대 기록: 팀1 각자 ↔ 팀2 각자
-      [ct[0],ct[1]].forEach(x=>[ct[2],ct[3]].forEach(y=>{
-        ou[_pkey(x,y)]=(ou[_pkey(x,y)]||0)+1;
-      }));
+    // 성별 균형: 가능하면 혼복이 나오도록, 남녀 섞기
+    // (남성만/여성만이면 자동으로 남복/여복)
+    const cts=buildRound(playing);
+    if(!cts){break;}
+
+    const tps=[];
+    cts.forEach(ct=>{
+      const sp=splitCourt(ct);
+      // 기록
+      pu[_pkey(sp.t1[0],sp.t1[1])]=(pu[_pkey(sp.t1[0],sp.t1[1])]||0)+1;
+      pu[_pkey(sp.t2[0],sp.t2[1])]=(pu[_pkey(sp.t2[0],sp.t2[1])]||0)+1;
+      sp.t1.forEach(x=>sp.t2.forEach(y=>{ou[_pkey(x,y)]=(ou[_pkey(x,y)]||0)+1;}));
+      // 코트 순서를 팀1+팀2로 재배열 (점수입력 일관성)
+      ct.length=0;ct.push(sp.t1[0],sp.t1[1],sp.t2[0],sp.t2[1]);
+      tps.push(courtType(ct));
+      ct.forEach(x=>gameSoFar[x]++);
     });
 
+    // 이번 라운드 대기자
+    const playingSet=new Set(cts.flat());
+    const wl=Array.from({length:n},(_,i)=>i).filter(i=>startRound[i]<=ri&&!playingSet.has(i));
+
     const tl={mens:'남복',mixed:'혼복',ladies:'여복'};
-    S.bracket.push({courts:bestCts,wait:[...ws],courtTypeLabels:bestTps.map(t=>tl[t])});
-  });
+    S.bracket.push({courts:cts,wait:wl,courtTypeLabels:tps.map(t=>tl[t])});
+  }
+
+  _partnerCnt=pu;
 
   renderBracketGender();
   document.getElementById('pubBtnWrap').style.display='block';
   const md=Object.values(pu).length?Math.max(...Object.values(pu)):0;
-  toast(`성별 대진표 생성 완료 · 파트너 최대 ${md}회 중복`);
+  const mo=Object.values(ou).length?Math.max(...Object.values(ou)):0;
+  toast(`대진표 생성 완료 · 파트너 최대 ${md}회 · 상대 최대 ${mo}회 중복`);
   goTab('bracket',document.querySelectorAll('.tn')[4]);
 }
 
