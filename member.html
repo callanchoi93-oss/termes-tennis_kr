@@ -1178,16 +1178,27 @@ async function loadRankBoard(){
     }
   }
 
-  let ranked=Object.entries(pm).map(([n,d])=>({name:n,...d,diff:(d.scored||0)-(d.conceded||0)}))
-    .sort((a,b)=>b.pts-a.pts||b.diff-a.diff||b.games-a.games);
+  let all=Object.entries(pm).map(([n,d])=>({
+    name:n,...d,
+    diff:(d.scored||0)-(d.conceded||0),
+    avg:d.days>0?Math.round((d.pts/d.days)*10)/10:0   // 평균 포인트 (실제 반영 포인트)
+  }));
+  // 참여 조건 없이 전원 집계
+  let ranked=all.sort((a,b)=>b.avg-a.avg||b.diff-a.diff||b.days-a.days);
+  let pending=[];
   const myName=me==='__super__'?'':me;
 
   let html=`<div style="min-height:100vh;background:var(--warm-bg,#faf6f2);padding:20px 16px 90px">`;
 
   // 헤더
   html+=`<div style="text-align:center;margin-bottom:6px">
-    <div style="font-size:22px;font-weight:800;color:#3a2e28;letter-spacing:-0.3px">전체 순위</div>
-    <div style="font-size:12px;color:#a89b8e;font-weight:500;margin-top:3px">누적 포인트 기준 · 전체 기간</div>
+    <div style="display:flex;align-items:center;justify-content:center;gap:6px">
+      <div style="font-size:22px;font-weight:800;color:#3a2e28;letter-spacing:-0.3px">전체 순위</div>
+      <button onclick="showRankInfo()" style="background:none;border:none;cursor:pointer;padding:2px;display:flex;align-items:center" aria-label="순위 설명">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#a89b8e" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
+      </button>
+    </div>
+    <div style="font-size:12px;color:#a89b8e;font-weight:500;margin-top:3px">평균 포인트 기준 · 전체 기간</div>
   </div>`;
 
   if(!ranked.length){
@@ -1207,8 +1218,8 @@ async function loadRankBoard(){
       const isMe=p.name===myName;
       html+=`<div onclick="showPlayer('${p.name}',new Date().getFullYear())" style="flex:1;max-width:100px;cursor:pointer;text-align:center">
         <div style="font-size:13px;font-weight:800;color:${isMe?'#d4506a':'#3a2e28'};margin-bottom:4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${p.name}${isMe?' (나)':''}</div>
-        <div style="font-size:18px;font-weight:900;color:${podColors[oi]};line-height:1">${p.pts}</div>
-        <div style="font-size:9px;color:#a89b8e;font-weight:600;margin-bottom:6px">PTS</div>
+        <div style="font-size:18px;font-weight:900;color:${podColors[oi]};line-height:1">${p.avg}</div>
+        <div style="font-size:9px;color:#a89b8e;font-weight:600;margin-bottom:6px">평균</div>
         <div style="height:${heights[oi]}px;border-radius:14px 14px 0 0;background:linear-gradient(180deg,${podColors[oi]},${podColors[oi]}cc);display:flex;align-items:flex-start;justify-content:center;padding-top:8px">
           <span style="font-size:20px;font-weight:900;color:#fff">${medal}</span>
         </div>
@@ -1219,36 +1230,91 @@ async function loadRankBoard(){
 
   // ── 컬럼 헤더 ──
   html+=`<div style="display:flex;align-items:center;padding:0 12px 8px;font-size:10px;font-weight:700;color:#a89b8e;letter-spacing:0.3px">
-    <div style="width:28px">순위</div>
+    <div style="width:26px">순위</div>
     <div style="flex:1">이름</div>
-    <div style="width:46px;text-align:center">포인트</div>
-    <div style="width:48px;text-align:center">득실차</div>
-    <div style="width:38px;text-align:center">경기</div>
-    <div style="width:40px;text-align:center">참여일</div>
+    <div style="width:46px;text-align:center">평균</div>
+    <div style="width:44px;text-align:center">득실차</div>
+    <div style="width:42px;text-align:center">누적</div>
+    <div style="width:38px;text-align:center">참여</div>
   </div>`;
 
   // ── 전체 순위 리스트 ──
   let dr=1;
   ranked.forEach((p,i)=>{
-    // 포인트+득실차가 모두 같을 때만 공동 순위
-    if(i>0&&!(p.pts===ranked[i-1].pts&&p.diff===ranked[i-1].diff))dr=i+1;
+    // 평균+득실차가 모두 같을 때만 공동 순위
+    if(i>0&&!(p.avg===ranked[i-1].avg&&p.diff===ranked[i-1].diff))dr=i+1;
     const isMe=p.name===myName;
     const medalColor=dr===1?'#e8845a':dr===2?'#c4a35a':dr===3?'#cf7a52':'#c4b5a9';
     const diff=p.diff||0;
     const diffColor=diff>0?'#16a34a':diff<0?'#d4506a':'#a89b8e';
     const diffTxt=(diff>0?'+':'')+diff;
     html+=`<div onclick="showPlayer('${p.name}',new Date().getFullYear())" style="display:flex;align-items:center;padding:12px;margin-bottom:7px;background:${isMe?'#fdf0ec':'#fff'};border-radius:14px;cursor:pointer;box-shadow:0 2px 8px rgba(120,90,70,0.05);${isMe?'border:1.5px solid #e8845a':''}">
-      <div style="width:28px;font-size:15px;font-weight:800;color:${medalColor}">${dr}</div>
+      <div style="width:26px;font-size:15px;font-weight:800;color:${medalColor}">${dr}</div>
       <div style="flex:1;font-size:14px;font-weight:700;color:#3a2e28;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${p.name}${isMe?' <span style="font-size:10px;color:#d4506a">(나)</span>':''}</div>
-      <div style="width:46px;text-align:center"><span style="font-size:15px;font-weight:800;color:#d4506a">${p.pts}</span></div>
-      <div style="width:48px;text-align:center"><span style="font-size:13px;font-weight:700;color:${diffColor}">${diffTxt}</span></div>
-      <div style="width:38px;text-align:center;font-size:13px;font-weight:600;color:#7c6b5e">${p.games}</div>
-      <div style="width:40px;text-align:center;font-size:13px;font-weight:600;color:#7c6b5e">${p.days}</div>
+      <div style="width:46px;text-align:center"><span style="font-size:15px;font-weight:800;color:#d4506a">${p.avg}</span></div>
+      <div style="width:44px;text-align:center"><span style="font-size:13px;font-weight:700;color:${diffColor}">${diffTxt}</span></div>
+      <div style="width:42px;text-align:center;font-size:12px;font-weight:600;color:#a89b8e">${p.pts}</div>
+      <div style="width:38px;text-align:center;font-size:13px;font-weight:600;color:#7c6b5e">${p.days}</div>
     </div>`;
   });
 
+  // ── 집계 대기 (5회 미만) ──
+  if(pending.length){
+    html+=`<div style="margin:22px 4px 10px;font-size:13px;font-weight:700;color:#a89b8e">집계 대기 · 5회 미만 참여</div>`;
+    pending.forEach(p=>{
+      const isMe=p.name===myName;
+      const diff=p.diff||0;
+      const diffColor=diff>0?'#16a34a':diff<0?'#d4506a':'#a89b8e';
+      const diffTxt=(diff>0?'+':'')+diff;
+      html+=`<div onclick="showPlayer('${p.name}',new Date().getFullYear())" style="display:flex;align-items:center;padding:12px;margin-bottom:7px;background:${isMe?'#fdf0ec':'#faf6f2'};border-radius:14px;cursor:pointer;opacity:0.85;${isMe?'border:1.5px solid #e8845a':'border:1px solid #f0ebe7'}">
+        <div style="width:26px;font-size:12px;font-weight:700;color:#c4b5a9">—</div>
+        <div style="flex:1;font-size:14px;font-weight:700;color:#7c6b5e;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${p.name}${isMe?' <span style="font-size:10px;color:#d4506a">(나)</span>':''}</div>
+        <div style="width:46px;text-align:center"><span style="font-size:14px;font-weight:800;color:#a89b8e">${p.avg}</span></div>
+        <div style="width:44px;text-align:center"><span style="font-size:13px;font-weight:700;color:${diffColor}">${diffTxt}</span></div>
+        <div style="width:42px;text-align:center;font-size:12px;font-weight:600;color:#c4b5a9">${p.pts}</div>
+        <div style="width:38px;text-align:center;font-size:13px;font-weight:700;color:#d4506a">${p.days}/5</div>
+      </div>`;
+    });
+  }
+
   html+=`</div>`;
   wrap.innerHTML=html;
+}
+
+// 순위 설명 팝업
+function showRankInfo(){
+  let ov=document.getElementById('rankInfoOverlay');
+  if(!ov){
+    ov=document.createElement('div');
+    ov.id='rankInfoOverlay';
+    ov.style.cssText='position:fixed;inset:0;background:rgba(45,31,26,0.45);z-index:9999;display:flex;align-items:flex-end;justify-content:center';
+    ov.onclick=(e)=>{if(e.target===ov)ov.remove();};
+    document.body.appendChild(ov);
+  }
+  ov.innerHTML=`
+    <div style="background:#fff;width:100%;max-width:480px;border-radius:22px 22px 0 0;padding:24px 20px calc(24px + env(safe-area-inset-bottom,0));max-height:80vh;overflow-y:auto">
+      <div style="width:40px;height:4px;background:#e5e0db;border-radius:2px;margin:0 auto 18px"></div>
+      <div style="font-size:19px;font-weight:800;color:#3a2e28;margin-bottom:16px">순위는 어떻게 정해지나요?</div>
+
+      <div style="background:#fdf0ec;border-radius:14px;padding:14px 16px;margin-bottom:16px">
+        <div style="font-size:14px;font-weight:700;color:#d4506a;margin-bottom:6px">평균 포인트 = 누적 포인트 ÷ 참여 횟수</div>
+        <div style="font-size:13px;color:#7c6b5e;line-height:1.6">많이 나오신 분과 가끔 나오신 분을 공평하게 비교하기 위해, <b>한 번 참여할 때 평균 몇 점을 얻었는지</b>로 순위를 매깁니다.</div>
+      </div>
+
+      <div style="font-size:14px;font-weight:700;color:#3a2e28;margin-bottom:8px">매 모임 포인트 부여</div>
+      <div style="font-size:13px;color:#7c6b5e;line-height:1.7;margin-bottom:16px">
+        그날 모임의 승수(이긴 횟수) 순위에 따라 포인트를 받습니다.<br>
+        🥇 1위 <b>100점</b> · 2위 80점 · 3위 60점<br>
+        4위 40점 · 5위 20점 · 6위 이하 10점
+      </div>
+
+      <div style="font-size:14px;font-weight:700;color:#3a2e28;margin-bottom:8px">동점일 때</div>
+      <div style="font-size:13px;color:#7c6b5e;line-height:1.7;margin-bottom:16px">
+        평균 포인트가 같으면 <b>득실차</b>(총 득점−총 실점)가 높은 분이 위로 올라갑니다.
+      </div>
+
+      <button onclick="document.getElementById('rankInfoOverlay').remove()" style="width:100%;background:#e8845a;color:#fff;border:none;border-radius:13px;padding:14px;font-size:15px;font-weight:700;font-family:inherit;cursor:pointer">이해했어요</button>
+    </div>`;
 }
 
 async function loadRanking(year){
@@ -1275,8 +1341,14 @@ async function loadRanking(year){
       if(total>pm[name].best)pm[name].best=total;
     }
   }
-  let ranked=Object.entries(pm).map(([n,d])=>({name:n,...d,diff:(d.scored||0)-(d.conceded||0)}))
-    .sort((a,b)=>b.pts-a.pts||b.diff-a.diff||b.games-a.games);
+  let all=Object.entries(pm).map(([n,d])=>({
+    name:n,...d,
+    diff:(d.scored||0)-(d.conceded||0),
+    avg:d.days>0?Math.round((d.pts/d.days)*10)/10:0   // 평균 포인트 (실제 반영 포인트)
+  }));
+  // 참여 조건 없이 전원 집계
+  let ranked=all.sort((a,b)=>b.avg-a.avg||b.diff-a.diff||b.days-a.days);
+  let pending=[];
   if(!ranked.length){el.innerHTML=`<div class="empty">${year}년 기록이 없습니다</div>`;return;}
   let html='';
   if(curGT==='all'&&ranked.length>=3){
