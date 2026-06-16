@@ -923,12 +923,19 @@ async function checkOrderTab(){
   let show=false;
   try{
     const sess=await sget('sessions/'+dateKey());
-    if(sess&&!sess.del&&sess.bw&&sess.bwTeams&&!sess.finished){
+    if(me&&sess&&!sess.del&&sess.bw&&sess.bwTeams&&!sess.finished){
       const bc=sess.bwTeams.blueCaptain, wc=sess.bwTeams.whiteCaptain;
-      const bcName=bc!=null?pname(sess,bc):'', wcName=wc!=null?pname(sess,wc):'';
-      if(me&&(me===bcName||me===wcName))show=true;
+      // 이름 매칭 (인덱스→이름)
+      const bcName=(bc!=null&&bc!==undefined)?pname(sess,bc):'';
+      const wcName=(wc!=null&&wc!==undefined)?pname(sess,wc):'';
+      if(me===bcName||me===wcName){show=true;}
+      // 폴백: 캡틴 정보가 없는 옛 데이터면, 내가 청/백 팀에 속한 경우 그 팀 첫 번째를 임시 팀장으로
+      else if(bc==null&&wc==null){
+        const myIdx=(sess.bwTeams.blue||[]).concat(sess.bwTeams.white||[]).find(ai=>pname(sess,ai)===me);
+        if(myIdx!=null)show=true;
+      }
     }
-  }catch(e){}
+  }catch(e){console.log('checkOrderTab err',e);}
   btn.style.display=show?'flex':'none';
 }
 
@@ -1866,6 +1873,20 @@ async function loadBracket(){
         ${whiteIdx.map(ai=>lineupRow(ai,'white',ai===whiteCap)).join('')}
       </div>`;
     wrap.appendChild(banner);
+    // 팀장이면 오더시트 작성 안내 배너
+    const bc2=sess.bwTeams.blueCaptain, wc2=sess.bwTeams.whiteCaptain;
+    const bcN2=(bc2!=null&&bc2!==undefined)?pname(sess,bc2):'';
+    const wcN2=(wc2!=null&&wc2!==undefined)?pname(sess,wc2):'';
+    const iAmCap=me&&(me===bcN2||me===wcN2);
+    if(iAmCap&&!sess.finished){
+      const myTeamTxt=me===bcN2?'🔵 청팀':'⚪ 백팀';
+      const cb=document.createElement('div');
+      cb.style.cssText='margin-bottom:16px;background:linear-gradient(135deg,#fef3c7,#fde68a);border-radius:14px;padding:16px;text-align:center';
+      cb.innerHTML=`<div style="font-size:15px;font-weight:800;color:#92400e;margin-bottom:4px">👑 ${myTeamTxt} 팀장님!</div>
+        <div style="font-size:13px;color:#b45309;margin-bottom:10px">청백전 주장으로 선정되었습니다. 오더시트에서 우리 팀 대진을 짜주세요.</div>
+        <button onclick="gTab('order',document.getElementById('orderTabBtn'))" style="background:#d97706;color:#fff;border:none;border-radius:11px;padding:12px 24px;font-size:15px;font-weight:800;font-family:inherit;cursor:pointer">📋 오더시트 작성하러 가기</button>`;
+      wrap.insertBefore(cb,wrap.children[1]||null);
+    }
   }
   getB(sess).forEach((round,ri)=>{
     const bl=document.createElement('div');bl.className='round-card';
