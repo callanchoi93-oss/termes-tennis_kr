@@ -553,7 +553,7 @@ function fmt(k){if(!k||k.length<8)return k;return `${k.slice(0,4)}년 ${parseInt
 function getP(s){return s.p||[];}
 function getB(s){return (s.b||[]).map(r=>({courts:r.c||[],wait:r.w||[],courtTypeLabels:r.ctl||r.courtTypeLabels||null,isBW:r.bw||false}));}
 function getSc(s){return s.sc||{};}
-function pname(s,ai){if(ai===-1)return "헬퍼";const p=getP(s),a=s.a||[],pi=a[ai];if(pi===undefined||!p[pi])return `${ai+1}번`;return p[pi].n||p[pi].name||`${ai+1}번`;}
+function pname(s,ai){if(ai===-1)return "헬퍼";if(ai===-2||ai==null)return "미정";const p=getP(s),a=s.a||[],pi=a[ai];if(pi===undefined||!p[pi])return `${ai+1}번`;return p[pi].n||p[pi].name||`${ai+1}번`;}
 function countGames(s,ai){let c=0;getB(s).forEach(r=>{if(r.wait.includes(ai))return;r.courts.forEach(ct=>{if(ct&&ct.includes(ai))c++;});});return c;}
 function calcTotals(s){const sc=getSc(s),b=getB(s),t={};b.forEach((r,ri)=>{r.courts.forEach((ct,ci)=>{if(!ct||ct.length<4)return;const sv=sc[`${ri}-${ci}`]||{},s1=parseInt(sv.s1)||0,s2=parseInt(sv.s2)||0;ct.slice(0,2).forEach(ai=>{t[ai]=(t[ai]||0)+s1;});ct.slice(2,4).forEach(ai=>{t[ai]=(t[ai]||0)+s2;});});});return t;}
 
@@ -675,9 +675,10 @@ async function doLogin(){
   window._fq=data.question||'';window._fa=data.answer||'';
   // 로그인 유지 체크 시 localStorage에 저장
   const keep=document.getElementById('keepLogin')?.checked;
-  if(keep){
-    try{localStorage.setItem('termes-saved-login',JSON.stringify({name,pin}));}catch(e){}
-  } else {
+  {
+    try{localStorage.setItem('termes-saved-login',JSON.stringify({name,pin,ts:Date.now()}));}catch(e){}
+  }
+  if(false) {
     try{localStorage.removeItem('termes-saved-login');}catch(e){}
   }
   loginOK(name);
@@ -989,6 +990,8 @@ async function loadOrderSheet(){
 
   // 오더 데이터: 저장된 bracket 사용. 비어있거나 경기가 없으면 빈 오더시트 생성
   let od=JSON.parse(JSON.stringify(sess.b||[]));
+  // -2(빈 슬롯 센티넬) → null 복원
+  od.forEach(rd=>(rd.c||[]).forEach(ct=>{for(let p=0;p<4;p++)if(ct[p]===-2)ct[p]=null;}));
   // 청백 경기 코트가 하나도 없으면 새로 생성 (인원 기반)
   const totalCourts=od.reduce((a,rd)=>a+((rd.c||[]).length),0);
   if(totalCourts<1){
@@ -1025,7 +1028,8 @@ function startOrderSync(){
         (rd.c||[]).forEach((ct,ci)=>{
           if(fresh.b[ri]&&fresh.b[ri].c[ci]){
             oppSlots.forEach(pos=>{
-              if(ct[pos]!==fresh.b[ri].c[ci][pos]){ct[pos]=fresh.b[ri].c[ci][pos];changed=true;}
+              let nv=fresh.b[ri].c[ci][pos];if(nv===-2)nv=null;
+              if(ct[pos]!==nv){ct[pos]=nv;changed=true;}
             });
           }
         });
@@ -1233,9 +1237,11 @@ function autoSaveOrder(){
       const slots=teamSlots(_myTeam);
       _orderData.forEach((rd,ri)=>{
         (rd.c||[]).forEach((ct,ci)=>{
-          slots.forEach(pos=>{if(sess.b[ri]&&sess.b[ri].c[ci])sess.b[ri].c[ci][pos]=ct[pos];});
+          slots.forEach(pos=>{if(sess.b[ri]&&sess.b[ri].c[ci]){const v=ct[pos];sess.b[ri].c[ci][pos]=(v==null?-2:v);}});
         });
       });
+      // Firebase가 null을 드롭하므로 모든 빈 슬롯을 -2로 통일
+      sess.b.forEach(rd=>(rd.c||[]).forEach(ct=>{for(let p=0;p<4;p++)if(ct[p]==null)ct[p]=-2;}));
       await sset('sessions/'+dateKey(),sess);
     }catch(e){}
   },600);
@@ -2385,8 +2391,10 @@ async function restoreLogin(){
   try{
     const saved=localStorage.getItem('termes-saved-login');
     if(!saved)return;
-    const {name,pin}=JSON.parse(saved);
+    const {name,pin,ts}=JSON.parse(saved);
     if(!name||!pin)return;
+    // 4시간 경과 시 자동 로그아웃
+    if(ts&&Date.now()-ts>4*60*60*1000){localStorage.removeItem('termes-saved-login');return;}
     const data=await sget(mkKey(name));
     if(data&&data.pin===pin&&(data.approved||MEMBERS.includes(name))){
       window._fq=data.question||'';window._fa=data.answer||'';
