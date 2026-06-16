@@ -1109,11 +1109,14 @@ function renderOrderSheet(){
   });
   roster+='</div>';
 
-  // 경기 카드
+  // 라운드별 카드 (1라운드: 코트1·2·3)
   let games='';
   let gi=0;
   _orderData.forEach((rd,ri)=>{
-    (rd.c||[]).forEach((ct,ci)=>{
+    const courts=rd.c||[];
+    if(!courts.length)return;
+    let courtRows='';
+    courts.forEach((ct,ci)=>{
       gi++;
       const mySlots=teamSlots(team);
       const oppSlots=team==='blue'?[2,3]:[0,1];
@@ -1121,32 +1124,31 @@ function renderOrderSheet(){
       const slotHtml=mySlots.map(pos=>{
         const ai=ct[pos];
         const filled=ai!=null&&ai!==-1;
-        return `<button onclick="pickOrderSlot(${ri},${ci},${pos})" style="flex:1;background:${filled?accentSoft:'#faf7f3'};color:${filled?accent:'#bcae9f'};border:1.5px ${filled?'solid':'dashed'} ${filled?accentBorder:'#ddd3c8'};border-radius:12px;padding:13px 8px;font-size:14px;font-weight:700;font-family:inherit;cursor:pointer;transition:all .1s">${filled?pname(sess,ai):'＋'}</button>`;
+        return `<button onclick="pickOrderSlot(${ri},${ci},${pos})" style="flex:1;background:${filled?accentSoft:'#faf7f3'};color:${filled?accent:'#bcae9f'};border:1.5px ${filled?'solid':'dashed'} ${filled?accentBorder:'#ddd3c8'};border-radius:11px;padding:12px 6px;font-size:14px;font-weight:700;font-family:inherit;cursor:pointer">${filled?pname(sess,ai):'＋'}</button>`;
       }).join('');
       const oppHtml=oppSlots.map(pos=>{
         const ai=ct[pos];
         const f=ai!=null&&ai!==-1;
         return `<span style="color:${f?oppAccent:'#c4b5a9'};font-size:13px;font-weight:${f?'700':'500'}">${f?pname(sess,ai):'미정'}</span>`;
       }).join('<span style="color:#d1c7bb;font-size:11px"> · </span>');
-      const myFilled=mySlots.every(pos=>ct[pos]!=null&&ct[pos]!==-1);
-      games+=`<div style="background:#fff;border-radius:16px;padding:15px 16px;margin-bottom:10px;box-shadow:0 1px 5px rgba(120,90,70,0.06);${myFilled?'border:1px solid '+accentBorder:''}">
-        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:11px">
-          <span style="font-size:12px;font-weight:800;color:#a89b8e">${gi}경기</span>
-          ${myFilled?`<span style="font-size:10px;font-weight:700;color:${accent};background:${accentSoft};padding:2px 8px;border-radius:6px">배치완료</span>`:''}
-        </div>
-        <div style="display:flex;align-items:center;gap:9px">
-          <div style="display:flex;gap:6px;flex:1.4">${slotHtml}</div>
-          <span style="font-size:11px;font-weight:800;color:#d1c7bb">VS</span>
-          <div style="flex:1;text-align:center">${oppHtml}</div>
-        </div>
+      courtRows+=`<div style="display:flex;align-items:center;gap:9px;padding:10px 0;${ci<courts.length-1?'border-bottom:1px solid #f4efe9':''}">
+        <span style="font-size:10px;font-weight:700;color:#c4b5a9;min-width:34px">코트${ci+1}</span>
+        <div style="display:flex;gap:5px;flex:1.4">${slotHtml}</div>
+        <span style="font-size:10px;font-weight:800;color:#d1c7bb">VS</span>
+        <div style="flex:1;text-align:center">${oppHtml}</div>
       </div>`;
     });
+    games+=`<div style="background:#fff;border-radius:16px;padding:14px 16px;margin-bottom:11px;box-shadow:0 1px 5px rgba(120,90,70,0.06)">
+      <div style="font-size:13px;font-weight:800;color:#2d1f1a;margin-bottom:6px">${ri+1}라운드</div>
+      ${courtRows}
+    </div>`;
   });
 
   wrap.innerHTML=`${progress}${warn}${roster}
     <div style="font-size:13px;font-weight:700;color:#2d1f1a;margin:4px 2px 10px">경기별 배치</div>
     ${games}
-    <button onclick="saveOrderSheet()" ${ok?'':'disabled'} style="width:100%;margin-top:8px;padding:16px;background:${ok?'#e8845a':'#e5ddd3'};color:#fff;border:none;border-radius:15px;font-size:16px;font-weight:700;font-family:inherit;cursor:${ok?'pointer':'not-allowed'};box-shadow:${ok?'0 4px 14px rgba(232,132,90,0.3)':'none'}">${ok?'오더시트 저장':'아직 배치가 끝나지 않았어요'}</button>
+    <div style="background:#f4efe9;border-radius:12px;padding:11px 14px;margin-top:6px;font-size:12.5px;color:#a89b8e;font-weight:600;text-align:center;line-height:1.5">배치하는 즉시 자동 저장돼요 · 점수 입력 전까지 언제든 바꿀 수 있어요</div>
+    <button onclick="gTab('bracket',document.querySelectorAll('.nb')[1])" style="width:100%;margin-top:10px;padding:16px;background:#e8845a;color:#fff;border:none;border-radius:15px;font-size:16px;font-weight:700;font-family:inherit;cursor:pointer;box-shadow:0 4px 14px rgba(232,132,90,0.3)">${ok?'완료 · 대진표 보기':'대진표에서 확인하기'}</button>
     <div style="height:36px"></div>`;
 }
 
@@ -1159,11 +1161,14 @@ function quickPlace(ai){
     const rd=_orderData[ri];
     for(let ci=0;ci<(rd.c||[]).length;ci++){
       const ct=rd.c[ci];
+      // 점수 입력된 경기는 스킵
+      const _sc=getSc(_orderSess)||{};const _sv=_sc[`${ri}-${ci}`];
+      if(_sv&&(_sv.s1!=null||_sv.s2!=null))continue;
       // 이 경기에 이미 이 선수가 있으면 스킵
       if(slots.some(p=>ct[p]===ai))continue;
       // 빈 슬롯 찾기
       for(const pos of slots){
-        if(ct[pos]==null||ct[pos]===-1){ct[pos]=ai;renderOrderSheet();return;}
+        if(ct[pos]==null||ct[pos]===-1){ct[pos]=ai;renderOrderSheet();autoSaveOrder();return;}
       }
     }
   }
@@ -1174,6 +1179,10 @@ function quickPlace(ai){
 let _pickTarget=null;
 function gi_label(ri,ci){let g=0;for(let r=0;r<=ri;r++){const cs=(_orderData[r].c||[]).length;g+=(r<ri)?cs:ci+1;}return g+'경기';}
 function pickOrderSlot(ri,ci,pos){
+  // 이미 점수가 입력된 경기는 수정 불가
+  const sc0=getSc(_orderSess)||{};
+  const sv0=sc0[`${ri}-${ci}`];
+  if(sv0&&(sv0.s1!=null||sv0.s2!=null)){toast('점수가 입력된 경기는 수정할 수 없어요');return;}
   _pickTarget={ri,ci,pos};
   const sess=_orderSess,team=_myTeam;
   const teamIds=sess.bwTeams[team]||[];
@@ -1207,7 +1216,31 @@ function setOrderSlot(ai){
   const ov=document.getElementById('orderPickOverlay');if(ov)ov.remove();
   _pickTarget=null;
   renderOrderSheet();
+  autoSaveOrder();
 }
+// 즉시 자동 저장 (확정 없이 배치하는 대로 반영, 점수 입력 전까지 자유 수정)
+let _autoSaveTimer=null;
+function autoSaveOrder(){
+  clearTimeout(_autoSaveTimer);
+  _autoSaveTimer=setTimeout(async()=>{
+    try{
+      const sess=await sget('sessions/'+dateKey());
+      if(!sess)return;
+      const totalCourts=(sess.b||[]).reduce((a,rd)=>a+((rd.c||[]).length),0);
+      if(!sess.b||totalCourts<1){
+        sess.b=_orderData.map(rd=>({c:rd.c.map(ct=>ct.slice()),w:rd.w||[],ctl:rd.ctl||rd.c.map(()=>'청백'),bw:true,ord:true}));
+      }
+      const slots=teamSlots(_myTeam);
+      _orderData.forEach((rd,ri)=>{
+        (rd.c||[]).forEach((ct,ci)=>{
+          slots.forEach(pos=>{if(sess.b[ri]&&sess.b[ri].c[ci])sess.b[ri].c[ci][pos]=ct[pos];});
+        });
+      });
+      await sset('sessions/'+dateKey(),sess);
+    }catch(e){}
+  },600);
+}
+
 async function saveOrderSheet(){
   const team=_myTeam,GAMES=4;
   const cnt=orderGameCount(team);
