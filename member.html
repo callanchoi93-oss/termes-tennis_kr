@@ -1806,14 +1806,32 @@ async function showPlayer(name,year){
   document.getElementById('pmBody').innerHTML='<div class="empty">불러오는 중...</div>';
   const pmc=document.getElementById('pmCareer');if(pmc)pmc.innerHTML='';
   document.getElementById('playerModal').classList.add('on');
-  // 뱃지(우승 트로피/개인 메달) 표시
+  // 현재 뱃지(이름 옆 작은 아이콘) + 역대 수상 기록
   (async()=>{
     try{
-      const badges=await getCurrentBadges(name);
+      const cur=await getCurrentBadges(name);
+      const nameEl=document.getElementById('pmName');
+      if(nameEl){
+        // 기존에 추가된 뱃지 제거 후 재삽입
+        const old=document.getElementById('pmNameBadges');if(old)old.remove();
+        if(cur&&cur.length){
+          const span=document.createElement('span');
+          span.id='pmNameBadges';
+          span.style.cssText='display:inline-flex;gap:3px;margin-left:7px;vertical-align:middle';
+          span.innerHTML=cur.map(b=>`<img src="${b.img}" style="width:22px;height:22px;object-fit:contain" title="${b.label}">`).join('');
+          nameEl.appendChild(span);
+        }
+      }
+      // 역대 수상 기록
+      const hist=await getAwardHistory(name);
       const pmb=document.getElementById('pmBadges');
       if(pmb){
-        if(badges&&badges.length){
-          pmb.innerHTML='<div style="display:flex;gap:10px;justify-content:center;margin:6px 0 4px">'+badges.map(b=>`<div style="display:flex;flex-direction:column;align-items:center;gap:3px"><img src="${b.img}" style="width:46px;height:46px;object-fit:contain"><span style="font-size:10px;font-weight:700;color:#7c6b5e">${b.label}</span></div>`).join('')+'</div>';
+        if(hist&&hist.length){
+          const ico={champion:MEDAL_IMG.trophy,gold:MEDAL_IMG.gold,silver:MEDAL_IMG.silver,bronze:MEDAL_IMG.bronze};
+          pmb.innerHTML=`<div style="background:#faf7f3;border-radius:14px;padding:13px 15px;margin:4px 0 12px">
+            <div style="font-size:12px;font-weight:800;color:#a89b8e;margin-bottom:9px">수상 기록 ${hist.length}건</div>
+            <div style="display:flex;flex-direction:column;gap:9px">${hist.map(h=>`<div style="display:flex;align-items:center;gap:9px"><img src="${ico[h.type]}" style="width:24px;height:24px;object-fit:contain;flex-shrink:0"><span style="font-size:13px;font-weight:600;color:#2d1f1a">${h.label}</span></div>`).join('')}</div>
+          </div>`;
         } else { pmb.innerHTML=''; }
       }
     }catch(e){}
@@ -2103,6 +2121,39 @@ async function getCurrentBadges(name){
       return badges; // 가장 최근 청백전만 반영
     }
     return [];
+  }catch(e){return [];}
+}
+
+// 역대 수상 이력 (모든 청백전 훑어서 우승/개인메달 기록 누적)
+async function getAwardHistory(name){
+  try{
+    const idx=await sget('index'),aidx=await sget('archive-index');
+    const list=idx?(Array.isArray(idx)?idx:Object.values(idx)):[];
+    const alist=aidx?(Array.isArray(aidx)?aidx:Object.values(aidx)):[];
+    const all=[...list.map(d=>['sessions/'+d,String(d)]),...alist.map(k=>['archives/'+k,String(k).slice(0,8)])];
+    // 날짜 오름차순 (회차 부여 위해)
+    all.sort((a,b)=>a[1].localeCompare(b[1]));
+    const records=[];
+    let round=0;
+    const seen=new Set();
+    for(const [k,dk] of all){
+      if(seen.has(dk))continue; seen.add(dk);
+      const s=await sget(k);
+      if(!s||s.del||!s.bw||!s.bwTeams)continue;
+      round++; // 청백전마다 회차 증가
+      if(!allBWScoresEntered(s))continue;
+      const aw=computeAwards(s);
+      if(!aw)continue;
+      const my=[];
+      if(aw.champion&&aw.champion.includes(name))my.push({type:'champion',label:`제 ${round}회 테르메스 월례대회 우승`});
+      if(aw.gold===name)my.push({type:'gold',label:`제 ${round}회 테르메스 월례대회 개인 1위`});
+      else if(aw.silver===name)my.push({type:'silver',label:`제 ${round}회 테르메스 월례대회 개인 2위`});
+      else if(aw.bronze===name)my.push({type:'bronze',label:`제 ${round}회 테르메스 월례대회 개인 3위`});
+      my.forEach(m=>records.push({...m,date:dk,round}));
+    }
+    // 최신순
+    records.sort((a,b)=>b.date.localeCompare(a.date));
+    return records;
   }catch(e){return [];}
 }
 
