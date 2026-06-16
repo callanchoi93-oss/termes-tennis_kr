@@ -820,7 +820,7 @@ function enterApp(label,isAdmin){
   }
   document.getElementById('mainApp').style.display='block';
   const hdr=document.querySelector('.hdr');if(hdr)hdr.style.display='none';
-  loadHome();loadToday();checkOrderTab();
+  loadHome();loadToday();checkOrderTab();showCaptainPopup();
 }
 function showForgot(){const q=window._fq||'';if(!q){alert('등록된 질문이 없습니다.\n임원진에게 문의하세요.');return;}document.getElementById('forgotQ').textContent='Q.  '+q;document.getElementById('forgotA').value='';document.getElementById('forgotErr').textContent='';document.getElementById('forgotScreen').style.display='flex';}
 function hideForgot(){document.getElementById('forgotScreen').style.display='none';}
@@ -937,6 +937,38 @@ async function checkOrderTab(){
     }
   }catch(e){console.log('checkOrderTab err',e);}
   btn.style.display=show?'flex':'none';
+}
+
+// 로그인 시 팀장이면 팝업 안내 (하루 1회)
+async function showCaptainPopup(){
+  if(!me)return;
+  try{
+    const sess=await sget('sessions/'+dateKey());
+    if(!sess||sess.del||!sess.bw||!sess.bwTeams||sess.finished)return;
+    const bc=sess.bwTeams.blueCaptain, wc=sess.bwTeams.whiteCaptain;
+    const bcName=(bc!=null&&bc!==undefined)?pname(sess,bc):'';
+    const wcName=(wc!=null&&wc!==undefined)?pname(sess,wc):'';
+    let myTeam=null;
+    if(me===bcName)myTeam='blue';
+    else if(me===wcName)myTeam='white';
+    if(!myTeam)return;
+    // 하루 1회만
+    const shownKey='termes-cap-popup-'+dateKey()+'-'+me;
+    if(localStorage.getItem(shownKey))return;
+    localStorage.setItem(shownKey,'1');
+    const teamTxt=myTeam==='blue'?'청팀':'백팀';
+    const teamColor=myTeam==='blue'?'#1e40af':'#b91c1c';
+    let ov=document.getElementById('capPopupOverlay');
+    if(!ov){ov=document.createElement('div');ov.id='capPopupOverlay';document.body.appendChild(ov);}
+    ov.style.cssText='position:fixed;inset:0;background:rgba(45,31,26,0.5);z-index:10000;display:flex;align-items:center;justify-content:center;padding:24px';
+    ov.onclick=e=>{if(e.target===ov)ov.remove();};
+    ov.innerHTML=`<div style="background:#fff;border-radius:24px;max-width:360px;width:100%;padding:30px 24px;text-align:center;box-shadow:0 10px 40px rgba(0,0,0,0.25)">
+      <div style="font-size:20px;font-weight:900;color:${teamColor};margin-bottom:10px">${me}님<br>오늘 청백전에서<br>${teamTxt} 팀장으로 선정되었습니다!</div>
+      <div style="font-size:14px;color:#7c6b5e;line-height:1.6;margin-bottom:22px">오더시트에서 우리 팀 대진을 짜주세요.<br>각 선수가 정확히 4게임씩 뛰도록 배치하면 됩니다.</div>
+      <button onclick="document.getElementById('capPopupOverlay').remove();gTab('order',document.getElementById('orderTabBtn'))" style="width:100%;background:${teamColor};color:#fff;border:none;border-radius:14px;padding:15px;font-size:16px;font-weight:800;font-family:inherit;cursor:pointer;margin-bottom:10px">📋 오더시트 작성하러 가기</button>
+      <button onclick="document.getElementById('capPopupOverlay').remove()" style="width:100%;background:none;border:none;color:#a89b8e;font-size:14px;font-weight:600;font-family:inherit;cursor:pointer;padding:6px">나중에 하기</button>
+    </div>`;
+  }catch(e){}
 }
 
 // ── 청백전 오더시트 (팀장 편집) ──
@@ -1915,20 +1947,6 @@ async function loadBracket(){
         ${whiteIdx.map(ai=>lineupRow(ai,'white',ai===whiteCap)).join('')}
       </div>`;
     wrap.appendChild(banner);
-    // 팀장이면 오더시트 작성 안내 배너
-    const bc2=sess.bwTeams.blueCaptain, wc2=sess.bwTeams.whiteCaptain;
-    const bcN2=(bc2!=null&&bc2!==undefined)?pname(sess,bc2):'';
-    const wcN2=(wc2!=null&&wc2!==undefined)?pname(sess,wc2):'';
-    const iAmCap=me&&(me===bcN2||me===wcN2);
-    if(iAmCap&&!sess.finished){
-      const myTeamTxt=me===bcN2?'🔵 청팀':'⚪ 백팀';
-      const cb=document.createElement('div');
-      cb.style.cssText='margin-bottom:16px;background:linear-gradient(135deg,#fef3c7,#fde68a);border-radius:14px;padding:16px;text-align:center';
-      cb.innerHTML=`<div style="font-size:15px;font-weight:800;color:#92400e;margin-bottom:4px">👑 ${myTeamTxt} 팀장님!</div>
-        <div style="font-size:13px;color:#b45309;margin-bottom:10px">청백전 주장으로 선정되었습니다. 오더시트에서 우리 팀 대진을 짜주세요.</div>
-        <button onclick="gTab('order',document.getElementById('orderTabBtn'))" style="background:#d97706;color:#fff;border:none;border-radius:11px;padding:12px 24px;font-size:15px;font-weight:800;font-family:inherit;cursor:pointer">📋 오더시트 작성하러 가기</button>`;
-      wrap.insertBefore(cb,wrap.children[1]||null);
-    }
   }
   getB(sess).forEach((round,ri)=>{
     const bl=document.createElement('div');bl.className='round-card';
