@@ -437,6 +437,8 @@ body{background:var(--bg);color:var(--gray-900);font-family:'Pretendard',-apple-
       <div class="raffle-grid" id="rfResult"></div>
     </div>
     <button class="btn btn-success" onclick="genBracket()">대진표 생성</button>
+    <button class="btn btn-secondary" style="width:100%;margin-top:10px;background:linear-gradient(135deg,#dbeafe,#fee2e2);color:#1e3a8a;font-weight:800" onclick="genBlueWhiteBracket()">🔵 청백전 대진 생성 ⚪</button>
+    <div class="form-hint">월례대회용 · 18명 9:9 실력 밸런스 자동 배정 · 청 vs 백 복식 팀대항</div>
   </div>
 
   <!-- 대진표 -->
@@ -1090,7 +1092,7 @@ function doRaffle(seeded){
   });
   toast(seeded?'실력별 래플 완료':'래플 완료');
 }
-function pname(ai){if(ai===-1)return "헬퍼";return S.players[S.assigned[ai]]?.name??`${ai+1}번`;}
+function pname(ai){if(ai===-1)return "헬퍼";if(ai===null||ai===undefined)return "미배정";return S.players[S.assigned[ai]]?.name??`${ai+1}번`;}
 
 // ── 대기 스케줄 생성 (100% 균등 보장) ──
 function buildWaitSchedule(n, r, waitSz, wb){
@@ -1549,6 +1551,64 @@ function genGenderBracket(n,c,r,ppr,waitSz){
   goTab('bracket',document.querySelectorAll('.tn')[4]);
 }
 
+// ── 청백전 대진 생성 ──
+function genBlueWhiteBracket(){
+  if(!S.assigned||!S.assigned.length){toast('래플을 먼저 진행해주세요');return;}
+  S.courts=S.courts||parseInt(document.getElementById('courtN')?.value)||3;
+  S.gameMode=document.getElementById('gameM')?.value||'4';
+  const c=S.courts;
+  const n=S.assigned.length;
+
+  // 선수 정보 (실력)
+  const pInfo=S.assigned.map(pi=>{
+    const p=S.players[pi];
+    const grade=p.isGuest?(p.guestGrade||'none'):(grades[p.name]||'none');
+    return{name:p.name,grade};
+  });
+  const gs=g=>({A:3,B:2,C:1,none:2}[g]||2);
+
+  // 실력 내림차순 → 스네이크 배정 (실력합 균형)
+  const order=Array.from({length:n},(_,i)=>i).sort((a,b)=>gs(pInfo[b].grade)-gs(pInfo[a].grade));
+  const blue=[],white=[];let bs=0,ws=0;const half=Math.floor(n/2);
+  order.forEach(i=>{
+    const s=gs(pInfo[i].grade);
+    if((bs<=ws && blue.length<half)||white.length>=n-half){blue.push(i);bs+=s;}
+    else{white.push(i);ws+=s;}
+  });
+
+  // 팀장 무작위 지정
+  const blueCaptain=blue[Math.floor(Math.random()*blue.length)];
+  const whiteCaptain=white[Math.floor(Math.random()*white.length)];
+
+  S.bwTeams={blue,white,blueCaptain,whiteCaptain};
+  S.isBlueWhite=true;
+
+  // 경기 수 = 한 팀 인원*4/2, 라운드 = ceil(경기/코트)
+  const GAMES=4;
+  const matches=Math.floor(blue.length*GAMES/2);
+  const rounds=Math.ceil(matches/c);
+
+  // 빈 오더시트 생성 (청/백 자리 모두 비움 = null)
+  S.bracket=[];
+  let made=0;
+  for(let ri=0;ri<rounds;ri++){
+    const courts=[];const tps=[];
+    const cnt=Math.min(c,matches-made);
+    for(let ci=0;ci<cnt;ci++){
+      courts.push([null,null,null,null]); // [청,청,백,백] 빈 슬롯
+      tps.push('청백');
+      made++;
+    }
+    S.bracket.push({courts,wait:[],courtTypeLabels:tps,isBW:true,isOrder:true});
+  }
+
+  renderBracketGender();
+  document.getElementById('pubBtnWrap').style.display='block';
+  const bcN=pInfo[S.assigned.indexOf(blueCaptain)>=0?S.assigned.indexOf(blueCaptain):0];
+  toast(`청백전 오더시트 생성 · 청 팀장 ${S.players[blueCaptain].name} / 백 팀장 ${S.players[whiteCaptain].name}`);
+  goTab('bracket',document.querySelectorAll('.tn')[4]);
+}
+
 function renderBracketGender(){
   const wrap=document.getElementById('bktWrap');wrap.innerHTML='';
   S.bracket.forEach((round,ri)=>{
@@ -1557,8 +1617,18 @@ function renderBracketGender(){
       if(ct.length<4)return '';
       const col=CC[ci%CC.length];
       const tpLabel=round.courtTypeLabels?round.courtTypeLabels[ci]:'';
-      const tpColor=tpLabel==='남복'?'#e8845a':tpLabel==='여복'?'#f04452':tpLabel==='미정'?'#8b95a1':'#00b493';
+      const tpColor=tpLabel==='남복'?'#e8845a':tpLabel==='여복'?'#f04452':tpLabel==='미정'?'#8b95a1':tpLabel==='청백'?'#3b82f6':'#00b493';
       const p=ai=>`<span class="p-chip">${pname(ai)}</span>`;
+      // 청백전 코트
+      if(round.isBW){
+        const bchip=ai=>ai===null||ai===undefined?`<span class="p-chip" style="background:#f1f5f9;color:#94a3b8;border:1px dashed #cbd5e1">미배정</span>`:`<span class="p-chip" style="background:#dbeafe;color:#1e40af">${pname(ai)}</span>`;
+        const wchip=ai=>ai===null||ai===undefined?`<span class="p-chip" style="background:#f1f5f9;color:#94a3b8;border:1px dashed #cbd5e1">미배정</span>`:`<span class="p-chip" style="background:#fff;color:#b91c1c;border:1px solid #fca5a5">${pname(ai)}</span>`;
+        return `<div class="court-line" style="background:linear-gradient(90deg,#eff6ff,#fef2f2);border-left:4px solid #3b82f6">
+          <div class="court-tag">코트 ${ci+1}</div>
+          <span style="font-size:11px;font-weight:700;padding:2px 8px;border-radius:6px;background:#3b82f620;color:#3b82f6">청백</span>
+          <div class="match-group"><div class="team-pair"><span style="font-size:11px;font-weight:800;color:#1e40af">🔵</span>${bchip(ct[0])}${bchip(ct[1])}</div><span class="vs-label">VS</span><div class="team-pair"><span style="font-size:11px;font-weight:800;color:#b91c1c">⚪</span>${wchip(ct[2])}${wchip(ct[3])}</div></div>
+        </div>`;
+      }
       
       // 혼복: 팀마다 남+여 구분해서 표시
       let matchHtml='';
@@ -1592,6 +1662,7 @@ function renderBracketGender(){
 // ── 대진표 생성 ──
 function genBracket(){
   if(!S.assigned.length){toast('래플을 먼저 진행해주세요');return;}
+  S.isBlueWhite=false;S.bwTeams=null;  // 일반 대진 → 청백 플래그 해제
   if(!S.players.length){toast('설정을 먼저 저장해주세요');return;}
   // 기본값 보정
   if(!S.courts||S.courts<1) S.courts=parseInt(document.getElementById('courtN')?.value)||3;
@@ -1649,7 +1720,7 @@ async function publish(){
     await archiveSession(today,existing);
   }
   const archN=await sget('archive-idx-'+today)||0;
-  const data={d:today,p:S.players.map(p=>({n:p.name,g:p.isGuest?1:0,s:p.skill})),ct:S.courts,r:S.rounds,gm:S.gameMode,a:S.assigned,b:S.bracket.map(rd=>({c:rd.courts,w:rd.wait,ctl:rd.courtTypeLabels||null})),sc:{},pub:Date.now(),exp:Date.now()+24*60*60*1000,del:false,finished:false,seq:archN+1};
+  const data={d:today,p:S.players.map(p=>({n:p.name,g:p.isGuest?1:0,s:p.skill})),ct:S.courts,r:S.rounds,gm:S.gameMode,a:S.assigned,b:S.bracket.map(rd=>({c:rd.courts,w:rd.wait,ctl:rd.courtTypeLabels||null,bw:rd.isBW||false,ord:rd.isOrder||false})),sc:{},bw:S.isBlueWhite||false,bwTeams:S.bwTeams||null,pub:Date.now(),exp:Date.now()+24*60*60*1000,del:false,finished:false,seq:archN+1};
   const ok=await sset('sessions/'+today,data);if(!ok){toast('저장에 실패했습니다');return;}
   let idx=await sget('index');idx=idx?(Array.isArray(idx)?idx:Object.values(idx)):[];
   if(!idx.includes(today))idx.unshift(today);await sset('index',idx.slice(0,200));
