@@ -1074,7 +1074,7 @@ function doRaffle(seeded){
   });
   toast(seeded?'실력별 래플 완료':'래플 완료');
 }
-function pname(ai){return S.players[S.assigned[ai]]?.name??`${ai+1}번`;}
+function pname(ai){if(ai===-1)return "헬퍼";return S.players[S.assigned[ai]]?.name??`${ai+1}번`;}
 
 // ── 대기 스케줄 생성 (100% 균등 보장) ──
 function buildWaitSchedule(n, r, waitSz, wb){
@@ -1385,6 +1385,7 @@ function genGenderBracket(n,c,r,ppr,waitSz){
   function pairCount(){
     const cnt={};
     S.bracket.forEach(rd=>rd.courts.forEach(ct=>{
+      if(ct.includes(-1))return; // 헬퍼 코트 제외
       cnt[_pkey(ct[0],ct[1])]=(cnt[_pkey(ct[0],ct[1])]||0)+1;
       cnt[_pkey(ct[2],ct[3])]=(cnt[_pkey(ct[2],ct[3])]||0)+1;
     }));
@@ -1415,7 +1416,9 @@ function genGenderBracket(n,c,r,ppr,waitSz){
           for(let cj=0;cj<rd.courts.length&&!fixed;cj++){
             if(cj===ci)continue;
             const oct=rd.courts[cj];
+            if(oct.includes(-1))continue; // 헬퍼 코트 제외
             for(let oi=0;oi<4;oi++){
+              if(oct[oi]===-1||ct[pj]===-1)continue;
               if(pInfo[oct[oi]].gender!==pInfo[ct[pj]].gender)continue;
               // 교환
               const tmp=ct[pj];ct[pj]=oct[oi];oct[oi]=tmp;
@@ -1428,9 +1431,10 @@ function genGenderBracket(n,c,r,ppr,waitSz){
       }
       if(!fixed)break;
     }
-    // 보정 후 라벨 재계산
+    // 보정 후 라벨 재계산 (헬퍼 코트는 미정 유지)
     S.bracket.forEach(rd=>{
       rd.courtTypeLabels=rd.courts.map(ct=>{
+        if(ct.includes(-1))return '미정';
         const tl={mens:'남복',mixed:'혼복',ladies:'여복'};
         return tl[courtType(ct)];
       });
@@ -1448,46 +1452,66 @@ function genGenderBracket(n,c,r,ppr,waitSz){
   }
 
   // ── 라운드별 배정 ──
+  // 헬퍼(점수 미반영 대타)는 인덱스 -1로 표시
+  const HELPER=-1;
   for(let ri=0;ri<r;ri++){
     // 아직 4게임 못 채운 + 도착한 사람
     const elig=Array.from({length:n},(_,i)=>i).filter(i=>gameSoFar[i]<GAMES&&startRound[i]<=ri);
     // 게임 적게 한 순(공평) + 약간 랜덤
     elig.sort((a,b)=>gameSoFar[a]-gameSoFar[b]||Math.random()-0.5);
-    // 이번 라운드 실제 게임 가능 코트 수
-    const cnum=Math.min(c,Math.floor(elig.length/4));
-    if(cnum<1){
-      // 남은 인원 4명 미만 → 빈 라운드 없이 종료
-      break;
-    }
+    if(elig.length<1)break; // 모두 4게임 완료
+    // 이번 라운드 코트 수: 남은 인원을 4명씩 (올림) → 부족분은 헬퍼로 채움 (단 c코트 이하)
+    const cnum=Math.min(c,Math.ceil(elig.length/4));
+    if(cnum<1)break;
     const need=cnum*4;
-    // 혼복 우선 배정을 위해: 성비 맞춰 선발
-    // 기본: 게임 적은 순 need명
-    let playing=elig.slice(0,need);
+    // 실제 선수 (게임 적은 순), 부족하면 헬퍼로 채움
+    let realPlaying=elig.slice(0,Math.min(need,elig.length));
+    const helperCnt=need-realPlaying.length;
 
-    // 성별 균형: 가능하면 혼복이 나오도록, 남녀 섞기
-    // (남성만/여성만이면 자동으로 남복/여복)
-    const cts=buildRound(playing);
-    if(!cts){break;}
+    // 실제 선수만으로 코트 구성 최적화 → 그 후 헬퍼를 마지막 코트 빈자리에 배치
+    // buildRound는 4의 배수만 처리하므로, 완전 코트(실선수 4명)와 헬퍼 코트를 분리
+    const fullCount=Math.floor(realPlaying.length/4)*4;       // 실선수로 꽉 채울 인원
+    const fullPlayers=realPlaying.slice(0,fullCount);
+    const leftover=realPlaying.slice(fullCount);              // 헬퍼와 섞일 실선수
+
+    let cts=[];
+    if(fullPlayers.length>=4){
+      const fullCts=buildRound(fullPlayers);
+      if(fullCts)cts=fullCts;
+    }
+    // 헬퍼 코트 (실선수 leftover + 헬퍼)
+    if(leftover.length>0){
+      const hcourt=leftover.slice();
+      while(hcourt.length<4)hcourt.push(HELPER);
+      cts.push(hcourt);
+    }
+    if(!cts.length)break;
 
     const tps=[];
     cts.forEach(ct=>{
-      const sp=splitCourt(ct);
-      // 기록
-      pu[_pkey(sp.t1[0],sp.t1[1])]=(pu[_pkey(sp.t1[0],sp.t1[1])]||0)+1;
-      pu[_pkey(sp.t2[0],sp.t2[1])]=(pu[_pkey(sp.t2[0],sp.t2[1])]||0)+1;
-      sp.t1.forEach(x=>sp.t2.forEach(y=>{ou[_pkey(x,y)]=(ou[_pkey(x,y)]||0)+1;}));
-      // 코트 순서를 팀1+팀2로 재배열 (점수입력 일관성)
-      ct.length=0;ct.push(sp.t1[0],sp.t1[1],sp.t2[0],sp.t2[1]);
-      const ctType=courtType(ct);
-      tps.push(ctType);
-      ct.forEach(x=>{gameSoFar[x]++;if(ctType==='mens')mensGames[x]++;});
+      const hasHelper=ct.includes(HELPER);
+      if(hasHelper){
+        // 헬퍼 코트: 라벨 미정, 점수 미반영, 파트너/상대 기록 안 함
+        // 실제 선수의 게임 수만 +1 (4게임 보장)
+        ct.forEach(x=>{if(x!==HELPER)gameSoFar[x]++;});
+        tps.push('tbd');
+      }else{
+        const sp=splitCourt(ct);
+        pu[_pkey(sp.t1[0],sp.t1[1])]=(pu[_pkey(sp.t1[0],sp.t1[1])]||0)+1;
+        pu[_pkey(sp.t2[0],sp.t2[1])]=(pu[_pkey(sp.t2[0],sp.t2[1])]||0)+1;
+        sp.t1.forEach(x=>sp.t2.forEach(y=>{ou[_pkey(x,y)]=(ou[_pkey(x,y)]||0)+1;}));
+        ct.length=0;ct.push(sp.t1[0],sp.t1[1],sp.t2[0],sp.t2[1]);
+        const ctType=courtType(ct);
+        tps.push(ctType);
+        ct.forEach(x=>{gameSoFar[x]++;if(ctType==='mens')mensGames[x]++;});
+      }
     });
 
-    // 이번 라운드 대기자
-    const playingSet=new Set(cts.flat());
+    // 이번 라운드 대기자 (헬퍼 제외)
+    const playingSet=new Set(cts.flat().filter(x=>x!==HELPER));
     const wl=Array.from({length:n},(_,i)=>i).filter(i=>startRound[i]<=ri&&!playingSet.has(i));
 
-    const tl={mens:'남복',mixed:'혼복',ladies:'여복'};
+    const tl={mens:'남복',mixed:'혼복',ladies:'여복',tbd:'미정'};
     S.bracket.push({courts:cts,wait:wl,courtTypeLabels:tps.map(t=>tl[t])});
   }
 
@@ -1512,7 +1536,7 @@ function renderBracketGender(){
       if(ct.length<4)return '';
       const col=CC[ci%CC.length];
       const tpLabel=round.courtTypeLabels?round.courtTypeLabels[ci]:'';
-      const tpColor=tpLabel==='남복'?'#e8845a':tpLabel==='여복'?'#f04452':'#00b493';
+      const tpColor=tpLabel==='남복'?'#e8845a':tpLabel==='여복'?'#f04452':tpLabel==='미정'?'#8b95a1':'#00b493';
       const p=ai=>`<span class="p-chip">${pname(ai)}</span>`;
       
       // 혼복: 팀마다 남+여 구분해서 표시
