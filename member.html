@@ -468,8 +468,8 @@ body{background:var(--bg);color:var(--gray-900);font-family:'Pretendard',-apple-
   </div>
 
   <div id="p-career" class="page">
-    <div class="page-title">구력 관리</div>
-    <div class="page-sub" id="careerDesc">나의 테니스 구력을 입력하세요</div>
+    <div class="page-title">내 정보</div>
+    <div class="page-sub" id="careerDesc">나의 기록과 수상 내역</div>
     <div id="careerContent"><div class="empty">불러오는 중...</div></div>
     <button onclick="logoutMember()" style="width:100%;margin-top:24px;padding:15px;background:#fff;border:1.5px solid #f0ebe7;border-radius:14px;font-size:15px;font-weight:700;color:#d4506a;font-family:inherit;cursor:pointer">로그아웃 (자동 로그인 해제)</button>
   </div>
@@ -953,6 +953,45 @@ async function checkOrderTab(){
     }
   }catch(e){console.log('checkOrderTab err',e);}
   btn.style.display=show?'flex':'none';
+}
+
+// 구력·한줄소개 입력 팝업
+let _careerPick={years:'',desc:''};
+async function openCareerEdit(){
+  if(!me)return;
+  const cd=await sget('career-'+me.replace(/\s/g,''))||{};
+  _careerPick={years:cd.years||'',desc:cd.desc||''};
+  let ov=document.getElementById('careerEditOverlay');
+  if(!ov){ov=document.createElement('div');ov.id='careerEditOverlay';document.body.appendChild(ov);}
+  ov.style.cssText='position:fixed;inset:0;background:rgba(45,31,26,0.45);z-index:10002;display:flex;align-items:flex-end;justify-content:center';
+  ov.onclick=e=>{if(e.target===ov)ov.remove();};
+  renderCareerEdit();
+}
+function renderCareerEdit(){
+  const ov=document.getElementById('careerEditOverlay');if(!ov)return;
+  const levels=CAREER_LEVELS.map(lvl=>{
+    const sel=_careerPick.years===lvl;
+    return `<button onclick="_careerPick.years='${lvl}';renderCareerEdit()" style="padding:11px;border-radius:11px;font-family:inherit;font-size:14px;font-weight:600;cursor:pointer;border:1.5px solid ${sel?'#e8845a':'#f0ebe7'};background:${sel?'#fdf0ec':'#fff'};color:${sel?'#e8845a':'#2d1f1a'}">${lvl}</button>`;
+  }).join('');
+  ov.innerHTML=`<div style="background:#fff;width:100%;max-width:480px;border-radius:24px 24px 0 0;padding:22px 18px calc(22px + env(safe-area-inset-bottom,0));max-height:80vh;overflow-y:auto">
+    <div style="width:40px;height:4px;background:#e5e0db;border-radius:2px;margin:0 auto 18px"></div>
+    <div style="font-size:18px;font-weight:800;color:#2d1f1a;margin-bottom:16px">구력 · 한 줄 소개</div>
+    <div style="font-size:13px;font-weight:700;color:#7c6b5e;margin-bottom:9px">구력 선택</div>
+    <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:8px;margin-bottom:18px">${levels}</div>
+    <div style="font-size:13px;font-weight:700;color:#7c6b5e;margin-bottom:9px">한 줄 소개 (선택)</div>
+    <input id="careerDescInput" type="text" placeholder="예: 주 2회 동호인 활동 중" value="${(_careerPick.desc||'').replace(/"/g,'&quot;')}" oninput="_careerPick.desc=this.value" style="width:100%;background:#faf7f3;border:1.5px solid #f0ebe7;border-radius:12px;padding:13px 14px;font-size:15px;font-family:inherit;outline:none;margin-bottom:18px;box-sizing:border-box">
+    <button onclick="saveCareerPopup()" style="width:100%;background:#e8845a;color:#fff;border:none;border-radius:14px;padding:15px;font-size:16px;font-weight:700;font-family:inherit;cursor:pointer">저장</button>
+    <button onclick="document.getElementById('careerEditOverlay').remove()" style="width:100%;background:none;border:none;color:#a89b8e;font-size:14px;font-weight:600;font-family:inherit;cursor:pointer;padding:10px;margin-top:4px">취소</button>
+  </div>`;
+}
+async function saveCareerPopup(){
+  if(!me)return;
+  const key='career-'+me.replace(/\s/g,'');
+  await sset(key,{years:_careerPick.years||'',desc:_careerPick.desc||''});
+  const ov=document.getElementById('careerEditOverlay');if(ov)ov.remove();
+  toast('저장되었습니다');
+  // 모달 구력 영역 갱신
+  if(document.getElementById('playerModal').classList.contains('on'))showPlayer(me,curYear);
 }
 
 // 로그인 시 팀장이면 팝업 안내 (하루 1회)
@@ -1836,22 +1875,26 @@ async function showPlayer(name,year){
       }
     }catch(e){}
   })();
-  // 구력 / 한 줄 소개 표시
+  // 구력 / 한 줄 소개 표시 (본인이면 + 입력 버튼)
   (async()=>{
     try{
-      const cd=await sget('career-'+name.replace(/\s/g,''));
+      const cd=await sget('career-'+name.replace(/\s/g,''))||{};
       const pmc=document.getElementById('pmCareer');
-      if(pmc&&cd&&(cd.years||cd.desc)){
-        let h='<div style="display:flex;flex-direction:column;gap:6px">';
-        if(cd.years){
-          h+=`<div style="display:inline-flex;align-items:center;gap:6px"><span style="font-size:11px;font-weight:700;color:var(--blue);background:var(--blue-l);padding:3px 10px;border-radius:20px">🎾 구력 ${cd.years}</span></div>`;
-        }
-        if(cd.desc){
-          h+=`<div style="font-size:13px;color:var(--gray-600);font-style:italic;line-height:1.5">"${cd.desc}"</div>`;
-        }
-        h+='</div>';
-        pmc.innerHTML=h;
+      if(!pmc)return;
+      const isMe=(name===me);
+      let h='<div style="display:flex;align-items:center;flex-wrap:wrap;gap:8px">';
+      if(cd.years){
+        h+=`<span style="font-size:11px;font-weight:700;color:var(--blue);background:var(--blue-l);padding:4px 11px;border-radius:20px">🎾 구력 ${cd.years}</span>`;
       }
+      if(cd.desc){
+        h+=`<span style="font-size:13px;color:var(--gray-600);font-style:italic;line-height:1.5">"${cd.desc}"</span>`;
+      }
+      if(isMe){
+        const label=(cd.years||cd.desc)?'수정':'+ 구력·한 줄 소개';
+        h+=`<button onclick="openCareerEdit()" style="font-size:12px;font-weight:700;color:#e8845a;background:#fdf0ec;border:1px solid #f5d3c5;border-radius:20px;padding:4px 12px;font-family:inherit;cursor:pointer">${label}</button>`;
+      }
+      h+='</div>';
+      pmc.innerHTML=(cd.years||cd.desc||isMe)?h:'';
     }catch(e){}
   })();
   renderPMTabs(name,year);
@@ -2568,24 +2611,14 @@ async function loadCareer(){
     return;
   }
 
-  // 본인 구력 입력/수정
-  const key='career-'+me.replace(/\s/g,'');
-  const d=await sget(key)||{};
-  document.getElementById('careerDesc').textContent='나의 테니스 구력';
-
-  let html=`<div class="card card-pad">
-    <div style="font-size:14px;font-weight:700;color:var(--gray-700);margin-bottom:10px">구력 선택</div>
-    <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:8px;margin-bottom:18px">`;
-  CAREER_LEVELS.forEach(lvl=>{
-    const sel=d.years===lvl;
-    html+=`<button onclick="selectCareerLevel(this,'${lvl}')" data-level="${lvl}" style="padding:12px;border-radius:12px;font-family:'Pretendard',sans-serif;font-size:15px;font-weight:600;cursor:pointer;transition:all .15s;border:2px solid ${sel?'var(--blue)':'var(--gray-200)'};background:${sel?'var(--blue-l)':'var(--white)'};color:${sel?'var(--blue)':'var(--gray-700)'}">${lvl}</button>`;
-  });
-  html+=`</div>
-    <div style="font-size:14px;font-weight:700;color:var(--gray-700);margin-bottom:8px">한 줄 소개 (선택)</div>
-    <input id="careerDesc2" type="text" placeholder="예: 주 2회 동호인 활동 중" value="${d.desc||''}" style="width:100%;background:var(--gray-100);border:2px solid transparent;border-radius:12px;padding:12px 14px;font-size:15px;font-family:'Pretendard',sans-serif;outline:none;margin-bottom:16px;transition:border-color .15s" onfocus="this.style.borderColor='var(--blue)';this.style.background='var(--white)'" onblur="this.style.borderColor='transparent';this.style.background='var(--gray-100)'">
-    <button onclick="saveCareer()" class="btn btn-primary">저장</button>
+  // 본인: 선수 정보 창 안내 + 바로 열기
+  document.getElementById('careerDesc').textContent='나의 기록과 수상 내역';
+  wrap.innerHTML=`<div style="text-align:center;padding:30px 20px">
+    <button onclick="showPlayer('${me}',curYear)" style="background:#e8845a;color:#fff;border:none;border-radius:14px;padding:15px 28px;font-size:15px;font-weight:700;font-family:inherit;cursor:pointer;box-shadow:0 4px 14px rgba(232,132,90,0.3)">내 프로필 보기</button>
+    <div style="font-size:13px;color:#a89b8e;margin-top:14px;line-height:1.6">전적 · 수상 기록 · 경기 이력을 확인하고<br>구력과 한 줄 소개를 입력할 수 있어요</div>
   </div>`;
-  wrap.innerHTML=html;
+  // 자동으로 한 번 열기
+  showPlayer(me,curYear);
 }
 
 function selectCareerLevel(btn,lvl){
