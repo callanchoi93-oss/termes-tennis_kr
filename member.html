@@ -1104,7 +1104,7 @@ function renderOrderSheet(){
     const done=remain<=0;
     roster+=`<button onclick="quickPlace(${ai})" ${done?'disabled':''} style="background:${done?'#f4efe9':accentSoft};color:${done?'#bcae9f':accent};border:1px solid ${done?'#ece5dd':accentBorder};border-radius:11px;padding:9px 13px;font-size:14px;font-weight:700;font-family:inherit;cursor:${done?'default':'pointer'};display:flex;align-items:center;gap:7px">
       <span>${pname(sess,ai)}</span>
-      <span style="font-size:11px;font-weight:800;background:${done?'#e5ddd3':'#fff'};color:${done?'#bcae9f':accent};padding:2px 7px;border-radius:7px">${done?'완료':'남'+remain}</span>
+      <span style="font-size:11px;font-weight:800;background:${done?'#e5ddd3':'#fff'};color:${done?'#bcae9f':accent};padding:2px 7px;border-radius:7px">${done?'완료':remain}</span>
     </button>`;
   });
   roster+='</div>';
@@ -1971,14 +1971,14 @@ async function loadBracket(){
     const whiteNames=whiteIdx.map(ai=>pname(sess,ai));
     const seasonStats=await getSeasonStats();
     // 라인업 한 줄 (번호 없음 → 등급 표시, 이름, 주장 C, 전적)
-    const lineupRow=(ai,teamColor,isCap)=>{
+    const lineupRow=(ai,teamColor,isCap,num)=>{
       const nm=pname(sess,ai);
       const st=seasonStats[nm]||{w:0,l:0,d:0,sc:0,cc:0};
       const tot=st.w+st.l+st.d;
       const rate=tot>0?Math.round(st.w/tot*100):0;
       const diff=st.sc-st.cc;
       return `<div onclick="showPlayerFromName('${nm}')" style="display:flex;align-items:center;gap:10px;padding:9px 4px;border-bottom:1px solid rgba(255,255,255,0.12);cursor:pointer">
-        <span style="font-size:17px;font-weight:900;min-width:30px;text-align:center;opacity:0.95">${nm.charAt(0)}</span>
+        <span style="font-size:16px;font-weight:800;min-width:30px;text-align:center;opacity:0.7">${num}</span>
         <span style="font-size:16px;font-weight:800;flex:1;letter-spacing:-0.3px">${nm}${isCap?' <span style="display:inline-block;background:#ec4899;color:#fff;font-size:10px;font-weight:900;padding:1px 5px;border-radius:4px;vertical-align:middle">C</span>':''}</span>
         <span style="font-size:12px;font-weight:700;opacity:0.95">${st.w}승 ${st.l}패</span>
         <span style="font-size:11px;opacity:0.8;min-width:42px;text-align:right">승률 ${rate}%</span>
@@ -2029,11 +2029,11 @@ async function loadBracket(){
       </div>
       <div style="background:linear-gradient(160deg,#1e3a8a,#1e40af);padding:14px 16px;color:#fff">
         <div style="font-size:14px;font-weight:900;margin-bottom:6px;letter-spacing:0.5px"><span style="display:inline-block;width:9px;height:9px;border-radius:50%;background:#fff;margin-right:6px;vertical-align:middle"></span>청팀 LINE-UP</div>
-        ${blueIdx.map(ai=>lineupRow(ai,'blue',ai===blueCap)).join('')}
+        ${blueIdx.map((ai,i)=>lineupRow(ai,'blue',ai===blueCap,i+1)).join('')}
       </div>
       <div style="background:linear-gradient(160deg,#991b1b,#b91c1c);padding:14px 16px;color:#fff">
         <div style="font-size:14px;font-weight:900;margin-bottom:6px;letter-spacing:0.5px"><span style="display:inline-block;width:9px;height:9px;border-radius:50%;background:#fff;margin-right:6px;vertical-align:middle"></span>백팀 LINE-UP</div>
-        ${whiteIdx.map(ai=>lineupRow(ai,'white',ai===whiteCap)).join('')}
+        ${whiteIdx.map((ai,i)=>lineupRow(ai,'white',ai===whiteCap,i+1)).join('')}
       </div>`;
     wrap.appendChild(banner);
   }
