@@ -221,6 +221,20 @@ body{background:var(--bg);color:var(--gray-900);font-family:'Pretendard',-apple-
 <body>
 
 <!-- ── 로그인 ── -->
+<script>
+// 저장된 로그인(4시간 이내)이 있으면 로그인 화면을 처음부터 숨겨 깜빡임 방지
+(function(){
+  try{
+    var s=localStorage.getItem('termes-saved-login');
+    if(s){
+      var d=JSON.parse(s);
+      if(d&&d.name&&d.pin&&(!d.ts||Date.now()-d.ts<=4*60*60*1000)){
+        document.write('<style>#loginScreen{display:none!important}</style>');
+      }
+    }
+  }catch(e){}
+})();
+</script>
 <div id="loginScreen">
   <div style="text-align:center;margin-bottom:32px">
     <div class="login-logo" style="margin-bottom:10px">TER<span>MES</span></div>
@@ -989,23 +1003,25 @@ async function loadOrderSheet(){
   else{wrap.innerHTML='<div class="empty">팀장만 작성할 수 있습니다</div>';return;}
 
   // 오더 데이터: 저장된 bracket 사용. 비어있거나 경기가 없으면 빈 오더시트 생성
-  let od=JSON.parse(JSON.stringify(sess.b||[]));
+  let saved=JSON.parse(JSON.stringify(sess.b||[]));
   // -2(빈 슬롯 센티넬) → null 복원
-  od.forEach(rd=>(rd.c||[]).forEach(ct=>{for(let p=0;p<4;p++)if(ct[p]===-2)ct[p]=null;}));
-  // 청백 경기 코트가 하나도 없으면 새로 생성 (인원 기반)
-  const totalCourts=od.reduce((a,rd)=>a+((rd.c||[]).length),0);
-  if(totalCourts<1){
-    const teamN=(sess.bwTeams.blue||[]).length;
-    const courtsN=sess.ct||3;
-    const matches=Math.floor(teamN*4/2); // 한 팀 인원*4/2
-    const roundsN=Math.ceil(matches/courtsN);
-    od=[];let made=0;
-    for(let ri=0;ri<roundsN;ri++){
-      const c=[];
-      const cnt=Math.min(courtsN,matches-made);
-      for(let ci=0;ci<cnt;ci++){c.push([null,null,null,null]);made++;}
-      od.push({c,w:[],ctl:c.map(()=>'청백'),bw:true,ord:true});
+  saved.forEach(rd=>(rd.c||[]).forEach(ct=>{for(let p=0;p<4;p++)if(ct[p]===-2)ct[p]=null;}));
+  // 항상 올바른 전체 오더시트 골격을 만들고, 저장된 배치를 덮어쓴다
+  const teamN=(sess.bwTeams.blue||[]).length;
+  const courtsN=sess.ct||3;
+  const matches=Math.floor(teamN*4/2); // 한 팀 인원*4/2 = 총 경기 수
+  const roundsN=Math.ceil(matches/courtsN);
+  const od=[];let made=0;
+  for(let ri=0;ri<roundsN;ri++){
+    const c=[];
+    const cnt=Math.min(courtsN,matches-made);
+    for(let ci=0;ci<cnt;ci++){
+      // 저장된 배치가 있으면 가져오기
+      const sc=saved[ri]&&saved[ri].c&&saved[ri].c[ci]?saved[ri].c[ci]:[null,null,null,null];
+      c.push([sc[0]??null,sc[1]??null,sc[2]??null,sc[3]??null]);
+      made++;
     }
+    od.push({c,w:[],ctl:c.map(()=>'청백'),bw:true,ord:true});
   }
   _orderData=od;
   renderOrderSheet();
@@ -2054,8 +2070,9 @@ async function loadBracket(){
         :`<span class="p-tag" onclick="showPlayerFromName('${pname(sess,ai)}')">${pname(sess,ai)}</span>`;
       // 청백전 코트 (청2 vs 백2)
       if(round.isBW){
-        const blueChip=ai=>`<span class="p-tag" style="background:#dbeafe;color:#1e40af;border:1px solid #93c5fd" onclick="showPlayerFromName('${pname(sess,ai)}')">${pname(sess,ai)}</span>`;
-        const whiteChip=ai=>`<span class="p-tag" style="background:#fff;color:#b91c1c;border:1px solid #fca5a5" onclick="showPlayerFromName('${pname(sess,ai)}')">${pname(sess,ai)}</span>`;
+        const isEmpty=ai=>ai==null||ai===-2;
+        const blueChip=ai=>isEmpty(ai)?`<span class="p-tag" style="background:#f5f0eb;color:#c4b5a9;border:1px dashed #ddd3c8">미정</span>`:`<span class="p-tag" style="background:#dbeafe;color:#1e40af;border:1px solid #93c5fd" onclick="showPlayerFromName('${pname(sess,ai)}')">${pname(sess,ai)}</span>`;
+        const whiteChip=ai=>isEmpty(ai)?`<span class="p-tag" style="background:#f5f0eb;color:#c4b5a9;border:1px dashed #ddd3c8">미정</span>`:`<span class="p-tag" style="background:#fff;color:#b91c1c;border:1px solid #fca5a5" onclick="showPlayerFromName('${pname(sess,ai)}')">${pname(sess,ai)}</span>`;
         return `<div class="court-row" style="background:linear-gradient(90deg,#eff6ff,#fef2f2);border-left:4px solid #3b82f6"><div class="ct-lbl">코트 ${ci+1}</div><div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap"><div style="display:flex;gap:5px;align-items:center"><span style="font-size:11px;font-weight:800;color:#1e40af">청</span>${blueChip(ct[0])}${blueChip(ct[1])}</div><span class="vs-t">VS</span><div style="display:flex;gap:5px;align-items:center"><span style="font-size:11px;font-weight:800;color:#b91c1c">백</span>${whiteChip(ct[2])}${whiteChip(ct[3])}</div></div></div>`;
       }
       // 성별 대진 타입 배지
@@ -2090,7 +2107,8 @@ function renderScoreUI(sess){
       const col=CC[ci%CC.length],skey=`${ri}-${ci}`,sv=sc[skey]||{};
       const s1=sv.s1!==undefined?sv.s1:'',s2=sv.s2!==undefined?sv.s2:'';
       const hasHelper=ct.includes(-1);
-      const canEdit=!hasHelper&&!isGuest&&!isFinished&&(isSuper||(me&&(pname(sess,ct[0])===me||pname(sess,ct[1])===me||pname(sess,ct[2])===me||pname(sess,ct[3])===me)));
+      const hasEmpty=ct.some(ai=>ai==null||ai===-2);
+      const canEdit=!hasHelper&&!hasEmpty&&!isGuest&&!isFinished&&(isSuper||(me&&(pname(sess,ct[0])===me||pname(sess,ct[1])===me||pname(sess,ct[2])===me||pname(sess,ct[3])===me)));
       const dis=canEdit?'':'disabled';
       const dStyle=canEdit?'':'background:var(--gray-100);color:var(--gray-400);';
       const typing=sc._typing&&sc._typing[skey];
@@ -2388,13 +2406,14 @@ async function loadNotices(){
 
 // 로그인 유지 복원
 async function restoreLogin(){
+  const showLogin=()=>{const el=document.getElementById('loginScreen');if(el)el.style.setProperty('display','flex','important');};
   try{
     const saved=localStorage.getItem('termes-saved-login');
-    if(!saved)return;
+    if(!saved){showLogin();return;}
     const {name,pin,ts}=JSON.parse(saved);
-    if(!name||!pin)return;
+    if(!name||!pin){showLogin();return;}
     // 4시간 경과 시 자동 로그아웃
-    if(ts&&Date.now()-ts>4*60*60*1000){localStorage.removeItem('termes-saved-login');return;}
+    if(ts&&Date.now()-ts>4*60*60*1000){localStorage.removeItem('termes-saved-login');showLogin();return;}
     const data=await sget(mkKey(name));
     if(data&&data.pin===pin&&(data.approved||MEMBERS.includes(name))){
       window._fq=data.question||'';window._fa=data.answer||'';
@@ -2402,7 +2421,8 @@ async function restoreLogin(){
       return;
     }
     localStorage.removeItem('termes-saved-login');
-  }catch(e){}
+    showLogin();
+  }catch(e){showLogin();}
 }
 
 buildNameList().then(()=>{
