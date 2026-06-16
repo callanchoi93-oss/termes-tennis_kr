@@ -383,6 +383,7 @@ body{background:var(--bg);color:var(--gray-900);font-family:'Pretendard',-apple-
   <nav class="nav">
     <button class="nb on" onclick="gTab('ranking',this)"><div class="nav-icon"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12L12 3L21 12V21H15V15H9V21H3V12Z"/></svg></div>홈</button>
     <button class="nb" onclick="gTab('bracket',this)"><div class="nav-icon"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="16" rx="2"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg></div>대진표</button>
+    <button class="nb" id="orderTabBtn" style="display:none" onclick="gTab('order',this)"><div class="nav-icon"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M9 11l3 3L22 4"/><rect x="3" y="4" width="13" height="16" rx="2"/></svg></div>오더시트</button>
     <button class="nb" onclick="gTab('score',this)"><div class="nav-icon"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11"/></svg></div>점수</button>
     <button class="nb" onclick="gTab('history',this)"><div class="nav-icon"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 3"/></svg></div>기록</button>
     <button class="nb" onclick="gTab('rankboard',this)"><div class="nav-icon"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="12" width="4" height="9" rx="1"/><rect x="10" y="6" width="4" height="15" rx="1"/><rect x="17" y="9" width="4" height="12" rx="1"/></svg></div>순위</button>
@@ -401,6 +402,12 @@ body{background:var(--bg);color:var(--gray-900);font-family:'Pretendard',-apple-
   </div>
 
   <!-- 대진표 -->
+  <div id="p-order" class="page">
+    <div class="page-title">📋 청백전 오더시트</div>
+    <div class="page-sub" id="orderSub">우리 팀 대진을 짜주세요</div>
+    <div id="orderContent"><div class="empty">불러오는 중...</div></div>
+  </div>
+
   <div id="p-bracket" class="page">
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
       <div class="page-title" style="margin-bottom:0">대진표</div>
@@ -813,7 +820,7 @@ function enterApp(label,isAdmin){
   }
   document.getElementById('mainApp').style.display='block';
   const hdr=document.querySelector('.hdr');if(hdr)hdr.style.display='none';
-  loadHome();loadToday();
+  loadHome();loadToday();checkOrderTab();
 }
 function showForgot(){const q=window._fq||'';if(!q){alert('등록된 질문이 없습니다.\n임원진에게 문의하세요.');return;}document.getElementById('forgotQ').textContent='Q.  '+q;document.getElementById('forgotA').value='';document.getElementById('forgotErr').textContent='';document.getElementById('forgotScreen').style.display='flex';}
 function hideForgot(){document.getElementById('forgotScreen').style.display='none';}
@@ -906,7 +913,189 @@ function gTab(id,btn){
   else if(id==='rankboard')loadRankBoard();
   else if(id==='notice')loadNotices();
   else if(id==='career')loadCareer();
+  else if(id==='order')loadOrderSheet();
 }
+
+// 청백전 팀장이면 오더시트 탭 표시 (끝났으면 숨김)
+async function checkOrderTab(){
+  const btn=document.getElementById('orderTabBtn');
+  if(!btn)return;
+  let show=false;
+  try{
+    const sess=await sget('sessions/'+dateKey());
+    if(sess&&!sess.del&&sess.bw&&sess.bwTeams&&!sess.finished){
+      const bc=sess.bwTeams.blueCaptain, wc=sess.bwTeams.whiteCaptain;
+      const bcName=bc!=null?pname(sess,bc):'', wcName=wc!=null?pname(sess,wc):'';
+      if(me&&(me===bcName||me===wcName))show=true;
+    }
+  }catch(e){}
+  btn.style.display=show?'flex':'none';
+}
+
+// ── 청백전 오더시트 (팀장 편집) ──
+let _orderSess=null, _myTeam=null, _orderData=null;
+async function loadOrderSheet(){
+  const wrap=document.getElementById('orderContent');
+  wrap.innerHTML='<div class="empty">불러오는 중...</div>';
+  const sess=await sget('sessions/'+dateKey());
+  if(!sess||sess.del||!sess.bw||!sess.bwTeams){wrap.innerHTML='<div class="empty">청백전이 없습니다</div>';return;}
+  if(sess.finished){wrap.innerHTML='<div class="empty">종료된 경기입니다</div>';return;}
+  _orderSess=sess;
+  const bc=sess.bwTeams.blueCaptain, wc=sess.bwTeams.whiteCaptain;
+  const bcName=bc!=null?pname(sess,bc):'', wcName=wc!=null?pname(sess,wc):'';
+  if(me===bcName)_myTeam='blue';
+  else if(me===wcName)_myTeam='white';
+  else{wrap.innerHTML='<div class="empty">팀장만 작성할 수 있습니다</div>';return;}
+
+  // 오더 데이터: bracket의 courts에서 내 팀 슬롯만 편집
+  _orderData=JSON.parse(JSON.stringify(sess.b||[]));
+  renderOrderSheet();
+}
+
+function teamSlots(team){return team==='blue'?[0,1]:[2,3];}
+
+function orderGameCount(team){
+  // 팀원별 배치된 게임 수
+  const cnt={};
+  const ids=_orderSess.bwTeams[team]||[];
+  ids.forEach(ai=>cnt[ai]=0);
+  _orderData.forEach(rd=>{
+    if(!rd.bw)return;
+    (rd.c||[]).forEach(ct=>{
+      teamSlots(team).forEach(pos=>{
+        const ai=ct[pos];
+        if(ai!=null&&ai!==-1)cnt[ai]=(cnt[ai]||0)+1;
+      });
+    });
+  });
+  return cnt;
+}
+
+function renderOrderSheet(){
+  const wrap=document.getElementById('orderContent');
+  const sess=_orderSess, team=_myTeam;
+  const teamColor=team==='blue'?'#1e40af':'#b91c1c';
+  const teamBg=team==='blue'?'#dbeafe':'#fee2e2';
+  const teamName=team==='blue'?'🔵 청팀':'⚪ 백팀';
+  const teamIds=sess.bwTeams[team]||[];
+  const GAMES=4;
+
+  document.getElementById('orderSub').textContent=`${teamName} 팀장 · 각 선수 ${GAMES}게임씩 배치`;
+
+  // 4게임 검증
+  const cnt=orderGameCount(team);
+  let over=[],under=[],ok=true;
+  teamIds.forEach(ai=>{
+    const g=cnt[ai]||0;
+    if(g>GAMES){over.push(`${pname(sess,ai)} ${g}게임`);ok=false;}
+    else if(g<GAMES){under.push(`${pname(sess,ai)} ${g}게임`);ok=false;}
+  });
+  let warn='';
+  if(over.length)warn+=`<div style="background:#fef2f2;border:1px solid #fca5a5;border-radius:12px;padding:12px 14px;margin-bottom:8px;font-size:13px;color:#b91c1c;font-weight:600">⚠️ 너무 많이 배치됨 (빼주세요): ${over.join(', ')}</div>`;
+  if(under.length)warn+=`<div style="background:#fffbeb;border:1px solid #fcd34d;border-radius:12px;padding:12px 14px;margin-bottom:8px;font-size:13px;color:#b45309;font-weight:600">➕ 더 배치해야 함: ${under.join(', ')}</div>`;
+  if(ok)warn=`<div style="background:#ecfdf5;border:1px solid #6ee7b7;border-radius:12px;padding:12px 14px;margin-bottom:8px;font-size:14px;color:#047857;font-weight:700">✅ 모든 선수가 정확히 ${GAMES}게임! 저장할 수 있어요</div>`;
+
+  // 선수별 배치 현황 칩
+  let roster='<div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:16px">';
+  teamIds.forEach(ai=>{
+    const g=cnt[ai]||0;
+    const c=g===GAMES?'#047857':g>GAMES?'#b91c1c':'#b45309';
+    roster+=`<span style="background:${teamBg};color:${teamColor};padding:5px 10px;border-radius:9px;font-size:13px;font-weight:600">${pname(sess,ai)} <b style="color:${c}">${g}/${GAMES}</b></span>`;
+  });
+  roster+='</div>';
+
+  // 경기별 슬롯
+  let games='';
+  let gi=0;
+  _orderData.forEach((rd,ri)=>{
+    if(!rd.bw)return;
+    (rd.c||[]).forEach((ct,ci)=>{
+      gi++;
+      const mySlots=teamSlots(team);
+      const slotHtml=mySlots.map(pos=>{
+        const ai=ct[pos];
+        const label=ai!=null&&ai!==-1?pname(sess,ai):'＋ 배치';
+        const filled=ai!=null&&ai!==-1;
+        return `<button onclick="pickOrderSlot(${ri},${ci},${pos})" style="background:${filled?teamBg:'#f8fafc'};color:${filled?teamColor:'#94a3b8'};border:1.5px ${filled?'solid':'dashed'} ${filled?teamColor:'#cbd5e1'};border-radius:10px;padding:10px 14px;font-size:14px;font-weight:700;font-family:inherit;cursor:pointer;min-width:84px">${label}</button>`;
+      }).join('');
+      // 상대팀 슬롯 (읽기 전용)
+      const oppSlots=team==='blue'?[2,3]:[0,1];
+      const oppColor=team==='blue'?'#b91c1c':'#1e40af';
+      const oppHtml=oppSlots.map(pos=>{
+        const ai=ct[pos];
+        return `<span style="color:${oppColor};font-size:13px;font-weight:600;opacity:0.7">${ai!=null&&ai!==-1?pname(sess,ai):'상대'}</span>`;
+      }).join(' · ');
+      games+=`<div style="background:#fff;border-radius:14px;padding:14px;margin-bottom:10px;box-shadow:0 1px 4px rgba(0,0,0,0.05)">
+        <div style="font-size:12px;font-weight:700;color:#94a3b8;margin-bottom:8px">${gi}경기</div>
+        <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+          <div style="display:flex;gap:6px">${slotHtml}</div>
+          <span style="font-size:12px;font-weight:800;color:#cbd5e1">VS</span>
+          <div style="font-size:13px">${oppHtml}</div>
+        </div>
+      </div>`;
+    });
+  });
+
+  wrap.innerHTML=`${warn}${roster}${games}
+    <button onclick="saveOrderSheet()" ${ok?'':'disabled'} style="width:100%;margin-top:8px;padding:15px;background:${ok?teamColor:'#cbd5e1'};color:#fff;border:none;border-radius:14px;font-size:16px;font-weight:800;font-family:inherit;cursor:${ok?'pointer':'not-allowed'}">오더시트 저장</button>
+    <div style="height:30px"></div>`;
+}
+
+// 슬롯 선택: 팀원 목록에서 고르기
+let _pickTarget=null;
+function pickOrderSlot(ri,ci,pos){
+  _pickTarget={ri,ci,pos};
+  const sess=_orderSess,team=_myTeam;
+  const teamIds=sess.bwTeams[team]||[];
+  const cnt=orderGameCount(team);
+  const cur=_orderData[ri].c[ci][pos];
+  const teamColor=team==='blue'?'#1e40af':'#b91c1c';
+  let opts=teamIds.map(ai=>{
+    const g=cnt[ai]||0;
+    const isCur=ai===cur;
+    // 이미 이 경기에 들어간 사람은 제외
+    const inThisGame=teamSlots(team).some(p=>p!==pos&&_orderData[ri].c[ci][p]===ai);
+    return `<button onclick="setOrderSlot(${ai})" ${inThisGame?'disabled':''} style="display:flex;justify-content:space-between;align-items:center;width:100%;padding:13px 16px;background:${isCur?teamColor:inThisGame?'#f1f5f9':'#fff'};color:${isCur?'#fff':inThisGame?'#cbd5e1':'#1e293b'};border:1px solid #e5e7eb;border-radius:11px;margin-bottom:7px;font-size:15px;font-weight:600;font-family:inherit;cursor:${inThisGame?'not-allowed':'pointer'}">
+      <span>${pname(sess,ai)}${isCur?' ✓':''}</span><span style="font-size:13px;opacity:0.7">${g}/4게임</span></button>`;
+  }).join('');
+  const ov=document.getElementById('orderPickOverlay')||(()=>{const d=document.createElement('div');d.id='orderPickOverlay';document.body.appendChild(d);return d;})();
+  ov.style.cssText='position:fixed;inset:0;background:rgba(45,31,26,0.45);z-index:9999;display:flex;align-items:flex-end;justify-content:center';
+  ov.onclick=e=>{if(e.target===ov)ov.remove();};
+  ov.innerHTML=`<div style="background:#fff;width:100%;max-width:480px;border-radius:22px 22px 0 0;padding:22px 18px calc(22px + env(safe-area-inset-bottom,0));max-height:75vh;overflow-y:auto">
+    <div style="width:40px;height:4px;background:#e5e0db;border-radius:2px;margin:0 auto 16px"></div>
+    <div style="font-size:17px;font-weight:800;margin-bottom:14px">선수 선택</div>
+    ${cur!=null&&cur!==-1?`<button onclick="setOrderSlot(null)" style="width:100%;padding:12px;background:#fef2f2;color:#b91c1c;border:1px solid #fca5a5;border-radius:11px;margin-bottom:10px;font-size:14px;font-weight:700;font-family:inherit;cursor:pointer">이 자리 비우기</button>`:''}
+    ${opts}
+  </div>`;
+}
+function setOrderSlot(ai){
+  if(!_pickTarget)return;
+  const{ri,ci,pos}=_pickTarget;
+  _orderData[ri].c[ci][pos]=ai;
+  const ov=document.getElementById('orderPickOverlay');if(ov)ov.remove();
+  _pickTarget=null;
+  renderOrderSheet();
+}
+async function saveOrderSheet(){
+  const team=_myTeam,GAMES=4;
+  const cnt=orderGameCount(team);
+  const bad=(_orderSess.bwTeams[team]||[]).some(ai=>(cnt[ai]||0)!==GAMES);
+  if(bad){toast('모든 선수가 정확히 4게임이어야 저장할 수 있어요');return;}
+  // Firebase에 내 팀 슬롯 반영
+  const sess=await sget('sessions/'+dateKey());
+  if(!sess||!sess.b){toast('저장 실패: 세션을 찾을 수 없습니다');return;}
+  const slots=teamSlots(team);
+  _orderData.forEach((rd,ri)=>{
+    if(!rd.bw)return;
+    (rd.c||[]).forEach((ct,ci)=>{
+      slots.forEach(pos=>{sess.b[ri].c[ci][pos]=ct[pos];});
+    });
+  });
+  await sset('sessions/'+dateKey(),sess);
+  toast('✅ 오더시트가 저장되었습니다!');
+  gTab('bracket',document.querySelectorAll('.nb')[1]);
+}
+
 
 // ── 연도/그룹 탭 ──
 function buildYearTabs(){
@@ -1598,6 +1787,7 @@ async function getSeasonStats(){
   return stats;
 }
 async function loadBracket(){
+  checkOrderTab();
   const wrap=document.getElementById('bktWrap');
   const sess=await sget('sessions/'+dateKey());
   if(!sess||sess.del){wrap.innerHTML='<div class="empty">오늘 대진표가 없습니다</div>';return;}
