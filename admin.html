@@ -1368,10 +1368,10 @@ function genGenderBracket(n,c,r,ppr,waitSz){
 
   // 4명 그룹의 "코트 비용" (이 4명을 한 코트에 묶는 비용)
   function courtCost(four){
-    // A↔C 같은 코트 강한 페널티 (무조건 차단 지향)
+    // A↔C 같은 코트 소프트 페널티 (최대한 피하되 불가피하면 허용)
     const hasA=four.some(x=>pInfo[x].grade==='A');
     const hasC=four.some(x=>pInfo[x].grade==='C');
-    const acPenalty=(hasA&&hasC)?100000:0;
+    const acPenalty=(hasA&&hasC)?500:0;
     // 남복 우선: 실제 남성 4명 코트이고 남복 목표 미달자가 있으면 비용 감소(보너스)
     let mensBonus=0;
     const realMaleCnt=four.filter(x=>pInfo[x].realGender==='M').length;
@@ -1509,56 +1509,6 @@ function genGenderBracket(n,c,r,ppr,waitSz){
         }
       }
     }
-    // 4단계: A↔C 같은 코트 무조건 차단 (남으면 C를 헬퍼로 분리)
-    for(let pass=0;pass<50;pass++){
-      let acCourt=null,acRi=-1,acCi=-1;
-      for(let ri=0;ri<S.bracket.length&&!acCourt;ri++){
-        const rd=S.bracket[ri];
-        for(let ci=0;ci<rd.courts.length;ci++){
-          const ct=rd.courts[ci];
-          if(ct.includes(-1))continue;
-          const hasA=ct.some(x=>pInfo[x].grade==='A');
-          const hasC=ct.some(x=>pInfo[x].grade==='C');
-          if(hasA&&hasC){acCourt=ct;acRi=ri;acCi=ci;break;}
-        }
-      }
-      if(!acCourt)break;
-      // C 한 명을 헬퍼로 교체 (쫓겨난 C는 추가 라운드에서 4게임 채움)
-      let removed=-1;
-      for(let k=0;k<4;k++){if(pInfo[acCourt[k]].grade==='C'){removed=acCourt[k];acCourt[k]=-1;break;}}
-      if(removed<0)break;
-      gameSoFar[removed]--;
-      // 보충 라운드 (쫓겨난 C 포함 미완료자)
-      const elig3=Array.from({length:n},(_,i)=>i).filter(i=>gameSoFar[i]<GAMES);
-      if(elig3.length){
-        elig3.sort((a,b)=>gameSoFar[a]-gameSoFar[b]);
-        const cnum3=Math.min(c,Math.ceil(elig3.length/4));
-        if(cnum3>=1){
-          const rp=elig3.slice(0,Math.min(cnum3*4,elig3.length));
-          const fc3=Math.floor(rp.length/4)*4;
-          const fp=rp.slice(0,fc3),lo=rp.slice(fc3);
-          let ncts=[];
-          if(fp.length>=4){const b3=buildRound(fp);if(b3)ncts=b3;}
-          if(lo.length>0)ncts.push(lo.concat(Array(4-lo.length).fill(-1)));
-          const ntps=[];
-          ncts.forEach(ct=>{
-            if(ct.includes(-1)){ct.forEach(x=>{if(x!==-1)gameSoFar[x]++;});ntps.push('tbd');}
-            else{
-              const sp=splitCourt(ct);
-              pu[_pkey(sp.t1[0],sp.t1[1])]=(pu[_pkey(sp.t1[0],sp.t1[1])]||0)+1;
-              pu[_pkey(sp.t2[0],sp.t2[1])]=(pu[_pkey(sp.t2[0],sp.t2[1])]||0)+1;
-              sp.t1.forEach(x=>sp.t2.forEach(y=>{ou[_pkey(x,y)]=(ou[_pkey(x,y)]||0)+1;}));
-              ct.length=0;ct.push(sp.t1[0],sp.t1[1],sp.t2[0],sp.t2[1]);
-              const t=courtType(ct);ntps.push(t);
-              ct.forEach(x=>{gameSoFar[x]++;if(t==='mens')mensGames[x]++;});
-            }
-          });
-          const tl2={mens:'남복',mixed:'혼복',ladies:'여복',tbd:'미정'};
-          S.bracket.push({courts:ncts,wait:[],courtTypeLabels:ntps.map(t=>tl2[t])});
-        }
-      }
-    }
-
 // 보정 후 라벨 재계산 (헬퍼 코트는 미정 유지)
     S.bracket.forEach(rd=>{
       rd.courtTypeLabels=rd.courts.map(ct=>{
