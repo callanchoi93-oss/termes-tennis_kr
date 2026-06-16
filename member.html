@@ -1572,7 +1572,10 @@ async function loadBracket(){
     const ch=round.courts.map((ct,ci)=>{
       if(!ct||ct.length<4)return '';
       const col=CC[ci%CC.length];
-      const p=ai=>`<span class="p-tag" onclick="showPlayerFromName('${pname(sess,ai)}')">${pname(sess,ai)}</span>`;
+      const hasHelper=ct.includes(-1);
+      const p=ai=>ai===-1
+        ?`<span class="p-tag" style="color:#a89b8e;background:#f5f0eb">헬퍼</span>`
+        :`<span class="p-tag" onclick="showPlayerFromName('${pname(sess,ai)}')">${pname(sess,ai)}</span>`;
       // 성별 대진 타입 배지
       const tpLabel=round.courtTypeLabels?round.courtTypeLabels[ci]:'';
       const tpColor=tpLabel==='남복'?'#e8845a':tpLabel==='여복'?'#f04452':tpLabel==='혼복'?'#00b493':tpLabel==='미정'?'#8b95a1':'';
