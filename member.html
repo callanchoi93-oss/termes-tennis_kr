@@ -402,8 +402,8 @@ body{background:var(--bg);color:var(--gray-900);font-family:'Pretendard',-apple-
   </div>
 
   <!-- 대진표 -->
-  <div id="p-order" class="page">
-    <div class="page-title">📋 청백전 오더시트</div>
+  <div id="p-order" class="page" style="background:var(--warm-bg);min-height:100vh">
+    <div class="page-title">청백전 오더시트</div>
     <div class="page-sub" id="orderSub">우리 팀 대진을 짜주세요</div>
     <div id="orderContent"><div class="empty">불러오는 중...</div></div>
   </div>
@@ -962,11 +962,12 @@ async function showCaptainPopup(){
     if(!ov){ov=document.createElement('div');ov.id='capPopupOverlay';document.body.appendChild(ov);}
     ov.style.cssText='position:fixed;inset:0;background:rgba(45,31,26,0.5);z-index:10000;display:flex;align-items:center;justify-content:center;padding:24px';
     ov.onclick=e=>{if(e.target===ov)ov.remove();};
-    ov.innerHTML=`<div style="background:#fff;border-radius:24px;max-width:360px;width:100%;padding:30px 24px;text-align:center;box-shadow:0 10px 40px rgba(0,0,0,0.25)">
-      <div style="font-size:20px;font-weight:900;color:${teamColor};margin-bottom:10px">${me}님<br>오늘 청백전에서<br>${teamTxt} 팀장으로 선정되었습니다!</div>
-      <div style="font-size:14px;color:#7c6b5e;line-height:1.6;margin-bottom:22px">오더시트에서 우리 팀 대진을 짜주세요.<br>각 선수가 정확히 4게임씩 뛰도록 배치하면 됩니다.</div>
-      <button onclick="document.getElementById('capPopupOverlay').remove();gTab('order',document.getElementById('orderTabBtn'))" style="width:100%;background:${teamColor};color:#fff;border:none;border-radius:14px;padding:15px;font-size:16px;font-weight:800;font-family:inherit;cursor:pointer;margin-bottom:10px">📋 오더시트 작성하러 가기</button>
-      <button onclick="document.getElementById('capPopupOverlay').remove()" style="width:100%;background:none;border:none;color:#a89b8e;font-size:14px;font-weight:600;font-family:inherit;cursor:pointer;padding:6px">나중에 하기</button>
+    ov.innerHTML=`<div style="background:#fff;border-radius:24px;max-width:340px;width:100%;padding:32px 26px;text-align:center;box-shadow:0 12px 40px rgba(120,90,70,0.25)">
+      <div style="display:inline-block;font-size:12px;font-weight:700;color:${teamColor};background:${teamColor}14;padding:5px 14px;border-radius:20px;margin-bottom:16px">${teamTxt} 팀장</div>
+      <div style="font-size:20px;font-weight:800;color:#2d1f1a;line-height:1.45;margin-bottom:12px">${me}님,<br>오늘 청백전 ${teamTxt} 팀장으로<br>선정되었습니다</div>
+      <div style="font-size:13.5px;color:#7c6b5e;line-height:1.65;margin-bottom:24px">오더시트에서 우리 팀 대진을 짜주세요.<br>각 선수가 정확히 4게임씩 뛰도록 배치하면 됩니다.</div>
+      <button onclick="document.getElementById('capPopupOverlay').remove();gTab('order',document.getElementById('orderTabBtn'))" style="width:100%;background:#e8845a;color:#fff;border:none;border-radius:14px;padding:15px;font-size:15.5px;font-weight:700;font-family:inherit;cursor:pointer;margin-bottom:8px">오더시트 작성하러 가기</button>
+      <button onclick="document.getElementById('capPopupOverlay').remove()" style="width:100%;background:none;border:none;color:#a89b8e;font-size:14px;font-weight:600;font-family:inherit;cursor:pointer;padding:8px">나중에 하기</button>
     </div>`;
   }catch(e){}
 }
@@ -986,8 +987,24 @@ async function loadOrderSheet(){
   else if(me===wcName)_myTeam='white';
   else{wrap.innerHTML='<div class="empty">팀장만 작성할 수 있습니다</div>';return;}
 
-  // 오더 데이터: bracket의 courts에서 내 팀 슬롯만 편집
-  _orderData=JSON.parse(JSON.stringify(sess.b||[]));
+  // 오더 데이터: 저장된 bracket 사용. 비어있거나 경기가 없으면 빈 오더시트 생성
+  let od=JSON.parse(JSON.stringify(sess.b||[]));
+  // 청백 경기 코트가 하나도 없으면 새로 생성 (인원 기반)
+  const totalCourts=od.reduce((a,rd)=>a+((rd.c||[]).length),0);
+  if(totalCourts<1){
+    const teamN=(sess.bwTeams.blue||[]).length;
+    const courtsN=sess.ct||3;
+    const matches=Math.floor(teamN*4/2); // 한 팀 인원*4/2
+    const roundsN=Math.ceil(matches/courtsN);
+    od=[];let made=0;
+    for(let ri=0;ri<roundsN;ri++){
+      const c=[];
+      const cnt=Math.min(courtsN,matches-made);
+      for(let ci=0;ci<cnt;ci++){c.push([null,null,null,null]);made++;}
+      od.push({c,w:[],ctl:c.map(()=>'청백'),bw:true,ord:true});
+    }
+  }
+  _orderData=od;
   renderOrderSheet();
   startOrderSync();
 }
@@ -1041,11 +1058,12 @@ function renderOrderSheet(){
   const sess=_orderSess, team=_myTeam;
   const teamColor=team==='blue'?'#1e40af':'#b91c1c';
   const teamBg=team==='blue'?'#dbeafe':'#fee2e2';
-  const teamName=team==='blue'?'🔵 청팀':'⚪ 백팀';
+  const dot=c=>`<span style="display:inline-block;width:9px;height:9px;border-radius:50%;background:${c};margin-right:5px;vertical-align:middle"></span>`;
+  const teamName=team==='blue'?dot('#3b82f6')+'청팀':dot('#ef4444')+'백팀';
   const teamIds=sess.bwTeams[team]||[];
   const GAMES=4;
 
-  document.getElementById('orderSub').textContent=`${teamName} 팀장 · 각 선수 ${GAMES}게임씩 배치`;
+  document.getElementById('orderSub').innerHTML=`${teamName} 팀장 · 각 선수 ${GAMES}게임씩 배치`;
 
   // 4게임 검증
   const cnt=orderGameCount(team);
@@ -1056,9 +1074,9 @@ function renderOrderSheet(){
     else if(g<GAMES){under.push(`${pname(sess,ai)} ${g}게임`);ok=false;}
   });
   let warn='';
-  if(over.length)warn+=`<div style="background:#fef2f2;border:1px solid #fca5a5;border-radius:12px;padding:12px 14px;margin-bottom:8px;font-size:13px;color:#b91c1c;font-weight:600">⚠️ 너무 많이 배치됨 (빼주세요): ${over.join(', ')}</div>`;
-  if(under.length)warn+=`<div style="background:#fffbeb;border:1px solid #fcd34d;border-radius:12px;padding:12px 14px;margin-bottom:8px;font-size:13px;color:#b45309;font-weight:600">➕ 더 배치해야 함: ${under.join(', ')}</div>`;
-  if(ok)warn=`<div style="background:#ecfdf5;border:1px solid #6ee7b7;border-radius:12px;padding:12px 14px;margin-bottom:8px;font-size:14px;color:#047857;font-weight:700">✅ 모든 선수가 정확히 ${GAMES}게임! 저장할 수 있어요</div>`;
+  if(over.length)warn+=`<div style="background:#fff0f1;border:1px solid #f7c5cb;border-radius:13px;padding:13px 15px;margin-bottom:8px;font-size:13px;color:#d4506a;font-weight:600;line-height:1.5">너무 많이 배치됐어요 (빼주세요) — ${over.join(', ')}</div>`;
+  if(under.length)warn+=`<div style="background:#fdf6ec;border:1px solid #f0dcc0;border-radius:13px;padding:13px 15px;margin-bottom:8px;font-size:13px;color:#b45309;font-weight:600;line-height:1.5">아직 더 배치해야 해요 — ${under.join(', ')}</div>`;
+  if(ok)warn=`<div style="background:#e8f9f6;border:1px solid #a7e8dc;border-radius:13px;padding:13px 15px;margin-bottom:8px;font-size:14px;color:#00866d;font-weight:700">모든 선수가 정확히 ${GAMES}게임! 저장할 수 있어요</div>`;
 
   // 선수별 배치 현황 칩 (드래그 소스 — 남은 배치 가능 횟수 표시)
   let roster='<div style="font-size:12px;color:#94a3b8;font-weight:600;margin-bottom:6px">선수를 끌어서 경기에 넣거나, 경기의 빈칸을 탭하세요</div><div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:16px">';
@@ -1103,7 +1121,7 @@ function renderOrderSheet(){
   });
 
   wrap.innerHTML=`${warn}${roster}${games}
-    <button onclick="saveOrderSheet()" ${ok?'':'disabled'} style="width:100%;margin-top:8px;padding:15px;background:${ok?teamColor:'#cbd5e1'};color:#fff;border:none;border-radius:14px;font-size:16px;font-weight:800;font-family:inherit;cursor:${ok?'pointer':'not-allowed'}">오더시트 저장</button>
+    <button onclick="saveOrderSheet()" ${ok?'':'disabled'} style="width:100%;margin-top:8px;padding:15px;background:${ok?'#e8845a':'#e5e0db'};color:#fff;border:none;border-radius:14px;font-size:16px;font-weight:700;font-family:inherit;cursor:${ok?'pointer':'not-allowed'}">오더시트 저장</button>
     <div style="height:30px"></div>`;
 }
 
@@ -1165,15 +1183,21 @@ async function saveOrderSheet(){
   if(bad){toast('모든 선수가 정확히 4게임이어야 저장할 수 있어요');return;}
   // Firebase에 내 팀 슬롯 반영
   const sess=await sget('sessions/'+dateKey());
-  if(!sess||!sess.b){toast('저장 실패: 세션을 찾을 수 없습니다');return;}
+  if(!sess){toast('저장 실패: 세션을 찾을 수 없습니다');return;}
   const slots=teamSlots(team);
+  // sess.b가 _orderData 구조와 다르면(비어있으면) _orderData 골격으로 초기화
+  const totalCourts=(sess.b||[]).reduce((a,rd)=>a+((rd.c||[]).length),0);
+  if(!sess.b||totalCourts<1){
+    sess.b=_orderData.map(rd=>({c:rd.c.map(ct=>ct.slice()),w:rd.w||[],ctl:rd.ctl||rd.c.map(()=>'청백'),bw:true,ord:true}));
+  }
+  // 내 팀 슬롯만 덮어쓰기 (상대팀 배치 보존)
   _orderData.forEach((rd,ri)=>{
     (rd.c||[]).forEach((ct,ci)=>{
       slots.forEach(pos=>{if(sess.b[ri]&&sess.b[ri].c[ci])sess.b[ri].c[ci][pos]=ct[pos];});
     });
   });
   await sset('sessions/'+dateKey(),sess);
-  toast('✅ 오더시트가 저장되었습니다!');
+  toast('오더시트가 저장되었습니다');
   gTab('bracket',document.querySelectorAll('.nb')[1]);
 }
 
@@ -1920,7 +1944,7 @@ async function loadBracket(){
         <div style="text-align:center;font-size:13px;font-weight:700;letter-spacing:2px;opacity:0.9;margin-bottom:10px">월례대회 청백전</div>
         <div style="display:flex;align-items:center;justify-content:center;gap:14px">
           <div style="flex:1;text-align:right">
-            <div style="font-size:15px;font-weight:800">🔵 청팀</div>
+            <div style="font-size:15px;font-weight:800"><span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:#fff;margin-right:5px;vertical-align:middle"></span>청팀</div>
             <div style="font-size:11px;opacity:0.85;margin-top:2px">${blueWins}승</div>
           </div>
           <div style="display:flex;align-items:center;gap:10px;background:rgba(255,255,255,0.18);border-radius:16px;padding:8px 18px">
@@ -1929,21 +1953,21 @@ async function loadBracket(){
             <span style="font-size:34px;font-weight:900;line-height:1;${lead==='white'?'text-shadow:0 0 12px rgba(255,255,255,0.6)':''}">${whiteWins}</span>
           </div>
           <div style="flex:1;text-align:left">
-            <div style="font-size:15px;font-weight:800">백팀 ⚪</div>
+            <div style="font-size:15px;font-weight:800">백팀<span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:#fff;margin-left:5px;vertical-align:middle"></span></div>
             <div style="font-size:11px;opacity:0.85;margin-top:2px">${whiteWins}승</div>
           </div>
         </div>
         <div style="text-align:center;font-size:12px;opacity:0.9;margin-top:10px">
           ${played}/${totalGames}경기 완료 · 득점 청 ${blueScore} : ${whiteScore} 백
-          ${played===totalGames&&totalGames>0?(lead==='blue'?' · 🔵 청팀 승리!':lead==='white'?' · ⚪ 백팀 승리!':' · 무승부'):''}
+          ${played===totalGames&&totalGames>0?(lead==='blue'?' · 청팀 승리!':lead==='white'?' · 백팀 승리!':' · 무승부'):''}
         </div>
       </div>
       <div style="background:linear-gradient(160deg,#1e3a8a,#1e40af);padding:14px 16px;color:#fff">
-        <div style="font-size:14px;font-weight:900;margin-bottom:6px;letter-spacing:0.5px">🔵 청팀 LINE-UP</div>
+        <div style="font-size:14px;font-weight:900;margin-bottom:6px;letter-spacing:0.5px"><span style="display:inline-block;width:9px;height:9px;border-radius:50%;background:#fff;margin-right:6px;vertical-align:middle"></span>청팀 LINE-UP</div>
         ${blueIdx.map(ai=>lineupRow(ai,'blue',ai===blueCap)).join('')}
       </div>
       <div style="background:linear-gradient(160deg,#991b1b,#b91c1c);padding:14px 16px;color:#fff">
-        <div style="font-size:14px;font-weight:900;margin-bottom:6px;letter-spacing:0.5px">⚪ 백팀 LINE-UP</div>
+        <div style="font-size:14px;font-weight:900;margin-bottom:6px;letter-spacing:0.5px"><span style="display:inline-block;width:9px;height:9px;border-radius:50%;background:#fff;margin-right:6px;vertical-align:middle"></span>백팀 LINE-UP</div>
         ${whiteIdx.map(ai=>lineupRow(ai,'white',ai===whiteCap)).join('')}
       </div>`;
     wrap.appendChild(banner);
@@ -1961,7 +1985,7 @@ async function loadBracket(){
       if(round.isBW){
         const blueChip=ai=>`<span class="p-tag" style="background:#dbeafe;color:#1e40af;border:1px solid #93c5fd" onclick="showPlayerFromName('${pname(sess,ai)}')">${pname(sess,ai)}</span>`;
         const whiteChip=ai=>`<span class="p-tag" style="background:#fff;color:#b91c1c;border:1px solid #fca5a5" onclick="showPlayerFromName('${pname(sess,ai)}')">${pname(sess,ai)}</span>`;
-        return `<div class="court-row" style="background:linear-gradient(90deg,#eff6ff,#fef2f2);border-left:4px solid #3b82f6"><div class="ct-lbl">코트 ${ci+1}</div><div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap"><div style="display:flex;gap:5px;align-items:center"><span style="font-size:11px;font-weight:800;color:#1e40af">🔵청</span>${blueChip(ct[0])}${blueChip(ct[1])}</div><span class="vs-t">VS</span><div style="display:flex;gap:5px;align-items:center"><span style="font-size:11px;font-weight:800;color:#b91c1c">⚪백</span>${whiteChip(ct[2])}${whiteChip(ct[3])}</div></div></div>`;
+        return `<div class="court-row" style="background:linear-gradient(90deg,#eff6ff,#fef2f2);border-left:4px solid #3b82f6"><div class="ct-lbl">코트 ${ci+1}</div><div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap"><div style="display:flex;gap:5px;align-items:center"><span style="font-size:11px;font-weight:800;color:#1e40af">청</span>${blueChip(ct[0])}${blueChip(ct[1])}</div><span class="vs-t">VS</span><div style="display:flex;gap:5px;align-items:center"><span style="font-size:11px;font-weight:800;color:#b91c1c">백</span>${whiteChip(ct[2])}${whiteChip(ct[3])}</div></div></div>`;
       }
       // 성별 대진 타입 배지
       const tpLabel=round.courtTypeLabels?round.courtTypeLabels[ci]:'';

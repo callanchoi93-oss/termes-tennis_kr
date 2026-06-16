@@ -437,7 +437,7 @@ body{background:var(--bg);color:var(--gray-900);font-family:'Pretendard',-apple-
       <div class="raffle-grid" id="rfResult"></div>
     </div>
     <button class="btn btn-success" onclick="genBracket()">대진표 생성</button>
-    <button class="btn btn-secondary" style="width:100%;margin-top:10px;background:linear-gradient(135deg,#dbeafe,#fee2e2);color:#1e3a8a;font-weight:800" onclick="genBlueWhiteBracket()">🔵 청백전 대진 생성 ⚪</button>
+    <button class="btn btn-secondary" style="width:100%;margin-top:10px;background:linear-gradient(135deg,#dbeafe,#fee2e2);color:#1e3a8a;font-weight:800" onclick="genBlueWhiteBracket()"><span style="display:inline-block;width:9px;height:9px;border-radius:50%;background:#3b82f6;margin-right:6px;vertical-align:middle"></span>청백전 대진 생성<span style="display:inline-block;width:9px;height:9px;border-radius:50%;background:#ef4444;margin-left:6px;vertical-align:middle"></span></button>
     <div class="form-hint">월례대회용 · 18명 9:9 실력 밸런스 자동 배정 · 청 vs 백 복식 팀대항</div>
   </div>
 
@@ -1626,7 +1626,7 @@ function renderBracketGender(){
         return `<div class="court-line" style="background:linear-gradient(90deg,#eff6ff,#fef2f2);border-left:4px solid #3b82f6">
           <div class="court-tag">코트 ${ci+1}</div>
           <span style="font-size:11px;font-weight:700;padding:2px 8px;border-radius:6px;background:#3b82f620;color:#3b82f6">청백</span>
-          <div class="match-group"><div class="team-pair"><span style="font-size:11px;font-weight:800;color:#1e40af">🔵</span>${bchip(ct[0])}${bchip(ct[1])}</div><span class="vs-label">VS</span><div class="team-pair"><span style="font-size:11px;font-weight:800;color:#b91c1c">⚪</span>${wchip(ct[2])}${wchip(ct[3])}</div></div>
+          <div class="match-group"><div class="team-pair"><span style="font-size:11px;font-weight:800;color:#1e40af">청</span>${bchip(ct[0])}${bchip(ct[1])}</div><span class="vs-label">VS</span><div class="team-pair"><span style="font-size:11px;font-weight:800;color:#b91c1c">백</span>${wchip(ct[2])}${wchip(ct[3])}</div></div>
         </div>`;
       }
       
