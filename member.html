@@ -988,8 +988,9 @@ async function saveCareerPopup(){
   await sset(key,{years:_careerPick.years||'',desc:_careerPick.desc||''});
   const ov=document.getElementById('careerEditOverlay');if(ov)ov.remove();
   toast('저장되었습니다');
-  // 모달 구력 영역 갱신
-  if(document.getElementById('playerModal').classList.contains('on'))showPlayer(me,curYear);
+  // 프로필 새로고침 (현재 모드 유지)
+  if(_profileMode==='page')showMyProfilePage();
+  else if(document.getElementById('playerModal').classList.contains('on'))showPlayer(me,curYear);
 }
 
 // 로그인 시 팀장이면 팝업 안내 (하루 1회)
@@ -1831,19 +1832,8 @@ async function loadRanking(year){
 // ── 선수 상세 ──
 // 이름으로 바로 조회 (연도는 현재 연도)
 function showPlayerFromName(name){
-  // MEMBERS에 있거나 승인된 회원이면 조회
   if(!name||name.includes('번'))return; // 게스트는 제외
-  // 시트가 페이지에 가 있으면 모달 오버레이로 복귀
-  _profileMode='modal';
-  const sheet=document.getElementById('profileSheet');
-  const overlay=document.getElementById('playerModal');
-  if(sheet&&overlay&&sheet.parentElement!==overlay){
-    sheet.style.cssText='';
-    const h=document.getElementById('pmHandle');if(h)h.style.display='';
-    const x=document.getElementById('pmCloseBtn');if(x)x.style.display='';
-    overlay.appendChild(sheet);
-  }
-  showPlayer(name, curYear);
+  showPlayer(name, curYear); // 모달 모드 (showPlayer가 시트 복귀 처리)
 }
 
 let _profileMode='modal';
@@ -1863,10 +1853,23 @@ function showMyProfilePage(){
   sheet.style.cssText='background:transparent;box-shadow:none;border-radius:0;padding:0;max-height:none;width:100%';
   const h=document.getElementById('pmHandle');if(h)h.style.display='none';
   const x=document.getElementById('pmCloseBtn');if(x)x.style.display='none';
-  showPlayer(me,curYear);
+  showPlayer(me,curYear,true);
 }
 
-async function showPlayer(name,year){
+async function showPlayer(name,year,pageMode){
+  // 페이지 모드가 아니면: 모달로 복귀 (시트를 오버레이로 되돌리고 표시)
+  if(pageMode){_profileMode='page';}
+  else{
+    _profileMode='modal';
+    const sheet=document.getElementById('profileSheet');
+    const overlay=document.getElementById('playerModal');
+    if(sheet&&overlay&&sheet.parentElement!==overlay){
+      sheet.style.cssText='';
+      const h=document.getElementById('pmHandle');if(h)h.style.display='';
+      const x=document.getElementById('pmCloseBtn');if(x)x.style.display='';
+      overlay.appendChild(sheet);
+    }
+  }
   pmTab='history';_pmH='';_pmP=[];_pmPr={};
   document.getElementById('pmName').textContent=name;
   document.getElementById('pmPts').textContent='불러오는 중...';
