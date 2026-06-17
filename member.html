@@ -471,7 +471,6 @@ body{background:var(--bg);color:var(--gray-900);font-family:'Pretendard',-apple-
     <div class="page-title">내 정보</div>
     <div class="page-sub" id="careerDesc">나의 기록과 수상 내역</div>
     <div id="careerContent"><div class="empty">불러오는 중...</div></div>
-    <button onclick="logoutMember()" style="width:100%;margin-top:24px;padding:15px;background:#fff;border:1.5px solid #f0ebe7;border-radius:14px;font-size:15px;font-weight:700;color:#d4506a;font-family:inherit;cursor:pointer">로그아웃 (자동 로그인 해제)</button>
   </div>
 
   <!-- 룰 -->
@@ -498,11 +497,11 @@ body{background:var(--bg);color:var(--gray-900);font-family:'Pretendard',-apple-
 
 <!-- 선수 상세 모달 -->
 <div class="overlay" id="playerModal">
-  <div class="sheet">
-    <div class="handle"></div>
+  <div class="sheet" id="profileSheet">
+    <div class="handle" id="pmHandle"></div>
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px;flex-shrink:0">
       <div class="sheet-title" id="pmName"></div>
-      <button onclick="document.getElementById('playerModal').classList.remove('on')" style="background:none;border:none;font-size:24px;color:var(--gray-400);cursor:pointer">×</button>
+      <button id="pmCloseBtn" onclick="closeProfile()" style="background:none;border:none;font-size:24px;color:var(--gray-400);cursor:pointer">×</button>
     </div>
     <div style="font-size:26px;font-weight:900;color:var(--blue);margin-bottom:6px;flex-shrink:0;letter-spacing:-0.5px" id="pmPts"></div>
     <div id="pmBadges"></div>
@@ -900,7 +899,7 @@ function logoutMember(){
   document.getElementById('loginErr').textContent='';
   buildNameList();
 }
-function openMyPage(){if(!me)return;document.getElementById('myPageName').textContent=me==='__super__'?'관리자':me;const b=document.getElementById('myPageBody');if(me==='__super__'){b.innerHTML='<p style="font-size:15px;color:var(--gray-500)">관리자 계정은 임원진 PIN과 동일합니다</p>';}else{b.innerHTML=`<button class="btn btn-primary" style="margin-bottom:12px" onclick="changePIN()">PIN 변경</button><button class="btn btn-gray" onclick="changeQuestion()">비밀번호 찾기 질문 변경</button>`;}document.getElementById('myPageModal').classList.add('on');}
+function openMyPage(){if(!me)return;document.getElementById('myPageName').textContent=me==='__super__'?'관리자':me;const b=document.getElementById('myPageBody');if(me==='__super__'){b.innerHTML='<p style="font-size:15px;color:var(--gray-500)">관리자 계정은 임원진 PIN과 동일합니다</p><button class="btn btn-gray" style="margin-top:12px;color:#d4506a" onclick="logoutMember()">로그아웃</button>';}else{b.innerHTML=`<button class="btn btn-primary" style="margin-bottom:12px" onclick="changePIN()">PIN 변경</button><button class="btn btn-gray" style="margin-bottom:12px" onclick="changeQuestion()">비밀번호 찾기 질문 변경</button><button class="btn btn-gray" style="color:#d4506a" onclick="logoutMember()">로그아웃 (자동 로그인 해제)</button>`;}document.getElementById('myPageModal').classList.add('on');}
 function changePIN(){
   document.getElementById('myPageModal').classList.remove('on');
   _ss=0;_sf='';_sb='';_sReset=true;_sTarget=me;
@@ -1835,7 +1834,37 @@ async function loadRanking(year){
 function showPlayerFromName(name){
   // MEMBERS에 있거나 승인된 회원이면 조회
   if(!name||name.includes('번'))return; // 게스트는 제외
+  // 시트가 페이지에 가 있으면 모달 오버레이로 복귀
+  _profileMode='modal';
+  const sheet=document.getElementById('profileSheet');
+  const overlay=document.getElementById('playerModal');
+  if(sheet&&overlay&&sheet.parentElement!==overlay){
+    sheet.style.cssText='';
+    const h=document.getElementById('pmHandle');if(h)h.style.display='';
+    const x=document.getElementById('pmCloseBtn');if(x)x.style.display='';
+    overlay.appendChild(sheet);
+  }
   showPlayer(name, curYear);
+}
+
+let _profileMode='modal';
+function closeProfile(){
+  document.getElementById('playerModal').classList.remove('on');
+}
+// 내 정보 페이지: 프로필 시트를 페이지 안으로 이동해 평면 표시
+function showMyProfilePage(){
+  if(!me||me==='__super__'){loadCareer();return;}
+  const sheet=document.getElementById('profileSheet');
+  const cont=document.getElementById('careerContent');
+  if(!sheet||!cont)return;
+  _profileMode='page';
+  // 시트를 페이지 컨테이너로 이동 + 평면 스타일
+  cont.innerHTML='';
+  cont.appendChild(sheet);
+  sheet.style.cssText='background:transparent;box-shadow:none;border-radius:0;padding:0;max-height:none;width:100%';
+  const h=document.getElementById('pmHandle');if(h)h.style.display='none';
+  const x=document.getElementById('pmCloseBtn');if(x)x.style.display='none';
+  showPlayer(me,curYear);
 }
 
 async function showPlayer(name,year){
@@ -1844,7 +1873,8 @@ async function showPlayer(name,year){
   document.getElementById('pmPts').textContent='불러오는 중...';
   document.getElementById('pmBody').innerHTML='<div class="empty">불러오는 중...</div>';
   const pmc=document.getElementById('pmCareer');if(pmc)pmc.innerHTML='';
-  document.getElementById('playerModal').classList.add('on');
+  // 페이지 모드가 아니면 모달로 표시
+  if(_profileMode!=='page')document.getElementById('playerModal').classList.add('on');
   // 현재 뱃지(이름 옆 작은 아이콘) + 역대 수상 기록
   (async()=>{
     try{
@@ -2611,14 +2641,8 @@ async function loadCareer(){
     return;
   }
 
-  // 본인: 선수 정보 창 안내 + 바로 열기
   document.getElementById('careerDesc').textContent='나의 기록과 수상 내역';
-  wrap.innerHTML=`<div style="text-align:center;padding:30px 20px">
-    <button onclick="showPlayer('${me}',curYear)" style="background:#e8845a;color:#fff;border:none;border-radius:14px;padding:15px 28px;font-size:15px;font-weight:700;font-family:inherit;cursor:pointer;box-shadow:0 4px 14px rgba(232,132,90,0.3)">내 프로필 보기</button>
-    <div style="font-size:13px;color:#a89b8e;margin-top:14px;line-height:1.6">전적 · 수상 기록 · 경기 이력을 확인하고<br>구력과 한 줄 소개를 입력할 수 있어요</div>
-  </div>`;
-  // 자동으로 한 번 열기
-  showPlayer(me,curYear);
+  showMyProfilePage();
 }
 
 function selectCareerLevel(btn,lvl){
