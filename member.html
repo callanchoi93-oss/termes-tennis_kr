@@ -1928,17 +1928,28 @@ async function showPlayer(name,year,pageMode){
           nameEl.appendChild(span);
         }
       }
+      // 칭호 + 출석 스트릭
+      const tinfo=await getPlayerTitles(name);
+      let titleHtml='';
+      if((tinfo.titles&&tinfo.titles.length)||tinfo.streak>=2){
+        const chips=[];
+        if(tinfo.streak>=2)chips.push(`<span style="display:inline-flex;align-items:center;gap:3px;background:#fff3ee;border:1px solid #f5d3c5;color:#e8845a;font-size:12px;font-weight:800;padding:5px 11px;border-radius:16px">🔥 ${tinfo.streak}회 연속 출석</span>`);
+        (tinfo.titles||[]).forEach(t=>chips.push(`<span style="display:inline-flex;align-items:center;gap:3px;background:#faf7f3;border:1px solid #f0ebe7;color:#3a2e28;font-size:12px;font-weight:800;padding:5px 11px;border-radius:16px">${t.e} ${t.l}</span>`));
+        titleHtml=`<div style="display:flex;flex-wrap:wrap;gap:6px;margin:4px 0 12px">${chips.join('')}</div>`;
+      }
       // 역대 수상 기록
       const hist=await getAwardHistory(name);
       const pmb=document.getElementById('pmBadges');
       if(pmb){
+        let h2=titleHtml;
         if(hist&&hist.length){
           const ico={champion:MEDAL_IMG.trophy,gold:MEDAL_IMG.gold,silver:MEDAL_IMG.silver,bronze:MEDAL_IMG.bronze};
-          pmb.innerHTML=`<div style="background:#faf7f3;border-radius:14px;padding:13px 15px;margin:4px 0 12px">
+          h2+=`<div style="background:#faf7f3;border-radius:14px;padding:13px 15px;margin:4px 0 12px">
             <div style="font-size:12px;font-weight:800;color:#a89b8e;margin-bottom:9px">수상 기록 ${hist.length}건</div>
             <div style="display:flex;flex-direction:column;gap:9px">${hist.map(h=>`<div style="display:flex;align-items:center;gap:9px"><img src="${ico[h.type]}" style="width:24px;height:24px;object-fit:contain;flex-shrink:0"><span style="font-size:13px;font-weight:600;color:#2d1f1a">${h.label}</span></div>`).join('')}</div>
           </div>`;
-        } else { pmb.innerHTML=''; }
+        }
+        pmb.innerHTML=h2;
       }
     }catch(e){}
   })();
@@ -2394,6 +2405,96 @@ async function bwVote(team){
 }
 
 // 시즌 선수 통계 집계 (이름 → 전적)
+let _titlesCache=null,_titlesCacheTs=0;
+async function computeTitles(){
+  if(_titlesCache&&Date.now()-_titlesCacheTs<60000)return _titlesCache;
+  const year=new Date().getFullYear();
+  const idx=await sget('index'),aidx=await sget('archive-index');
+  const list=idx?(Array.isArray(idx)?idx:Object.values(idx)):[];
+  const alist=aidx?(Array.isArray(aidx)?aidx:Object.values(aidx)):[];
+  const items=[];
+  list.forEach(d=>{const ds=String(d);if(ds.startsWith(String(year)))items.push(['sessions/'+d,ds.slice(0,8)]);});
+  alist.forEach(k=>{const ks=String(k);if(ks.startsWith(String(year)))items.push(['archives/'+k,ks.slice(0,8)]);});
+  items.sort((a,b)=>a[1].localeCompare(b[1]));
+  const data={};
+  const ens=nm=>{if(!data[nm])data[nm]={att:0,results:[],sc:0,cc:0,w:0,l:0,games:0};return data[nm];};
+  const sessionDates=[];
+  for(const [k,dk] of items){
+    const s=await sget(k);if(!s||s.del)continue;
+    const sc=getSc(s),br=getB(s);
+    const parts=new Set();
+    br.forEach((round,ri)=>{
+      round.courts.forEach((ct,ci)=>{
+        if(!ct||ct.length<4||ct.includes(-1))return;
+        const sv=sc[`${ri}-${ci}`]||{};
+        const s1=parseInt(sv.s1),s2=parseInt(sv.s2);
+        const done=!isNaN(s1)&&!isNaN(s2);
+        [0,1,2,3].forEach(pos=>{
+          const ai=ct[pos];if(ai==null||ai===-1)return;
+          const nm=pname(s,ai);if(!nm||nm.includes('번')||nm==='헬퍼'||nm==='미배정')return;
+          parts.add(nm);
+          const st=ens(nm);st.games++;
+          if(done){
+            const isT1=pos<2,my=isT1?s1:s2,op=isT1?s2:s1;
+            st.sc+=my;st.cc+=op;
+            if(my>op){st.w++;st.results.push('W');}
+            else if(my<op){st.l++;st.results.push('L');}
+            else{st.results.push('D');}
+          }
+        });
+      });
+    });
+    sessionDates.push({dk,parts});
+    parts.forEach(nm=>{ens(nm).att++;});
+  }
+  const streakOf={},winStreakOf={};
+  Object.keys(data).forEach(nm=>{
+    let s=0;
+    for(let i=sessionDates.length-1;i>=0;i--){if(sessionDates[i].parts.has(nm))s++;else break;}
+    streakOf[nm]=s;
+    let w=0;const r=data[nm].results;
+    for(let i=r.length-1;i>=0;i--){if(r[i]==='W')w++;else break;}
+    winStreakOf[nm]=w;
+  });
+  const names=Object.keys(data);
+  const titles={};names.forEach(n=>titles[n]=[]);
+  if(names.length){
+    const maxAtt=Math.max(...names.map(n=>data[n].att));
+    const maxSc=Math.max(...names.map(n=>data[n].sc));
+    const maxDiff=Math.max(...names.map(n=>data[n].sc-data[n].cc));
+    const eligC=names.filter(n=>data[n].games>=3);
+    const minCc=eligC.length?Math.min(...eligC.map(n=>data[n].cc)):null;
+    const eligR=names.filter(n=>(data[n].w+data[n].l)>=4);
+    const maxRate=eligR.length?Math.max(...eligR.map(n=>data[n].w/(data[n].w+data[n].l))):null;
+    names.forEach(n=>{
+      const d=data[n];
+      if(d.att===maxAtt&&maxAtt>0)titles[n].push({e:'👑',l:'개근왕'});
+      if(d.sc===maxSc&&maxSc>0)titles[n].push({e:'🎯',l:'득점왕'});
+      if(minCc!=null&&d.games>=3&&d.cc===minCc)titles[n].push({e:'🛡️',l:'철벽'});
+      if((d.sc-d.cc)===maxDiff&&maxDiff>0)titles[n].push({e:'💎',l:'다이아손'});
+      if(maxRate!=null&&(d.w+d.l)>=4&&(d.w/(d.w+d.l))===maxRate)titles[n].push({e:'⚡',l:'승률왕'});
+      if(winStreakOf[n]>=3)titles[n].push({e:'🚀',l:winStreakOf[n]+'연승'});
+    });
+  }
+  _titlesCache={streakOf,winStreakOf,titles};_titlesCacheTs=Date.now();
+  return _titlesCache;
+}
+async function getPlayerTitles(name){
+  const t=await computeTitles();
+  return {titles:t.titles[name]||[],streak:t.streakOf[name]||0};
+}
+
+// 이름 옆 작은 칭호 이모지 (대진/점수용, 캐시 동기 조회)
+function titleEmojis(name){
+  if(!_titlesCache)return '';
+  const t=_titlesCache.titles[name]||[];
+  const s=_titlesCache.streakOf[name]||0;
+  let e='';
+  if(s>=3)e+='🔥';
+  e+=t.map(x=>x.e).join('');
+  return e?` <span style="font-size:10px;letter-spacing:-1px">${e}</span>`:'';
+}
+
 async function getSeasonStats(){
   const year=new Date().getFullYear();
   const idx=await sget('index'),aidx=await sget('archive-index');
@@ -2430,6 +2531,7 @@ async function getSeasonStats(){
 async function loadBracket(){
   checkOrderTab();
   const wrap=document.getElementById('bktWrap');
+  try{await computeTitles();}catch(e){}
   const sess=await sget('sessions/'+dateKey());
   if(!sess||sess.del){wrap.innerHTML='<div class="empty">오늘 대진표가 없습니다</div>';return;}
   curSess=sess;wrap.innerHTML='';
@@ -2518,7 +2620,7 @@ async function loadBracket(){
   if(!sess.bw){
     const dvCard=document.createElement('div');
     dvCard.id='dailyVoteCard';
-    dvCard.style.cssText='margin:0 20px 16px';
+    dvCard.style.cssText='margin:0 0 16px';
     wrap.appendChild(dvCard);
     renderDailyVote(sess);
   }
@@ -2530,7 +2632,7 @@ async function loadBracket(){
       const hasHelper=ct.includes(-1);
       const p=ai=>ai===-1
         ?`<span class="p-tag" style="color:#a89b8e;background:#f5f0eb">헬퍼</span>`
-        :`<span class="p-tag" onclick="showPlayerFromName('${pname(sess,ai)}')">${pname(sess,ai)}</span>`;
+        :`<span class="p-tag" onclick="showPlayerFromName('${pname(sess,ai)}')">${pname(sess,ai)}${titleEmojis(pname(sess,ai))}</span>`;
       // 청백전 코트 (청2 vs 백2)
       if(round.isBW){
         const isEmpty=ai=>ai==null||ai===-2;
@@ -2553,6 +2655,7 @@ async function loadBracket(){
 
 // ── 점수 ──
 async function loadScore(){
+  try{await computeTitles();}catch(e){}
   const wrap=document.getElementById('scoreWrap');
   const sess=await sget('sessions/'+dateKey());
   if(!sess||sess.del){wrap.innerHTML='<div class="empty">오늘 대진표가 없습니다</div>';return;}
@@ -2583,9 +2686,9 @@ function renderScoreUI(sess){
       cHtml+=`<div class="score-match" style="border-top-color:${col}">
         ${tpBadge?`<div style="margin-bottom:10px">${tpBadge}</div>`:''}
         <div style="display:flex;align-items:center;gap:12px;margin-bottom:14px">
-          <div class="m-team"><div class="m-name">${pname(sess,ct[0])}</div><div class="m-name">${pname(sess,ct[1])}</div></div>
+          <div class="m-team"><div class="m-name">${pname(sess,ct[0])}${titleEmojis(pname(sess,ct[0]))}</div><div class="m-name">${pname(sess,ct[1])}${titleEmojis(pname(sess,ct[1]))}</div></div>
           <div class="m-vs">VS</div>
-          <div class="m-team" style="text-align:right"><div class="m-name">${pname(sess,ct[2])}</div><div class="m-name">${pname(sess,ct[3])}</div></div>
+          <div class="m-team" style="text-align:right"><div class="m-name">${pname(sess,ct[2])}${titleEmojis(pname(sess,ct[2]))}</div><div class="m-name">${pname(sess,ct[3])}${titleEmojis(pname(sess,ct[3]))}</div></div>
         </div>
         <div style="display:flex;align-items:center;gap:12px">
           <div style="flex:1;display:flex;justify-content:center"><input class="s-inp" type="number" min="0" max="99" placeholder="0" value="${s1}" data-key="${skey}" data-side="s1" ${dis} style="${dStyle}" oninput="onSI(this)" onchange="saveSc('${skey}',this)"></div>
