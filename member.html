@@ -1754,7 +1754,7 @@ async function loadRankBoard(){
       const top=arr.slice(0,5);
       const lead=top[0];
       const ldisp=(c.signed&&lead.v>0?'+':'')+lead.v+c.unit;
-      summary.push(`<div style="display:flex;align-items:center;gap:8px;padding:6px 0"><span style="font-size:12.5px;font-weight:700;color:#a89b8e;width:62px;flex-shrink:0">${c.l}</span><span onclick="event.stopPropagation();showPlayerFromName('${lead.n.replace(/'/g,'')}')" style="font-size:14px;font-weight:800;color:#2d1f1a;flex:1;cursor:pointer">${lead.n}</span><span style="font-size:12.5px;font-weight:800;color:#e8845a">${ldisp}</span></div>`);
+      summary.push(`<div style="display:flex;align-items:center;gap:10px;padding:9px 0;border-top:1px solid #f5efe9"><span style="font-size:12px;font-weight:700;color:#b3a698;width:56px;flex-shrink:0;letter-spacing:-0.2px">${c.l}</span><span onclick="event.stopPropagation();showPlayerFromName('${lead.n.replace(/'/g,'')}')" style="font-size:14.5px;font-weight:700;color:#2d1f1a;flex:1;cursor:pointer;letter-spacing:-0.3px">${lead.n}</span><span style="font-size:12.5px;font-weight:800;color:#e8845a;background:#fdf2ec;padding:3px 9px;border-radius:8px">${ldisp}</span></div>`);
       const vals=top.map(x=>x.v),maxAbs=Math.max(1,...vals.map(v=>Math.abs(v))),minV=Math.min(...vals),maxV=Math.max(...vals);
       const bars=top.map((x,i)=>{
         let pct;
@@ -1774,15 +1774,15 @@ async function loadRankBoard(){
       extraHtml=`<div style="background:#fff;border:1px solid #f0e4db;border-radius:14px;padding:12px 15px;font-size:13px;color:#2d1f1a;line-height:1.6"><span style="font-weight:800">연승왕</span> ${ws.map(x=>x.n+' ('+x.v+'연승)').join(', ')}</div>`;
     }
     if(summary.length){
-      html+=`<div style="background:linear-gradient(135deg,#fff,#fdf6f1);border:1px solid #f0e4db;border-radius:18px;margin:14px 0 18px;box-shadow:0 3px 14px rgba(120,90,70,0.07);overflow:hidden">
-        <div onclick="(function(el){var d=document.getElementById('hofDetail');var a=document.getElementById('hofArrow');var op=d.style.display!=='none';d.style.display=op?'none':'block';a.style.transform=op?'':'rotate(90deg)';})(this)" style="padding:15px 18px;cursor:pointer">
-          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
-            <span style="font-size:14px;font-weight:800;color:#e8845a">명예의 전당</span>
-            <span style="display:flex;align-items:center;gap:6px"><span style="font-size:11px;color:#a89b8e;font-weight:600">자세히</span><span id="hofArrow" style="color:#c4b5a9;font-size:18px;transition:transform .2s;display:inline-block">›</span></span>
+      html+=`<div style="background:#fff;border:1px solid #efe6dd;border-radius:18px;margin:12px 0 16px;box-shadow:0 4px 16px rgba(120,90,70,0.06);overflow:hidden">
+        <div onclick="(function(){var d=document.getElementById('hofDetail');var a=document.getElementById('hofArrow');var op=d.style.display!=='none';d.style.display=op?'none':'block';a.style.transform=op?'':'rotate(90deg)';})()" style="padding:16px 18px 4px;cursor:pointer">
+          <div style="display:flex;align-items:center;justify-content:space-between">
+            <span style="font-size:13px;font-weight:800;color:#3a2e28;letter-spacing:0.2px">명예의 전당</span>
+            <span style="display:flex;align-items:center;gap:5px;color:#b3a698"><span style="font-size:11px;font-weight:600">자세히</span><span id="hofArrow" style="font-size:16px;transition:transform .2s;display:inline-block">›</span></span>
           </div>
-          ${summary.join('')}
+          <div style="margin-top:6px">${summary.join('')}</div>
         </div>
-        <div id="hofDetail" style="display:none;padding:0 14px 14px;border-top:1px solid #f3ece6">
+        <div id="hofDetail" style="display:none;padding:4px 14px 14px;background:#fbf7f3;border-top:1px solid #f0e8e0">
           <div style="height:12px"></div>
           ${detailCards.join('')}${extraHtml}
         </div>
