@@ -7,6 +7,7 @@
 <title>TERMES — 정회원</title>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-storage-compat.js"></script>
 <style>
 @import url('https://cdn.jsdelivr.net/gh/orioncactus/pretendard/dist/web/static/pretendard.css');
 :root{
@@ -520,6 +521,7 @@ body{background:var(--bg);color:var(--gray-900);font-family:'Pretendard',-apple-
       <button onclick="document.getElementById('histModal').classList.remove('on')" style="background:none;border:none;font-size:24px;color:var(--gray-400);cursor:pointer">×</button>
     </div>
     <div class="sheet-body" id="histModalBody"></div>
+    <input type="file" id="histPhotoInput" accept="image/*" style="display:none" onchange="if(this.files&&this.files[0]){uploadHistPhoto(this.files[0]);this.value='';}">
   </div>
 </div>
 
@@ -540,8 +542,8 @@ body{background:var(--bg);color:var(--gray-900);font-family:'Pretendard',-apple-
 <script>
 // ── Firebase ──
 const FB={apiKey:"AIzaSyBHUpZhml-bbWbJCtOUKBFullKQEKJ9gA8",authDomain:"termes-34574.firebaseapp.com",databaseURL:"https://termes-34574-default-rtdb.asia-southeast1.firebasedatabase.app",projectId:"termes-34574",storageBucket:"termes-34574.firebasestorage.app",messagingSenderId:"342631127996",appId:"1:342631127996:web:a6e2c00d3874831f45e9b9"};
-let db=null;
-try{const app=firebase.apps.length?firebase.app():firebase.initializeApp(FB);db=app.database();}catch(e){console.warn('Firebase:',e.message);}
+let db=null,fbStorage=null;
+try{const app=firebase.apps.length?firebase.app():firebase.initializeApp(FB);db=app.database();try{fbStorage=app.storage();}catch(e){}}catch(e){console.warn('Firebase:',e.message);}
 
 async function sget(k){
   try{if(db){const s=await db.ref('termes/'+k).once('value');return s.exists()?s.val():null;}}catch(e){}
@@ -2512,6 +2514,91 @@ async function loadHistory(){
     const div=document.createElement('div');div.style.cssText='height:1px;background:var(--gray-100);margin:8px 0 16px';wrap.appendChild(div);
   });
 }
+// ── 기록 사진 (Firebase Storage) ──
+let _photoDk=null;
+async function loadHistPhotos(dk){
+  try{
+    const arr=await sget('photos/'+dk);
+    return Array.isArray(arr)?arr:(arr?Object.values(arr):[]);
+  }catch(e){return [];}
+}
+function renderHistPhotos(dk,photos){
+  const box=document.getElementById('histPhotos');
+  if(!box)return;
+  let h=`<div style="display:flex;align-items:center;justify-content:space-between;margin:18px 0 10px">
+    <span style="font-size:14px;font-weight:800;color:#2d1f1a">사진 ${photos.length}장</span>
+    <button onclick="document.getElementById('histPhotoInput').click()" style="font-size:12px;font-weight:700;color:#e8845a;background:#fdf0ec;border:1px solid #f5d3c5;border-radius:20px;padding:6px 14px;font-family:inherit;cursor:pointer">+ 사진 추가</button>
+  </div>`;
+  if(photos.length){
+    h+='<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:6px">';
+    photos.forEach((p,i)=>{
+      const by=(p.by||'').replace(/'/g,'');
+      h+=`<div style="position:relative;aspect-ratio:1;border-radius:10px;overflow:hidden;background:#f4efe9" onclick="openPhotoView('${p.url}','${by}',${p.ts||0})">
+        <img src="${p.url}" style="width:100%;height:100%;object-fit:cover;cursor:pointer">
+        ${by?`<div style="position:absolute;left:0;right:0;bottom:0;background:linear-gradient(transparent,rgba(0,0,0,0.55));color:#fff;font-size:10px;font-weight:600;padding:10px 6px 4px;text-align:left">${by}</div>`:''}
+      </div>`;
+    });
+    h+='</div>';
+  } else {
+    h+='<div style="text-align:center;padding:24px 0;color:#bcae9f;font-size:13px">아직 사진이 없어요<br>오늘의 경기 사진을 남겨보세요</div>';
+  }
+  box.innerHTML=h;
+}
+function openPhotoView(url,by,ts){
+  let ov=document.getElementById('photoViewOverlay');
+  if(!ov){ov=document.createElement('div');ov.id='photoViewOverlay';document.body.appendChild(ov);}
+  ov.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,0.92);z-index:10003;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:16px';
+  ov.onclick=()=>ov.remove();
+  let info='';
+  if(by){
+    let dstr='';
+    if(ts){const d=new Date(ts);dstr=` · ${d.getFullYear()}.${String(d.getMonth()+1).padStart(2,'0')}.${String(d.getDate()).padStart(2,'0')}`;}
+    info=`<div style="color:#fff;font-size:14px;font-weight:600;margin-top:14px;opacity:0.9">${by}님이 올림${dstr}</div>`;
+  }
+  ov.innerHTML=`<img src="${url}" style="max-width:100%;max-height:82%;object-fit:contain;border-radius:12px">${info}`;
+}
+async function uploadHistPhoto(file){
+  if(!file||!_photoDk)return;
+  if(!fbStorage){toast('사진 저장소가 준비되지 않았어요');return;}
+  const box=document.getElementById('histPhotos');
+  if(box){const t=document.createElement('div');t.id='photoUploading';t.style.cssText='text-align:center;padding:10px;color:#e8845a;font-size:13px;font-weight:600';t.textContent='사진 올리는 중...';box.prepend(t);}
+  try{
+    // 이미지 압축 (가로 최대 1280px)
+    const blob=await compressImage(file,1280,0.85);
+    const ts=Date.now(),rand=Math.random().toString(36).slice(2,7);
+    const path='photos/'+_photoDk+'/'+ts+'_'+rand+'.jpg';
+    const ref=fbStorage.ref(path);
+    await ref.put(blob);
+    const url=await ref.getDownloadURL();
+    const arr=await loadHistPhotos(_photoDk);
+    arr.push({url,path,by:me||'회원',ts});
+    await sset('photos/'+_photoDk,arr);
+    renderHistPhotos(_photoDk,arr);
+    toast('사진이 추가되었습니다');
+  }catch(e){
+    toast('업로드 실패: '+(e.code==='storage/unauthorized'?'저장소 권한을 확인해주세요':e.message||'오류'));
+    const u=document.getElementById('photoUploading');if(u)u.remove();
+  }
+}
+// 이미지 압축 (canvas)
+function compressImage(file,maxW,quality){
+  return new Promise((resolve,reject)=>{
+    const img=new Image();
+    const reader=new FileReader();
+    reader.onload=e=>{img.src=e.target.result;};
+    reader.onerror=reject;
+    img.onload=()=>{
+      let w=img.width,h=img.height;
+      if(w>maxW){h=Math.round(h*maxW/w);w=maxW;}
+      const canvas=document.createElement('canvas');canvas.width=w;canvas.height=h;
+      canvas.getContext('2d').drawImage(img,0,0,w,h);
+      canvas.toBlob(b=>b?resolve(b):reject(new Error('압축 실패')),'image/jpeg',quality||0.85);
+    };
+    img.onerror=reject;
+    reader.readAsDataURL(file);
+  });
+}
+
 function openHistModal(sess,dk,seqL){
   document.getElementById('histModalTitle').textContent=fmt(dk)+(seqL||'')+' 결과';
   const totals=calcTotals(sess),pl=getP(sess),n=pl.length;
@@ -2529,8 +2616,10 @@ function openHistModal(sess,dk,seqL){
       </div>
     </div>`;
   });
-  document.getElementById('histModalBody').innerHTML=`<div style="font-size:15px;color:var(--gray-500);margin-bottom:16px">${pl.length}명 · 코트 ${sess.ct} · ${sess.r}라운드</div>${html}`;
+  document.getElementById('histModalBody').innerHTML=`<div style="font-size:15px;color:var(--gray-500);margin-bottom:16px">${pl.length}명 · 코트 ${sess.ct} · ${sess.r}라운드</div>${html}<div id="histPhotos"></div>`;
   document.getElementById('histModal').classList.add('on');
+  _photoDk=dk;
+  loadHistPhotos(dk).then(ph=>renderHistPhotos(dk,ph));
 }
 
 // ── 대진표 PDF 출력 ──
