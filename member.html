@@ -216,9 +216,31 @@ body{background:var(--bg);color:var(--gray-900);font-family:'Pretendard',-apple-
 .rfbtn{float:right;background:none;border:1.5px solid var(--gray-200);color:var(--gray-500);font-size:13px;font-weight:600;padding:6px 14px;border-radius:22px;cursor:pointer;font-family:'Pretendard',sans-serif;margin-bottom:12px}
 .nav-icon{display:flex;align-items:center;justify-content:center;margin-bottom:3px}
 .nb{display:flex;flex-direction:column;align-items:center;padding:10px 3px 8px}
+@keyframes popIn{0%{opacity:0;transform:translateY(16px) scale(0.96)}100%{opacity:1;transform:translateY(0) scale(1)}}
+@keyframes fadeIn{from{opacity:0}to{opacity:1}}
+@keyframes barGrow{from{width:0}}
+.pop-card{animation:popIn .28s cubic-bezier(.2,.8,.3,1)}
+.pop-overlay{animation:fadeIn .2s ease}
 </style>
 </head>
 <body>
+<div id="bootLoader" style="position:fixed;inset:0;background:#faf6f2;z-index:99999;display:flex;flex-direction:column;align-items:center;justify-content:center">
+  <div style="display:flex;gap:14px;align-items:flex-end;color:#3b5a8c">
+    <div class="bl-horse" style="width:46px;height:35px;animation:blGallop 0.9s ease-in-out infinite"><svg viewBox="0 0 80 56" width="100%" height="100%" preserveAspectRatio="xMidYMid meet"><path fill="currentColor" d="M16 14 L14 8 C13.5 6.5 15.5 5.5 16.5 7 L19 12 C21 11 23 11 25 12 L27 9 C28 7.5 30 8.5 29.5 10 L28 13 C30 14.5 31 16.5 31 19 L33 24 L60 24 C62 22 64 21 66 21 L72 16 C73.5 15 75 17 73.5 18.5 L69 23 C70 25 70 28 68 30 L68 50 L64 50 L64 32 L56 32 L56 50 L52 50 L52 32 L40 32 L40 50 L36 50 L36 32 L31 31 L31 50 L27 50 L27 28 C27 24 28 20 30 18 L29 19 L31 19 L18 19 C16 19 14 18 13 16 L13 16 C13.5 14.5 14.5 14 16 14 Z"/></svg></div>
+    <div class="bl-horse" style="width:54px;height:41px;animation:blGallop 0.9s ease-in-out infinite 0.15s"><svg viewBox="0 0 80 56" width="100%" height="100%" preserveAspectRatio="xMidYMid meet"><path fill="currentColor" d="M16 14 L14 8 C13.5 6.5 15.5 5.5 16.5 7 L19 12 C21 11 23 11 25 12 L27 9 C28 7.5 30 8.5 29.5 10 L28 13 C30 14.5 31 16.5 31 19 L33 24 L60 24 C62 22 64 21 66 21 L72 16 C73.5 15 75 17 73.5 18.5 L69 23 C70 25 70 28 68 30 L68 50 L64 50 L64 32 L56 32 L56 50 L52 50 L52 32 L40 32 L40 50 L36 50 L36 32 L31 31 L31 50 L27 50 L27 28 C27 24 28 20 30 18 L29 19 L31 19 L18 19 C16 19 14 18 13 16 L13 16 C13.5 14.5 14.5 14 16 14 Z"/></svg></div>
+    <div class="bl-horse" style="width:46px;height:35px;animation:blGallop 0.9s ease-in-out infinite 0.3s"><svg viewBox="0 0 80 56" width="100%" height="100%" preserveAspectRatio="xMidYMid meet"><path fill="currentColor" d="M16 14 L14 8 C13.5 6.5 15.5 5.5 16.5 7 L19 12 C21 11 23 11 25 12 L27 9 C28 7.5 30 8.5 29.5 10 L28 13 C30 14.5 31 16.5 31 19 L33 24 L60 24 C62 22 64 21 66 21 L72 16 C73.5 15 75 17 73.5 18.5 L69 23 C70 25 70 28 68 30 L68 50 L64 50 L64 32 L56 32 L56 50 L52 50 L52 32 L40 32 L40 50 L36 50 L36 32 L31 31 L31 50 L27 50 L27 28 C27 24 28 20 30 18 L29 19 L31 19 L18 19 C16 19 14 18 13 16 L13 16 C13.5 14.5 14.5 14 16 14 Z"/></svg></div>
+  </div>
+  <div style="margin-top:22px;font-size:15px;font-weight:800;color:#3a2e28;letter-spacing:1px">TERMES</div>
+  <div style="margin-top:6px;font-size:12px;color:#a89b8e;font-weight:600">불러오는 중...</div>
+</div>
+<style>
+@keyframes blGallop{0%,100%{transform:translateY(0) rotate(-1deg)}50%{transform:translateY(-12px) rotate(2deg)}}
+.bl-horse{opacity:0.9}
+.bl-horse:nth-child(1){color:#5a7bb0}
+.bl-horse:nth-child(2){color:#2d4a7a}
+.bl-horse:nth-child(3){color:#7a96c4}
+</style>
+
 
 <!-- ── 로그인 ── -->
 <script>
@@ -834,7 +856,8 @@ function enterApp(label,isAdmin){
   }
   document.getElementById('mainApp').style.display='block';
   const hdr=document.querySelector('.hdr');if(hdr)hdr.style.display='none';
-  loadHome();loadToday();checkOrderTab();showCaptainPopup();showAwardPopup();
+  loadToday();checkOrderTab();showCaptainPopup();showAwardPopup();showPredictionPopup();showDailyVotePopup();restoreTab();
+  hideBootLoader();
 }
 function showForgot(){const q=window._fq||'';if(!q){alert('등록된 질문이 없습니다.\n임원진에게 문의하세요.');return;}document.getElementById('forgotQ').textContent='Q.  '+q;document.getElementById('forgotA').value='';document.getElementById('forgotErr').textContent='';document.getElementById('forgotScreen').style.display='flex';}
 function hideForgot(){document.getElementById('forgotScreen').style.display='none';}
@@ -928,6 +951,19 @@ function gTab(id,btn){
   else if(id==='notice')loadNotices();
   else if(id==='career')loadCareer();
   else if(id==='order')loadOrderSheet();
+  try{if(id!=='order')localStorage.setItem('termes-last-tab',id);}catch(e){}
+}
+function hideBootLoader(){const bl=document.getElementById('bootLoader');if(bl){bl.style.transition='opacity .3s';bl.style.opacity='0';setTimeout(()=>bl.remove(),320);}}
+function restoreTab(){
+  let id='ranking';
+  try{id=localStorage.getItem('termes-last-tab')||'ranking';}catch(e){}
+  const allowed=['ranking','bracket','score','history','rankboard','career'];
+  if(!allowed.includes(id))id='ranking';
+  const page=document.getElementById('p-'+id);
+  let target=null;
+  document.querySelectorAll('.nb').forEach(b=>{if(b.getAttribute('onclick')&&b.getAttribute('onclick').indexOf("gTab('"+id+"'")>=0)target=b;});
+  if(id!=='ranking'&&page&&target){gTab(id,target);}
+  else{loadHome();}
 }
 
 // 청백전 팀장이면 오더시트 탭 표시 (끝났으면 숨김)
@@ -1699,11 +1735,10 @@ async function loadRankBoard(){
     <div style="font-size:12px;color:#a89b8e;font-weight:500;margin-top:3px">평균 포인트 기준 · 전체 기간</div>
   </div>`;
 
-  // ── 명예의 전당 (수치 + 상위 5명 막대그래프) ──
+  // ── 명예의 전당 (접기/펼치기) ──
   if(_tt&&_tt.data&&Object.keys(_tt.data).length){
     const D=_tt.data;
     const names=Object.keys(D);
-    // 카테고리: metric(이름→값), 정렬, 표시포맷, 자격필터
     const cats=[
       {l:'개근왕',sub:'최다 출석',unit:'회',val:n=>D[n].att,asc:false,filter:n=>D[n].att>0},
       {l:'득점왕',sub:'최다 득점',unit:'점',val:n=>D[n].sc,asc:false,filter:n=>D[n].games>0},
@@ -1711,57 +1746,46 @@ async function loadRankBoard(){
       {l:'철벽',sub:'최소 실점 (3경기+)',unit:'점',val:n=>D[n].cc,asc:true,filter:n=>D[n].games>=3},
       {l:'다이아손',sub:'득실차 1위',unit:'',val:n=>D[n].sc-D[n].cc,asc:false,filter:n=>D[n].games>0,signed:true}
     ];
-    let cardsHtml='';
+    const summary=[],detailCards=[];
     cats.forEach(c=>{
       let arr=names.filter(c.filter).map(n=>({n,v:c.val(n)}));
       if(!arr.length)return;
       arr.sort((a,b)=>c.asc?a.v-b.v:b.v-a.v);
       const top=arr.slice(0,5);
-      // 막대 기준값
-      const vals=top.map(x=>x.v);
-      const maxAbs=Math.max(1,...vals.map(v=>Math.abs(v)));
-      const minV=Math.min(...vals),maxV=Math.max(...vals);
+      const lead=top[0];
+      const ldisp=(c.signed&&lead.v>0?'+':'')+lead.v+c.unit;
+      summary.push(`<div style="display:flex;align-items:center;gap:8px;padding:6px 0"><span style="font-size:12.5px;font-weight:700;color:#a89b8e;width:62px;flex-shrink:0">${c.l}</span><span onclick="event.stopPropagation();showPlayerFromName('${lead.n.replace(/'/g,'')}')" style="font-size:14px;font-weight:800;color:#2d1f1a;flex:1;cursor:pointer">${lead.n}</span><span style="font-size:12.5px;font-weight:800;color:#e8845a">${ldisp}</span></div>`);
+      const vals=top.map(x=>x.v),maxAbs=Math.max(1,...vals.map(v=>Math.abs(v))),minV=Math.min(...vals),maxV=Math.max(...vals);
       const bars=top.map((x,i)=>{
         let pct;
-        if(c.asc){ // 낮을수록 좋음 → 최저값이 가장 긴 막대
-          pct=maxV===minV?100:Math.round((maxV-x.v)/(maxV-minV)*80+20);
-        } else if(c.signed){
-          pct=Math.round(Math.abs(x.v)/maxAbs*100);
-        } else {
-          pct=maxV>0?Math.round(x.v/maxV*100):0;
-        }
-        const isTop=i===0;
-        const barColor=c.signed&&x.v<0?'#cbd2da':(isTop?'#e8845a':'#f0b79e');
+        if(c.asc)pct=maxV===minV?100:Math.round((maxV-x.v)/(maxV-minV)*80+20);
+        else if(c.signed)pct=Math.round(Math.abs(x.v)/maxAbs*100);
+        else pct=maxV>0?Math.round(x.v/maxV*100):0;
+        const isTop=i===0,barColor=c.signed&&x.v<0?'#cbd2da':(isTop?'#e8845a':'#f0b79e');
         const disp=(c.signed&&x.v>0?'+':'')+x.v+c.unit;
-        return `<div style="display:flex;align-items:center;gap:9px;margin-bottom:7px">
-          <span style="width:16px;font-size:12px;font-weight:800;color:${isTop?'#e8845a':'#c4b5a9'};flex-shrink:0">${i+1}</span>
-          <span onclick="showPlayerFromName('${x.n.replace(/'/g,'')}')" style="width:64px;font-size:13px;font-weight:${isTop?'800':'600'};color:#2d1f1a;flex-shrink:0;cursor:pointer;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${x.n}</span>
-          <span style="flex:1;height:16px;background:#f4efe9;border-radius:8px;overflow:hidden"><span style="display:block;height:100%;width:${Math.max(pct,6)}%;background:${barColor};border-radius:8px"></span></span>
-          <span style="width:46px;text-align:right;font-size:12.5px;font-weight:800;color:${isTop?'#e8845a':'#7c6b5e'};flex-shrink:0">${disp}</span>
-        </div>`;
+        return `<div style="display:flex;align-items:center;gap:9px;margin-bottom:7px"><span style="width:16px;font-size:12px;font-weight:800;color:${isTop?'#e8845a':'#c4b5a9'}">${i+1}</span><span onclick="showPlayerFromName('${x.n.replace(/'/g,'')}')" style="width:64px;font-size:13px;font-weight:${isTop?'800':'600'};color:#2d1f1a;cursor:pointer;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${x.n}</span><span style="flex:1;height:16px;background:#f4efe9;border-radius:8px;overflow:hidden"><span style="display:block;height:100%;width:${Math.max(pct,6)}%;background:${barColor};border-radius:8px"></span></span><span style="width:46px;text-align:right;font-size:12.5px;font-weight:800;color:${isTop?'#e8845a':'#7c6b5e'}">${disp}</span></div>`;
       }).join('');
-      cardsHtml+=`<div style="background:#fff;border:1px solid #f0e4db;border-radius:16px;padding:14px 16px;margin-bottom:10px;box-shadow:0 2px 8px rgba(120,90,70,0.05)">
-        <div style="display:flex;align-items:baseline;gap:8px;margin-bottom:11px">
-          <span style="font-size:15px;font-weight:800;color:#3a2e28">${c.l}</span>
-          <span style="font-size:11px;color:#a89b8e;font-weight:600">${c.sub}</span>
-        </div>
-        ${bars}
-      </div>`;
+      detailCards.push(`<div style="background:#fff;border:1px solid #f0e4db;border-radius:14px;padding:13px 15px;margin-bottom:8px"><div style="display:flex;align-items:baseline;gap:8px;margin-bottom:10px"><span style="font-size:14px;font-weight:800;color:#3a2e28">${c.l}</span><span style="font-size:11px;color:#a89b8e;font-weight:600">${c.sub}</span></div>${bars}</div>`);
     });
-    // 연승왕 / 개근 스트릭 (간단 표기)
-    const extra=[];
     const winm=names.filter(n=>(_tt.titles[n]||[]).some(t=>t.l.endsWith('연승')));
+    let extraHtml='';
     if(winm.length){
       const ws=winm.map(n=>({n,v:_tt.winStreakOf[n]})).sort((a,b)=>b.v-a.v);
-      extra.push(`<span style="font-weight:800;color:#3a2e28">연승왕</span> ${ws.map(x=>x.n+' ('+x.v+'연승)').join(', ')}`);
+      extraHtml=`<div style="background:#fff;border:1px solid #f0e4db;border-radius:14px;padding:12px 15px;font-size:13px;color:#2d1f1a;line-height:1.6"><span style="font-weight:800">연승왕</span> ${ws.map(x=>x.n+' ('+x.v+'연승)').join(', ')}</div>`;
     }
-    let extraHtml='';
-    if(extra.length)extraHtml=`<div style="background:#fff;border:1px solid #f0e4db;border-radius:16px;padding:13px 16px;margin-bottom:10px;font-size:13px;color:#2d1f1a;line-height:1.7">${extra.join('<br>')}</div>`;
-
-    if(cardsHtml||extraHtml){
-      html+=`<div style="margin:14px 0 20px">
-        <div style="font-size:14px;font-weight:800;color:#e8845a;margin-bottom:12px;padding-left:2px">명예의 전당</div>
-        ${cardsHtml}${extraHtml}
+    if(summary.length){
+      html+=`<div style="background:linear-gradient(135deg,#fff,#fdf6f1);border:1px solid #f0e4db;border-radius:18px;margin:14px 0 18px;box-shadow:0 3px 14px rgba(120,90,70,0.07);overflow:hidden">
+        <div onclick="(function(el){var d=document.getElementById('hofDetail');var a=document.getElementById('hofArrow');var op=d.style.display!=='none';d.style.display=op?'none':'block';a.style.transform=op?'':'rotate(90deg)';})(this)" style="padding:15px 18px;cursor:pointer">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
+            <span style="font-size:14px;font-weight:800;color:#e8845a">명예의 전당</span>
+            <span style="display:flex;align-items:center;gap:6px"><span style="font-size:11px;color:#a89b8e;font-weight:600">자세히</span><span id="hofArrow" style="color:#c4b5a9;font-size:18px;transition:transform .2s;display:inline-block">›</span></span>
+          </div>
+          ${summary.join('')}
+        </div>
+        <div id="hofDetail" style="display:none;padding:0 14px 14px;border-top:1px solid #f3ece6">
+          <div style="height:12px"></div>
+          ${detailCards.join('')}${extraHtml}
+        </div>
       </div>`;
     }
   }
@@ -2344,6 +2368,157 @@ async function getAwardHistory(name){
     records.sort((a,b)=>b.date.localeCompare(a.date));
     return records;
   }catch(e){return [];}
+}
+
+// 홈 접속 시 청백전 승부예측 팝업
+async function showPredictionPopup(){
+  if(!me)return;
+  try{
+    const dk=dateKey();
+    const sess=await sget('sessions/'+dk);
+    if(!sess||sess.del||!sess.bw||!sess.bwTeams||sess.finished)return;
+    // 오늘 이미 닫았으면 스킵
+    if(localStorage.getItem('termes-pred-popup-'+dk+'-'+me))return;
+    renderPredictionPopup();
+  }catch(e){}
+}
+async function renderPredictionPopup(){
+  const dk=dateKey();
+  let votes={};try{votes=await sget('bw-vote/'+dk)||{};}catch(e){}
+  const blueV=Object.values(votes).filter(v=>v==='blue').length;
+  const whiteV=Object.values(votes).filter(v=>v==='white').length;
+  const totalV=blueV+whiteV;
+  const myVote=me?votes[me.replace(/\s/g,'_')]:null;
+  const bluePct=totalV?Math.round(blueV/totalV*100):50, whitePct=totalV?100-bluePct:50;
+  let ov=document.getElementById('predPopupOverlay');
+  if(!ov){ov=document.createElement('div');ov.id='predPopupOverlay';document.body.appendChild(ov);}
+  ov.className='pop-overlay';
+  ov.style.cssText='position:fixed;inset:0;background:rgba(30,20,16,0.55);backdrop-filter:blur(3px);-webkit-backdrop-filter:blur(3px);z-index:10001;display:flex;align-items:center;justify-content:center;padding:24px';
+  ov.onclick=e=>{if(e.target===ov)closePredPopup();};
+  let body;
+  if(!myVote){
+    body=`<div style="text-align:center;margin-bottom:22px">
+        <div style="display:inline-block;font-size:11px;font-weight:800;color:#e8845a;background:#fdf0ec;padding:5px 13px;border-radius:20px;letter-spacing:0.3px;margin-bottom:14px">오늘의 승부 예측</div>
+        <div style="font-size:21px;font-weight:900;color:#2d1f1a;letter-spacing:-0.3px">어느 팀이 이길까요?</div>
+        <div style="font-size:13px;color:#9a8b7e;margin-top:6px">당신의 한 표를 남겨보세요</div>
+      </div>
+      <div style="display:flex;gap:12px">
+        <button onclick="predPopupVote('blue')" style="flex:1;background:linear-gradient(135deg,#4a90e8,#3b82f6);color:#fff;border:none;border-radius:18px;padding:24px 8px;font-size:18px;font-weight:900;font-family:inherit;cursor:pointer;box-shadow:0 6px 18px rgba(59,130,246,0.32);transition:transform .12s" ontouchstart="" onmousedown="this.style.transform='scale(0.96)'" onmouseup="this.style.transform=''">청팀</button>
+        <button onclick="predPopupVote('white')" style="flex:1;background:linear-gradient(135deg,#f15a5a,#ef4444);color:#fff;border:none;border-radius:18px;padding:24px 8px;font-size:18px;font-weight:900;font-family:inherit;cursor:pointer;box-shadow:0 6px 18px rgba(239,68,68,0.32);transition:transform .12s" onmousedown="this.style.transform='scale(0.96)'" onmouseup="this.style.transform=''">백팀</button>
+      </div>`;
+  } else {
+    const myLabel=myVote==='blue'?'청팀':'백팀',myColor=myVote==='blue'?'#3b82f6':'#ef4444';
+    const lead=blueV>whiteV?'청팀':whiteV>blueV?'백팀':null;
+    body=`<div style="text-align:center;margin-bottom:20px">
+        <div style="display:inline-block;font-size:11px;font-weight:800;color:#e8845a;background:#fdf0ec;padding:5px 13px;border-radius:20px;margin-bottom:12px">실시간 예측 현황</div>
+        <div style="font-size:19px;font-weight:900;color:#2d1f1a">${lead?`<span style="color:${lead==='청팀'?'#3b82f6':'#ef4444'}">${lead}</span> 우세`:'팽팽한 접전'}</div>
+        <div style="font-size:12.5px;color:#9a8b7e;margin-top:5px">총 ${totalV}명 참여 · 내 예측 <b style="color:${myColor}">${myLabel}</b></div>
+      </div>
+      <div style="margin-bottom:6px">
+        <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:6px"><span style="font-size:14px;font-weight:800;color:#3b82f6">청팀</span><span style="font-size:13px;font-weight:800;color:#3b82f6">${bluePct}<span style="font-size:11px">%</span> <span style="color:#c4b5a9;font-weight:600">(${blueV})</span></span></div>
+        <div style="height:14px;background:#eef2f7;border-radius:8px;overflow:hidden;margin-bottom:16px"><div style="height:100%;width:${bluePct}%;background:linear-gradient(90deg,#4a90e8,#3b82f6);border-radius:8px;animation:barGrow .5s ease"></div></div>
+        <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:6px"><span style="font-size:14px;font-weight:800;color:#ef4444">백팀</span><span style="font-size:13px;font-weight:800;color:#ef4444">${whitePct}<span style="font-size:11px">%</span> <span style="color:#c4b5a9;font-weight:600">(${whiteV})</span></span></div>
+        <div style="height:14px;background:#fceeee;border-radius:8px;overflow:hidden"><div style="height:100%;width:${whitePct}%;background:linear-gradient(90deg,#f15a5a,#ef4444);border-radius:8px;animation:barGrow .5s ease"></div></div>
+      </div>
+      <div style="display:flex;align-items:center;gap:7px;background:#faf7f3;border-radius:12px;padding:11px 14px;margin:18px 0 6px">
+        <span style="font-size:15px">🔄</span><span style="font-size:12px;color:#7c6b5e;line-height:1.4">예측은 <b style="color:#e8845a">대진표</b>에서 언제든 다시 바꿀 수 있어요</span>
+      </div>
+      <button onclick="closePredPopup()" style="width:100%;background:#e8845a;color:#fff;border:none;border-radius:15px;padding:15px;font-size:15px;font-weight:800;font-family:inherit;cursor:pointer;margin-top:6px">확인</button>`;
+  }
+  ov.innerHTML=`<div class="pop-card" style="background:#fff;border-radius:26px;max-width:350px;width:100%;padding:28px 24px;box-shadow:0 20px 60px rgba(60,40,30,0.3)" onclick="event.stopPropagation()">${body}</div>`;
+}
+async function predPopupVote(team){
+  if(!me)return;
+  const dk=dateKey();
+  try{
+    const votes=await sget('bw-vote/'+dk)||{};
+    votes[me.replace(/\s/g,'_')]=team;
+    await sset('bw-vote/'+dk,votes);
+    renderPredictionPopup(); // 투표 후 결과 그래프로 전환
+  }catch(e){}
+}
+function closePredPopup(){
+  try{localStorage.setItem('termes-pred-popup-'+dateKey()+'-'+me,'1');}catch(e){}
+  const ov=document.getElementById('predPopupOverlay');if(ov)ov.remove();
+}
+
+// 홈 접속 시 일반 대진 "오늘의 ○○" 팝업
+async function showDailyVotePopup(){
+  if(!me)return;
+  try{
+    const dk=dateKey();
+    const sess=await sget('sessions/'+dk);
+    if(!sess||sess.del||sess.bw||sess.finished)return; // 일반 대진만
+    if(localStorage.getItem('termes-daily-popup-'+dk+'-'+me))return;
+    const pl=getP(sess)||[];
+    const names=[];
+    pl.forEach((p,ai)=>{const nm=pname(sess,ai);if(nm&&!nm.includes('번')&&nm!=='헬퍼'&&nm!=='미정'&&!names.includes(nm))names.push(nm);});
+    if(!names.length)return;
+    renderDailyVotePopup();
+  }catch(e){}
+}
+async function renderDailyVotePopup(){
+  const dk=dateKey();
+  const topic=getDailyTopic(dk);
+  const sess=await sget('sessions/'+dk);if(!sess)return;
+  const pl=getP(sess)||[];
+  const names=[];
+  pl.forEach((p,ai)=>{const nm=pname(sess,ai);if(nm&&!nm.includes('번')&&nm!=='헬퍼'&&nm!=='미정'&&!names.includes(nm))names.push(nm);});
+  let votes={};try{votes=await sget('daily-vote/'+dk)||{};}catch(e){}
+  const tally={};Object.values(votes).forEach(n=>{tally[n]=(tally[n]||0)+1;});
+  const totalV=Object.keys(votes).length;
+  const myVote=me?votes[me.replace(/\s/g,'_')]:null;
+  let ov=document.getElementById('dailyPopupOverlay');
+  if(!ov){ov=document.createElement('div');ov.id='dailyPopupOverlay';document.body.appendChild(ov);}
+  ov.className='pop-overlay';
+  ov.style.cssText='position:fixed;inset:0;background:rgba(30,20,16,0.55);backdrop-filter:blur(3px);-webkit-backdrop-filter:blur(3px);z-index:10001;display:flex;align-items:center;justify-content:center;padding:24px';
+  ov.onclick=e=>{if(e.target===ov)closeDailyPopup();};
+  let body;
+  if(!myVote){
+    const chips=names.map(nm=>`<button onclick="dailyPopupVote('${nm.replace(/'/g,'')}')" style="background:#faf7f3;color:#3a2e28;border:1.5px solid #f0ebe7;border-radius:14px;padding:13px 6px;font-size:14px;font-weight:700;font-family:inherit;cursor:pointer;transition:transform .1s" onmousedown="this.style.transform='scale(0.95)'" onmouseup="this.style.transform=''">${nm}</button>`).join('');
+    body=`<div style="text-align:center;margin-bottom:20px">
+        <div style="display:inline-block;font-size:11px;font-weight:800;color:#e8845a;background:#fdf0ec;padding:5px 13px;border-radius:20px;margin-bottom:13px">${topic.emoji} ${topic.title}</div>
+        <div style="font-size:18px;font-weight:900;color:#2d1f1a;letter-spacing:-0.3px;line-height:1.35">${topic.desc}</div>
+      </div>
+      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;max-height:46vh;overflow-y:auto">${chips}</div>`;
+  } else {
+    const sorted=[...names].sort((a,b)=>(tally[b]||0)-(tally[a]||0)||a.localeCompare(b));
+    const maxV=Math.max(1,...Object.values(tally));
+    const top=sorted.slice(0,5).filter(n=>(tally[n]||0)>0||n===myVote);
+    const bars=top.map((nm,i)=>{
+      const v=tally[nm]||0,pct=Math.round(v/maxV*100),isTop=i===0&&v>0,mine=nm===myVote;
+      return `<div style="display:flex;align-items:center;gap:9px;margin-bottom:8px">
+        <span style="width:58px;font-size:13px;font-weight:${mine?'800':'600'};color:${mine?'#e8845a':'#2d1f1a'};white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${nm}${mine?' ✓':''}</span>
+        <span style="flex:1;height:15px;background:#f4efe9;border-radius:8px;overflow:hidden"><span style="display:block;height:100%;width:${Math.max(pct,6)}%;background:${isTop?'#e8845a':'#f0b79e'};border-radius:8px;animation:barGrow .5s ease"></span></span>
+        <span style="width:30px;text-align:right;font-size:12.5px;font-weight:800;color:${isTop?'#e8845a':'#7c6b5e'}">${v}</span>
+      </div>`;
+    }).join('');
+    body=`<div style="text-align:center;margin-bottom:18px">
+        <div style="display:inline-block;font-size:11px;font-weight:800;color:#e8845a;background:#fdf0ec;padding:5px 13px;border-radius:20px;margin-bottom:11px">${topic.emoji} ${topic.title}</div>
+        <div style="font-size:18px;font-weight:900;color:#2d1f1a">현재 투표 현황</div>
+        <div style="font-size:12.5px;color:#9a8b7e;margin-top:5px">총 ${totalV}명 참여</div>
+      </div>
+      <div>${bars}</div>
+      <div style="display:flex;align-items:center;gap:7px;background:#faf7f3;border-radius:12px;padding:11px 14px;margin:16px 0 6px">
+        <span style="font-size:15px">🔄</span><span style="font-size:12px;color:#7c6b5e;line-height:1.4">투표는 <b style="color:#e8845a">대진표</b>에서 언제든 다시 바꿀 수 있어요</span>
+      </div>
+      <button onclick="closeDailyPopup()" style="width:100%;background:#e8845a;color:#fff;border:none;border-radius:15px;padding:15px;font-size:15px;font-weight:800;font-family:inherit;cursor:pointer;margin-top:6px">확인</button>`;
+  }
+  ov.innerHTML=`<div class="pop-card" style="background:#fff;border-radius:26px;max-width:350px;width:100%;padding:28px 24px;box-shadow:0 20px 60px rgba(60,40,30,0.3)" onclick="event.stopPropagation()">${body}</div>`;
+}
+async function dailyPopupVote(name){
+  if(!me)return;
+  const dk=dateKey();
+  try{
+    const votes=await sget('daily-vote/'+dk)||{};
+    votes[me.replace(/\s/g,'_')]=name;
+    await sset('daily-vote/'+dk,votes);
+    renderDailyVotePopup();
+  }catch(e){}
+}
+function closeDailyPopup(){
+  try{localStorage.setItem('termes-daily-popup-'+dateKey()+'-'+me,'1');}catch(e){}
+  const ov=document.getElementById('dailyPopupOverlay');if(ov)ov.remove();
 }
 
 // ── 일반 대진: 오늘의 ○○ 투표 ──
@@ -3022,7 +3197,7 @@ async function loadNotices(){
 
 // 로그인 유지 복원
 async function restoreLogin(){
-  const showLogin=()=>{const el=document.getElementById('loginScreen');if(el)el.style.setProperty('display','flex','important');};
+  const showLogin=()=>{const el=document.getElementById('loginScreen');if(el)el.style.setProperty('display','flex','important');hideBootLoader();};
   try{
     const saved=localStorage.getItem('termes-saved-login');
     if(!saved){showLogin();return;}
@@ -3044,6 +3219,7 @@ async function restoreLogin(){
 buildNameList().then(()=>{
   restoreLogin();
 });
+setTimeout(function(){try{hideBootLoader();}catch(e){}},5000);
 if('serviceWorker' in navigator)navigator.serviceWorker.register('sw.js').catch(()=>{});
 
 // ── 홈 화면 추가 (PWA) ──
