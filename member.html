@@ -1648,6 +1648,7 @@ async function loadRankBoard(){
   const wrap=document.getElementById('rankBoardContent');
   if(!wrap)return;
   wrap.innerHTML='<div class="empty" style="padding-top:40px">불러오는 중...</div>';
+  let _tt=null;try{_tt=await computeTitles();}catch(e){}
 
   // 전체 연도 집계 (포인트 / 경기수 / 참여일수)
   const idx=await sget('index'),aidx=await sget('archive-index');
@@ -1697,6 +1698,36 @@ async function loadRankBoard(){
     </div>
     <div style="font-size:12px;color:#a89b8e;font-weight:500;margin-top:3px">평균 포인트 기준 · 전체 기간</div>
   </div>`;
+
+  // ── 명예의 전당 ──
+  if(_tt){
+    const findHolders=label=>Object.keys(_tt.titles).filter(n=>(_tt.titles[n]||[]).some(t=>t.l===label||(label==='연승머신'&&t.l.endsWith('연승'))));
+    const HOF=[
+      {l:'개근왕',sub:'최다 출석',key:'개근왕'},
+      {l:'득점왕',sub:'최다 득점',key:'득점왕'},
+      {l:'승률왕',sub:'승률 1위',key:'승률왕'},
+      {l:'철벽',sub:'최소 실점',key:'철벽'},
+      {l:'다이아손',sub:'득실차 1위',key:'다이아손'}
+    ];
+    // 최다 연속출석
+    let streakLead=[],maxStreak=0;
+    Object.entries(_tt.streakOf).forEach(([n,s])=>{if(s>maxStreak){maxStreak=s;streakLead=[n];}else if(s===maxStreak&&s>0)streakLead.push(n);});
+    const rows=[];
+    HOF.forEach(h=>{const who=findHolders(h.key);if(who.length)rows.push({l:h.l,sub:h.sub,who});});
+    const winm=findHolders('연승머신');if(winm.length)rows.push({l:'연승왕',sub:'3연승 이상',who:winm});
+    if(maxStreak>=2&&streakLead.length)rows.push({l:'개근 스트릭',sub:maxStreak+'회 연속 출석',who:streakLead});
+    if(rows.length){
+      html+=`<div style="background:linear-gradient(135deg,#fff,#fdf6f1);border:1px solid #f0e4db;border-radius:18px;padding:16px 18px;margin:14px 0 18px;box-shadow:0 3px 14px rgba(120,90,70,0.07)">
+        <div style="font-size:13px;font-weight:800;color:#e8845a;margin-bottom:13px">명예의 전당</div>
+        <div style="display:flex;flex-direction:column;gap:12px">
+        ${rows.map(r=>`<div style="display:flex;align-items:center;gap:12px">
+          <span style="flex-shrink:0;width:92px"><span style="display:block;font-size:13.5px;font-weight:800;color:#3a2e28">${r.l}</span><span style="display:block;font-size:11px;color:#a89b8e;margin-top:1px">${r.sub}</span></span>
+          <span style="font-size:14px;font-weight:700;color:#2d1f1a;flex:1">${r.who.map(n=>`<span onclick="showPlayerFromName('${n.replace(/'/g,'')}')" style="cursor:pointer">${n}</span>`).join(', ')}</span>
+        </div>`).join('')}
+        </div>
+      </div>`;
+    }
+  }
 
   if(!ranked.length){
     html+=`<div class="empty" style="padding-top:40px">아직 기록이 없습니다</div></div>`;
@@ -1933,8 +1964,8 @@ async function showPlayer(name,year,pageMode){
       let titleHtml='';
       if((tinfo.titles&&tinfo.titles.length)||tinfo.streak>=2){
         const chips=[];
-        if(tinfo.streak>=2)chips.push(`<span style="display:inline-flex;align-items:center;gap:3px;background:#fff3ee;border:1px solid #f5d3c5;color:#e8845a;font-size:12px;font-weight:800;padding:5px 11px;border-radius:16px">🔥 ${tinfo.streak}회 연속 출석</span>`);
-        (tinfo.titles||[]).forEach(t=>chips.push(`<span style="display:inline-flex;align-items:center;gap:3px;background:#faf7f3;border:1px solid #f0ebe7;color:#3a2e28;font-size:12px;font-weight:800;padding:5px 11px;border-radius:16px">${t.e} ${t.l}</span>`));
+        if(tinfo.streak>=2)chips.push(`<span style="display:inline-flex;align-items:center;background:#fff3ee;border:1px solid #f5d3c5;color:#e8845a;font-size:12px;font-weight:800;padding:5px 11px;border-radius:16px">${tinfo.streak}회 연속 출석</span>`);
+        (tinfo.titles||[]).forEach(t=>chips.push(`<span style="display:inline-flex;align-items:center;background:#faf7f3;border:1px solid #f0ebe7;color:#3a2e28;font-size:12px;font-weight:800;padding:5px 11px;border-radius:16px">${t.l}</span>`));
         titleHtml=`<div style="display:flex;flex-wrap:wrap;gap:6px;margin:4px 0 12px">${chips.join('')}</div>`;
       }
       // 역대 수상 기록
@@ -2531,7 +2562,6 @@ async function getSeasonStats(){
 async function loadBracket(){
   checkOrderTab();
   const wrap=document.getElementById('bktWrap');
-  try{await computeTitles();}catch(e){}
   const sess=await sget('sessions/'+dateKey());
   if(!sess||sess.del){wrap.innerHTML='<div class="empty">오늘 대진표가 없습니다</div>';return;}
   curSess=sess;wrap.innerHTML='';
@@ -2632,7 +2662,7 @@ async function loadBracket(){
       const hasHelper=ct.includes(-1);
       const p=ai=>ai===-1
         ?`<span class="p-tag" style="color:#a89b8e;background:#f5f0eb">헬퍼</span>`
-        :`<span class="p-tag" onclick="showPlayerFromName('${pname(sess,ai)}')">${pname(sess,ai)}${titleEmojis(pname(sess,ai))}</span>`;
+        :`<span class="p-tag" onclick="showPlayerFromName('${pname(sess,ai)}')">${pname(sess,ai)}</span>`;
       // 청백전 코트 (청2 vs 백2)
       if(round.isBW){
         const isEmpty=ai=>ai==null||ai===-2;
@@ -2655,7 +2685,6 @@ async function loadBracket(){
 
 // ── 점수 ──
 async function loadScore(){
-  try{await computeTitles();}catch(e){}
   const wrap=document.getElementById('scoreWrap');
   const sess=await sget('sessions/'+dateKey());
   if(!sess||sess.del){wrap.innerHTML='<div class="empty">오늘 대진표가 없습니다</div>';return;}
@@ -2686,9 +2715,9 @@ function renderScoreUI(sess){
       cHtml+=`<div class="score-match" style="border-top-color:${col}">
         ${tpBadge?`<div style="margin-bottom:10px">${tpBadge}</div>`:''}
         <div style="display:flex;align-items:center;gap:12px;margin-bottom:14px">
-          <div class="m-team"><div class="m-name">${pname(sess,ct[0])}${titleEmojis(pname(sess,ct[0]))}</div><div class="m-name">${pname(sess,ct[1])}${titleEmojis(pname(sess,ct[1]))}</div></div>
+          <div class="m-team"><div class="m-name">${pname(sess,ct[0])}</div><div class="m-name">${pname(sess,ct[1])}</div></div>
           <div class="m-vs">VS</div>
-          <div class="m-team" style="text-align:right"><div class="m-name">${pname(sess,ct[2])}${titleEmojis(pname(sess,ct[2]))}</div><div class="m-name">${pname(sess,ct[3])}${titleEmojis(pname(sess,ct[3]))}</div></div>
+          <div class="m-team" style="text-align:right"><div class="m-name">${pname(sess,ct[2])}</div><div class="m-name">${pname(sess,ct[3])}</div></div>
         </div>
         <div style="display:flex;align-items:center;gap:12px">
           <div style="flex:1;display:flex;justify-content:center"><input class="s-inp" type="number" min="0" max="99" placeholder="0" value="${s1}" data-key="${skey}" data-side="s1" ${dis} style="${dStyle}" oninput="onSI(this)" onchange="saveSc('${skey}',this)"></div>
