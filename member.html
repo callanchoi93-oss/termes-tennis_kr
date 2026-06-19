@@ -1699,32 +1699,69 @@ async function loadRankBoard(){
     <div style="font-size:12px;color:#a89b8e;font-weight:500;margin-top:3px">평균 포인트 기준 · 전체 기간</div>
   </div>`;
 
-  // ── 명예의 전당 ──
-  if(_tt){
-    const findHolders=label=>Object.keys(_tt.titles).filter(n=>(_tt.titles[n]||[]).some(t=>t.l===label||(label==='연승머신'&&t.l.endsWith('연승'))));
-    const HOF=[
-      {l:'개근왕',sub:'최다 출석',key:'개근왕'},
-      {l:'득점왕',sub:'최다 득점',key:'득점왕'},
-      {l:'승률왕',sub:'승률 1위',key:'승률왕'},
-      {l:'철벽',sub:'최소 실점',key:'철벽'},
-      {l:'다이아손',sub:'득실차 1위',key:'다이아손'}
+  // ── 명예의 전당 (수치 + 상위 5명 막대그래프) ──
+  if(_tt&&_tt.data&&Object.keys(_tt.data).length){
+    const D=_tt.data;
+    const names=Object.keys(D);
+    // 카테고리: metric(이름→값), 정렬, 표시포맷, 자격필터
+    const cats=[
+      {l:'개근왕',sub:'최다 출석',unit:'회',val:n=>D[n].att,asc:false,filter:n=>D[n].att>0},
+      {l:'득점왕',sub:'최다 득점',unit:'점',val:n=>D[n].sc,asc:false,filter:n=>D[n].games>0},
+      {l:'승률왕',sub:'승률 1위 (4경기+)',unit:'%',val:n=>Math.round(D[n].w/((D[n].w+D[n].l)||1)*100),asc:false,filter:n=>(D[n].w+D[n].l)>=4},
+      {l:'철벽',sub:'최소 실점 (3경기+)',unit:'점',val:n=>D[n].cc,asc:true,filter:n=>D[n].games>=3},
+      {l:'다이아손',sub:'득실차 1위',unit:'',val:n=>D[n].sc-D[n].cc,asc:false,filter:n=>D[n].games>0,signed:true}
     ];
-    // 최다 연속출석
-    let streakLead=[],maxStreak=0;
-    Object.entries(_tt.streakOf).forEach(([n,s])=>{if(s>maxStreak){maxStreak=s;streakLead=[n];}else if(s===maxStreak&&s>0)streakLead.push(n);});
-    const rows=[];
-    HOF.forEach(h=>{const who=findHolders(h.key);if(who.length)rows.push({l:h.l,sub:h.sub,who});});
-    const winm=findHolders('연승머신');if(winm.length)rows.push({l:'연승왕',sub:'3연승 이상',who:winm});
-    if(maxStreak>=2&&streakLead.length)rows.push({l:'개근 스트릭',sub:maxStreak+'회 연속 출석',who:streakLead});
-    if(rows.length){
-      html+=`<div style="background:linear-gradient(135deg,#fff,#fdf6f1);border:1px solid #f0e4db;border-radius:18px;padding:16px 18px;margin:14px 0 18px;box-shadow:0 3px 14px rgba(120,90,70,0.07)">
-        <div style="font-size:13px;font-weight:800;color:#e8845a;margin-bottom:13px">명예의 전당</div>
-        <div style="display:flex;flex-direction:column;gap:12px">
-        ${rows.map(r=>`<div style="display:flex;align-items:center;gap:12px">
-          <span style="flex-shrink:0;width:92px"><span style="display:block;font-size:13.5px;font-weight:800;color:#3a2e28">${r.l}</span><span style="display:block;font-size:11px;color:#a89b8e;margin-top:1px">${r.sub}</span></span>
-          <span style="font-size:14px;font-weight:700;color:#2d1f1a;flex:1">${r.who.map(n=>`<span onclick="showPlayerFromName('${n.replace(/'/g,'')}')" style="cursor:pointer">${n}</span>`).join(', ')}</span>
-        </div>`).join('')}
+    let cardsHtml='';
+    cats.forEach(c=>{
+      let arr=names.filter(c.filter).map(n=>({n,v:c.val(n)}));
+      if(!arr.length)return;
+      arr.sort((a,b)=>c.asc?a.v-b.v:b.v-a.v);
+      const top=arr.slice(0,5);
+      // 막대 기준값
+      const vals=top.map(x=>x.v);
+      const maxAbs=Math.max(1,...vals.map(v=>Math.abs(v)));
+      const minV=Math.min(...vals),maxV=Math.max(...vals);
+      const bars=top.map((x,i)=>{
+        let pct;
+        if(c.asc){ // 낮을수록 좋음 → 최저값이 가장 긴 막대
+          pct=maxV===minV?100:Math.round((maxV-x.v)/(maxV-minV)*80+20);
+        } else if(c.signed){
+          pct=Math.round(Math.abs(x.v)/maxAbs*100);
+        } else {
+          pct=maxV>0?Math.round(x.v/maxV*100):0;
+        }
+        const isTop=i===0;
+        const barColor=c.signed&&x.v<0?'#cbd2da':(isTop?'#e8845a':'#f0b79e');
+        const disp=(c.signed&&x.v>0?'+':'')+x.v+c.unit;
+        return `<div style="display:flex;align-items:center;gap:9px;margin-bottom:7px">
+          <span style="width:16px;font-size:12px;font-weight:800;color:${isTop?'#e8845a':'#c4b5a9'};flex-shrink:0">${i+1}</span>
+          <span onclick="showPlayerFromName('${x.n.replace(/'/g,'')}')" style="width:64px;font-size:13px;font-weight:${isTop?'800':'600'};color:#2d1f1a;flex-shrink:0;cursor:pointer;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${x.n}</span>
+          <span style="flex:1;height:16px;background:#f4efe9;border-radius:8px;overflow:hidden"><span style="display:block;height:100%;width:${Math.max(pct,6)}%;background:${barColor};border-radius:8px"></span></span>
+          <span style="width:46px;text-align:right;font-size:12.5px;font-weight:800;color:${isTop?'#e8845a':'#7c6b5e'};flex-shrink:0">${disp}</span>
+        </div>`;
+      }).join('');
+      cardsHtml+=`<div style="background:#fff;border:1px solid #f0e4db;border-radius:16px;padding:14px 16px;margin-bottom:10px;box-shadow:0 2px 8px rgba(120,90,70,0.05)">
+        <div style="display:flex;align-items:baseline;gap:8px;margin-bottom:11px">
+          <span style="font-size:15px;font-weight:800;color:#3a2e28">${c.l}</span>
+          <span style="font-size:11px;color:#a89b8e;font-weight:600">${c.sub}</span>
         </div>
+        ${bars}
+      </div>`;
+    });
+    // 연승왕 / 개근 스트릭 (간단 표기)
+    const extra=[];
+    const winm=names.filter(n=>(_tt.titles[n]||[]).some(t=>t.l.endsWith('연승')));
+    if(winm.length){
+      const ws=winm.map(n=>({n,v:_tt.winStreakOf[n]})).sort((a,b)=>b.v-a.v);
+      extra.push(`<span style="font-weight:800;color:#3a2e28">연승왕</span> ${ws.map(x=>x.n+' ('+x.v+'연승)').join(', ')}`);
+    }
+    let extraHtml='';
+    if(extra.length)extraHtml=`<div style="background:#fff;border:1px solid #f0e4db;border-radius:16px;padding:13px 16px;margin-bottom:10px;font-size:13px;color:#2d1f1a;line-height:1.7">${extra.join('<br>')}</div>`;
+
+    if(cardsHtml||extraHtml){
+      html+=`<div style="margin:14px 0 20px">
+        <div style="font-size:14px;font-weight:800;color:#e8845a;margin-bottom:12px;padding-left:2px">명예의 전당</div>
+        ${cardsHtml}${extraHtml}
       </div>`;
     }
   }
@@ -2507,7 +2544,7 @@ async function computeTitles(){
       if(winStreakOf[n]>=3)titles[n].push({e:'🚀',l:winStreakOf[n]+'연승'});
     });
   }
-  _titlesCache={streakOf,winStreakOf,titles};_titlesCacheTs=Date.now();
+  _titlesCache={streakOf,winStreakOf,titles,data};_titlesCacheTs=Date.now();
   return _titlesCache;
 }
 async function getPlayerTitles(name){
