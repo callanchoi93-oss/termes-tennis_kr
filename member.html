@@ -569,6 +569,26 @@ async function sget(k){
   try{if(db){const s=await db.ref('termes/'+k).once('value');return s.exists()?s.val():null;}}catch(e){}
   try{const v=localStorage.getItem('t-'+k);return v?JSON.parse(v):null;}catch(e){return null;}
 }
+
+// 모든 세션을 병렬로 한 번에 로드 + 캐시 (로딩 속도 최적화)
+let _allSessCache=null,_allSessTs=0;
+async function loadAllSessions(force){
+  if(!force&&_allSessCache&&Date.now()-_allSessTs<45000)return _allSessCache;
+  try{
+    const [idx,aidx]=await Promise.all([sget('index'),sget('archive-index')]);
+    const list=idx?(Array.isArray(idx)?idx:Object.values(idx)):[];
+    const alist=aidx?(Array.isArray(aidx)?aidx:Object.values(aidx)):[];
+    const keys=[...list.map(d=>'sessions/'+d),...alist.map(k=>'archives/'+k)];
+    const datas=await Promise.all(keys.map(k=>sget(k)));
+    const map={};
+    keys.forEach((k,i)=>{map[k]=datas[i];});
+    _allSessCache={map,list,alist,keys};
+    _allSessTs=Date.now();
+    return _allSessCache;
+  }catch(e){return {map:{},list:[],alist:[],keys:[]};}
+}
+// 세션 데이터 변경 시 캐시 무효화
+function invalidateSessCache(){_allSessCache=null;_allSessTs=0;}
 async function sset(k,v){
   try{if(db){await db.ref('termes/'+k).set(v);return true;}}catch(e){}
   try{localStorage.setItem('t-'+k,JSON.stringify(v));return true;}catch(e){return false;}
@@ -1687,12 +1707,11 @@ async function loadRankBoard(){
   let _tt=null;try{_tt=await computeTitles();}catch(e){}
 
   // 전체 연도 집계 (포인트 / 경기수 / 참여일수)
-  const idx=await sget('index'),aidx=await sget('archive-index');
-  const list=idx?(Array.isArray(idx)?idx:Object.values(idx)):[];
-  const alist=aidx?(Array.isArray(aidx)?aidx:Object.values(aidx)):[];
+  const A=await loadAllSessions();
+  const list=A.list,alist=A.alist;
   const pm={};
   for(const k of [...list.map(d=>'sessions/'+d),...alist.map(k=>'archives/'+k)]){
-    const s=await sget(k);if(!s||s.del)continue;
+    const s=A.map[k];if(!s||s.del)continue;
     const n=getP(s).length;if(!n)continue;
     const pre=getSc(s)._totals||calcTotals(s);
     const sd=calcScoreDiff(s);
@@ -1912,9 +1931,10 @@ async function loadRanking(year){
   const ySess=list.filter(d=>String(d).startsWith(String(year)));
   const yArch=alist.filter(k=>String(k).startsWith(String(year)));
   const grades=JSON.parse(localStorage.getItem('t-grades')||localStorage.getItem('termes-grades')||'{}');
+  const A=await loadAllSessions();
   const pm={};
   for(const k of [...ySess.map(d=>'sessions/'+d),...yArch.map(k=>'archives/'+k)]){
-    const s=await sget(k);if(!s||s.del)continue;
+    const s=A.map[k];if(!s||s.del)continue;
     const n=getP(s).length;if(!n)continue;
     const pre=getSc(s)._totals||calcTotals(s);
     const ps=Array.from({length:n},(_,ai)=>({name:pname(s,ai),total:pre[ai]||0,games:countGames(s,ai)})).sort((a,b)=>b.total-a.total);
@@ -2070,9 +2090,10 @@ async function showPlayer(name,year,pageMode){
   const alist=aidx?(Array.isArray(aidx)?aidx:Object.values(aidx)):[];
   const ySess=list.filter(d=>String(d).startsWith(String(year)));
   const yArch=alist.filter(k=>String(k).startsWith(String(year)));
+  const A=await loadAllSessions();
   let totalPts=0,histHtml='',totalScored=0,totalConceded=0,totalWins=0,totalLosses=0,totalDraws=0;
   for(const [k,dk] of [...ySess.map(d=>['sessions/'+d,String(d)]),...yArch.map(k=>['archives/'+k,String(k).slice(0,8)])]){
-    const s=await sget(k);if(!s||s.del)continue;
+    const s=A.map[k];if(!s||s.del)continue;
     const n=getP(s).length;let ai=-1;
     for(let i=0;i<n;i++){if(pname(s,i)===name){ai=i;break;}}
     if(ai===-1)continue;
@@ -2237,13 +2258,12 @@ const MEDAL_IMG={
 // 월례대회(청백전) 회차 계산: 이 세션 날짜까지의 청백전 개수
 async function getMonthlyRound(dateK){
   try{
-    const idx=await sget('index'),aidx=await sget('archive-index');
-    const list=idx?(Array.isArray(idx)?idx:Object.values(idx)):[];
-    const alist=aidx?(Array.isArray(aidx)?aidx:Object.values(aidx)):[];
+    const A=await loadAllSessions();
+    const list=A.list,alist=A.alist;
     const allKeys=[...list.map(d=>'sessions/'+d),...alist.map(k=>'archives/'+k)];
     let count=0;
     for(const k of allKeys){
-      const s=await sget(k);
+      const s=A.map[k];
       if(s&&!s.del&&s.bw){
         const sd=k.includes('archives/')?k.split('/')[1].split('-')[0]:k.split('/')[1];
         if(sd<=dateK)count++;
@@ -2311,14 +2331,13 @@ function computeAwards(sess){
 // 현재 뱃지 조회: 최신 청백전(다음 대회 전까지 유지) 기준 우승/메달
 async function getCurrentBadges(name){
   try{
-    const idx=await sget('index'),aidx=await sget('archive-index');
-    const list=idx?(Array.isArray(idx)?idx:Object.values(idx)):[];
-    const alist=aidx?(Array.isArray(aidx)?aidx:Object.values(aidx)):[];
+    const A=await loadAllSessions();
+    const list=A.list,alist=A.alist;
     // 날짜 내림차순으로 가장 최근 청백전 1개 찾기
     const all=[...list.map(d=>['sessions/'+d,String(d)]),...alist.map(k=>['archives/'+k,String(k).slice(0,8)])];
     all.sort((a,b)=>b[1].localeCompare(a[1]));
     for(const [k,dk] of all){
-      const s=await sget(k);
+      const s=A.map[k];
       if(!s||s.del||!s.bw||!s.bwTeams)continue;
       if(!allBWScoresEntered(s))continue; // 완료된 청백전만
       const aw=computeAwards(s);
@@ -2337,9 +2356,8 @@ async function getCurrentBadges(name){
 // 역대 수상 이력 (모든 청백전 훑어서 우승/개인메달 기록 누적)
 async function getAwardHistory(name){
   try{
-    const idx=await sget('index'),aidx=await sget('archive-index');
-    const list=idx?(Array.isArray(idx)?idx:Object.values(idx)):[];
-    const alist=aidx?(Array.isArray(aidx)?aidx:Object.values(aidx)):[];
+    const A=await loadAllSessions();
+    const list=A.list,alist=A.alist;
     const all=[...list.map(d=>['sessions/'+d,String(d)]),...alist.map(k=>['archives/'+k,String(k).slice(0,8)])];
     // 날짜 오름차순 (회차 부여 위해)
     all.sort((a,b)=>a[1].localeCompare(b[1]));
@@ -2348,7 +2366,7 @@ async function getAwardHistory(name){
     const seen=new Set();
     for(const [k,dk] of all){
       if(seen.has(dk))continue; seen.add(dk);
-      const s=await sget(k);
+      const s=A.map[k];
       if(!s||s.del||!s.bw||!s.bwTeams)continue;
       round++; // 청백전마다 회차 증가
       if(!allBWScoresEntered(s))continue;
@@ -2649,18 +2667,16 @@ let _titlesCache=null,_titlesCacheTs=0;
 async function computeTitles(){
   if(_titlesCache&&Date.now()-_titlesCacheTs<60000)return _titlesCache;
   const year=new Date().getFullYear();
-  const idx=await sget('index'),aidx=await sget('archive-index');
-  const list=idx?(Array.isArray(idx)?idx:Object.values(idx)):[];
-  const alist=aidx?(Array.isArray(aidx)?aidx:Object.values(aidx)):[];
+  const A=await loadAllSessions();
   const items=[];
-  list.forEach(d=>{const ds=String(d);if(ds.startsWith(String(year)))items.push(['sessions/'+d,ds.slice(0,8)]);});
-  alist.forEach(k=>{const ks=String(k);if(ks.startsWith(String(year)))items.push(['archives/'+k,ks.slice(0,8)]);});
+  A.list.forEach(d=>{const ds=String(d);if(ds.startsWith(String(year)))items.push(['sessions/'+d,ds.slice(0,8)]);});
+  A.alist.forEach(k=>{const ks=String(k);if(ks.startsWith(String(year)))items.push(['archives/'+k,ks.slice(0,8)]);});
   items.sort((a,b)=>a[1].localeCompare(b[1]));
   const data={};
   const ens=nm=>{if(!data[nm])data[nm]={att:0,results:[],sc:0,cc:0,w:0,l:0,games:0};return data[nm];};
   const sessionDates=[];
   for(const [k,dk] of items){
-    const s=await sget(k);if(!s||s.del)continue;
+    const s=A.map[k];if(!s||s.del)continue;
     const sc=getSc(s),br=getB(s);
     const parts=new Set();
     br.forEach((round,ri)=>{
@@ -2757,15 +2773,13 @@ function titleEmojis(name){
 
 async function getSeasonStats(){
   const year=new Date().getFullYear();
-  const idx=await sget('index'),aidx=await sget('archive-index');
-  const list=idx?(Array.isArray(idx)?idx:Object.values(idx)):[];
-  const alist=aidx?(Array.isArray(aidx)?aidx:Object.values(aidx)):[];
-  const ySess=list.filter(d=>String(d).startsWith(String(year)));
-  const yArch=alist.filter(k=>String(k).startsWith(String(year)));
+  const A=await loadAllSessions();
+  const ySess=A.list.filter(d=>String(d).startsWith(String(year)));
+  const yArch=A.alist.filter(k=>String(k).startsWith(String(year)));
   const stats={}; // name → {w,l,d,sc,cc,games}
   const ensure=nm=>{if(!stats[nm])stats[nm]={w:0,l:0,d:0,sc:0,cc:0,games:0};return stats[nm];};
   for(const k of [...ySess.map(d=>'sessions/'+d),...yArch.map(k=>'archives/'+k)]){
-    const s=await sget(k);if(!s||s.del)continue;
+    const s=A.map[k];if(!s||s.del)continue;
     const sc=getSc(s),br=getB(s),nn=getP(s).length;
     br.forEach((round,ri)=>{
       round.courts.forEach((ct,ci)=>{
@@ -2987,7 +3001,7 @@ async function saveSc(skey,inp){
     saveQ={};latest.sc._totals=calcTotals(latest);latest.finished=checkDone(latest);
     if(!latest.sc._typing)latest.sc._typing={};latest.sc._typing[skey]={name:me==='__super__'?'관리자':me,time:Date.now()};
     const ok=await sset('sessions/'+today,latest);
-    if(ok){curSess=latest;updateStandings(latest);if(latest.finished){clearInterval(autoTimer);toast('모든 경기가 종료되었습니다');renderScoreUI(latest);}}
+    if(ok){invalidateSessCache();curSess=latest;updateStandings(latest);if(latest.finished){clearInterval(autoTimer);toast('모든 경기가 종료되었습니다');renderScoreUI(latest);}}
     else toast('저장에 실패했습니다');
   },600);
 }
