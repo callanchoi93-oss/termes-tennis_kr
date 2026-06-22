@@ -3103,7 +3103,23 @@ function printBracketPDF(){
     .wait-label{font-size:12px;font-weight:700;color:#8b95a1;min-width:28px}
     .wait-chip{background:#fff;border:1px solid #e5e8eb;border-radius:6px;padding:3px 9px;font-size:12px;color:#6b7684}
     @media print{body{padding:16px}@page{margin:1cm;size:A4}}
-  </style></head><body>
+  
+/* ── 데스크탑 레이아웃 (앱을 중앙 컬럼으로) ── */
+@media (min-width:600px){
+  body{background:#e9e0d7;background-image:radial-gradient(circle at 20% 20%,#efe7df,#e4dace);min-height:100vh}
+  #mainApp{max-width:480px;margin:0 auto;min-height:100vh;background:var(--bg);box-shadow:0 0 60px rgba(90,65,45,0.14);position:relative}
+  #loginScreen{max-width:480px;margin:0 auto;box-shadow:0 0 60px rgba(90,65,45,0.14)}
+  #bootLoader{max-width:480px;margin:0 auto;left:50%;transform:translateX(-50%);box-shadow:0 0 60px rgba(90,65,45,0.14)}
+  .nav{box-shadow:0 -2px 20px rgba(90,65,45,0.06)}
+  /* 마우스 hover 인터랙션 */
+  .nb{transition:background .15s}
+  .nb:hover{background:#faf6f2}
+  button{transition:opacity .15s,transform .1s}
+}
+@media (min-width:600px) and (hover:hover){
+  .p-tag:hover,.round-card:hover{filter:brightness(0.99)}
+}
+</style></head><body>
   <div class="header">
     <div><div class="logo">TER<b>MES</b></div><div class="date">${dateStr} 대진표</div><div class="info">${getP(sess).length}명 · 코트 ${sess.ct} · ${sess.r}라운드 · ${sess.gm}게임제</div></div>
   </div>`;
