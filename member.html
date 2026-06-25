@@ -604,6 +604,23 @@ function mkKey(n){return 'mp-'+n.replace(/\s/g,'');}
 function getRankPts(r){return r<=0?0:r<=RP.length?RP[r-1]:RP[RP.length-1];}
 function toast(m){const e=document.getElementById('toast');e.textContent=m;e.classList.add('on');setTimeout(()=>e.classList.remove('on'),2600);}
 function dateKey(){const d=new Date();return `${d.getFullYear()}${String(d.getMonth()+1).padStart(2,'0')}${String(d.getDate()).padStart(2,'0')}`;}
+// 활성 세션 날짜: 오늘 세션이 있으면 오늘, 없으면 가장 가까운 예정(발행·미만료) 세션
+let gActiveKey=null;
+async function resolveActiveKey(){
+  const t=dateKey();
+  try{const todayS=await sget('sessions/'+t);if(todayS&&!todayS.del){gActiveKey=t;return t;}}catch(e){}
+  try{
+    let idx=await sget('index');idx=idx?(Array.isArray(idx)?idx:Object.values(idx)):[];
+    const now=Date.now();
+    const future=idx.filter(k=>String(k)>t).sort();
+    for(const k of future){
+      const s=await sget('sessions/'+k);
+      if(s&&!s.del&&s.pub&&(!s.exp||s.exp>now)){gActiveKey=k;return k;}
+    }
+  }catch(e){}
+  gActiveKey=t;return t;
+}
+function actKey(){return gActiveKey||dateKey();}
 function fmt(k){if(!k||k.length<8)return k;return `${k.slice(0,4)}년 ${parseInt(k.slice(4,6))}월 ${parseInt(k.slice(6,8))}일`;}
 function getP(s){return s.p||[];}
 function getB(s){return (s.b||[]).map(r=>({courts:r.c||[],wait:r.w||[],courtTypeLabels:r.ctl||r.courtTypeLabels||null,isBW:r.bw||false}));}
@@ -988,11 +1005,12 @@ function restoreTab(){
 
 // 청백전 팀장이면 오더시트 탭 표시 (끝났으면 숨김)
 async function checkOrderTab(){
+  await resolveActiveKey();
   const btn=document.getElementById('orderTabBtn');
   if(!btn)return;
   let show=false;
   try{
-    const sess=await sget('sessions/'+dateKey());
+    const sess=await sget('sessions/'+actKey());
     if(me&&sess&&!sess.del&&sess.bw&&sess.bwTeams&&!sess.finished){
       const bc=sess.bwTeams.blueCaptain, wc=sess.bwTeams.whiteCaptain;
       // 이름 매칭 (인덱스→이름)
@@ -1053,7 +1071,7 @@ async function saveCareerPopup(){
 async function showCaptainPopup(){
   if(!me)return;
   try{
-    const sess=await sget('sessions/'+dateKey());
+    const sess=await sget('sessions/'+actKey());
     if(!sess||sess.del||!sess.bw||!sess.bwTeams||sess.finished)return;
     const bc=sess.bwTeams.blueCaptain, wc=sess.bwTeams.whiteCaptain;
     const bcName=(bc!=null&&bc!==undefined)?pname(sess,bc):'';
@@ -1086,7 +1104,7 @@ async function showCaptainPopup(){
 async function showAwardPopup(){
   if(!me)return;
   try{
-    const dk=dateKey();
+    const dk=actKey();
     const sess=await sget('sessions/'+dk);
     if(!sess||sess.del||!sess.bw||!sess.bwTeams)return;
     if(!allBWScoresEntered(sess))return; // 모든 점수 입력 완료 시에만
@@ -1126,9 +1144,10 @@ async function showAwardPopup(){
 // ── 청백전 오더시트 (팀장 편집) ──
 let _orderSess=null, _myTeam=null, _orderData=null;
 async function loadOrderSheet(){
+  await resolveActiveKey();
   const wrap=document.getElementById('orderContent');
   wrap.innerHTML='<div class="empty">불러오는 중...</div>';
-  const sess=await sget('sessions/'+dateKey());
+  const sess=await sget('sessions/'+actKey());
   if(!sess||sess.del||!sess.bw||!sess.bwTeams){wrap.innerHTML='<div class="empty">청백전이 없습니다</div>';return;}
   if(sess.finished){wrap.innerHTML='<div class="empty">종료된 경기입니다</div>';return;}
   _orderSess=sess;
@@ -1172,7 +1191,7 @@ function startOrderSync(){
     const op=document.getElementById('p-order');
     if(!op||!op.classList.contains('on')){clearInterval(_orderSyncTimer);return;}
     try{
-      const fresh=await sget('sessions/'+dateKey());
+      const fresh=await sget('sessions/'+actKey());
       if(!fresh||!fresh.b)return;
       const oppSlots=_myTeam==='blue'?[2,3]:[0,1];
       let changed=false;
@@ -1403,7 +1422,7 @@ function autoSaveOrder(){
   clearTimeout(_autoSaveTimer);
   _autoSaveTimer=setTimeout(async()=>{
     try{
-      const sess=await sget('sessions/'+dateKey());
+      const sess=await sget('sessions/'+actKey());
       if(!sess)return;
       const totalCourts=(sess.b||[]).reduce((a,rd)=>a+((rd.c||[]).length),0);
       if(!sess.b||totalCourts<1){
@@ -1417,7 +1436,7 @@ function autoSaveOrder(){
       });
       // Firebase가 null을 드롭하므로 모든 빈 슬롯을 -2로 통일
       sess.b.forEach(rd=>(rd.c||[]).forEach(ct=>{for(let p=0;p<4;p++)if(ct[p]==null)ct[p]=-2;}));
-      await sset('sessions/'+dateKey(),sess);
+      await sset('sessions/'+actKey(),sess);
     }catch(e){}
   },600);
 }
@@ -1428,21 +1447,21 @@ async function lockOrder(){
   const bad=(_orderSess.bwTeams[team]||[]).some(ai=>(cnt[ai]||0)!==GAMES);
   if(bad){toast('모든 선수가 정확히 4게임이어야 확정할 수 있어요');return;}
   await saveOrderSheet();
-  const sess=await sget('sessions/'+dateKey());
+  const sess=await sget('sessions/'+actKey());
   if(!sess){toast('확정 실패');return;}
   if(!sess.bwLock)sess.bwLock={};
   sess.bwLock[team]=true;
-  const ok=await sset('sessions/'+dateKey(),sess);
+  const ok=await sset('sessions/'+actKey(),sess);
   if(ok){_orderSess=sess;toast('오더를 확정했어요 🔒');renderOrderSheet();}
   else toast('확정 저장 실패');
 }
 async function unlockOrder(){
   const team=_myTeam;
-  const sess=await sget('sessions/'+dateKey());
+  const sess=await sget('sessions/'+actKey());
   if(!sess)return;
   if(!sess.bwLock)sess.bwLock={};
   sess.bwLock[team]=false;
-  const ok=await sset('sessions/'+dateKey(),sess);
+  const ok=await sset('sessions/'+actKey(),sess);
   if(ok){_orderSess=sess;toast('잠금을 해제했어요');renderOrderSheet();}
 }
 async function saveOrderSheet(){
@@ -1451,7 +1470,7 @@ async function saveOrderSheet(){
   const bad=(_orderSess.bwTeams[team]||[]).some(ai=>(cnt[ai]||0)!==GAMES);
   if(bad){toast('모든 선수가 정확히 4게임이어야 저장할 수 있어요');return;}
   // Firebase에 내 팀 슬롯 반영
-  const sess=await sget('sessions/'+dateKey());
+  const sess=await sget('sessions/'+actKey());
   if(!sess){toast('저장 실패: 세션을 찾을 수 없습니다');return;}
   const slots=teamSlots(team);
   // sess.b가 _orderData 구조와 다르면(비어있으면) _orderData 골격으로 초기화
@@ -1465,7 +1484,7 @@ async function saveOrderSheet(){
       slots.forEach(pos=>{if(sess.b[ri]&&sess.b[ri].c[ci])sess.b[ri].c[ci][pos]=ct[pos];});
     });
   });
-  await sset('sessions/'+dateKey(),sess);
+  await sset('sessions/'+actKey(),sess);
   toast('오더시트가 저장되었습니다');
   gTab('bracket',document.querySelectorAll('.nb')[1]);
 }
@@ -1509,11 +1528,12 @@ function getDailyQuote(){
 }
 
 async function loadHome(){
+  await resolveActiveKey();
   const wrap=document.getElementById('homeContent');
   if(!wrap)return;
   wrap.innerHTML='<div class="empty" style="padding-top:60px">불러오는 중...</div>';
 
-  const today=dateKey();
+  const today=actKey();
   const curYr=new Date().getFullYear();
   const name=me==='__super__'?'관리자':me;
   const isGuest=!me||me==='__super__';
@@ -2310,7 +2330,7 @@ function renderPMContent(){
 // ── 오늘 ──
 async function loadToday(){
   const wrap=document.getElementById('todayContent');wrap.innerHTML='<div class="empty">불러오는 중...</div>';
-  const today=dateKey(),sess=await sget('sessions/'+today);
+  const today=actKey(),sess=await sget('sessions/'+today);
   const aidx=await sget('archive-index');
   const alist=(aidx?(Array.isArray(aidx)?aidx:Object.values(aidx)):[]).filter(k=>String(k).startsWith(today));
   if(!sess||sess.del){
@@ -2412,8 +2432,9 @@ function computeAwards(sess){
   if(blueWins>whiteWins){champion=blue;runnerUp=white;}
   else if(whiteWins>blueWins){champion=white;runnerUp=blue;}
   else{champion=null;runnerUp=null;} // 무승부
-  // 개인 순위: 승수 → 득실차
+  // 개인 순위: 승수 → 득실차 (헬퍼/미정 제외)
   const rank=Object.keys(ind).map(ai=>({ai:+ai,...ind[ai],diff:ind[ai].sc-ind[ai].cc}))
+    .filter(x=>{const nm=pname(sess,x.ai);return nm&&nm!=='헬퍼'&&nm!=='미정'&&nm!=='미배정';})
     .sort((a,b)=>b.w-a.w||b.diff-a.diff);
   return {
     champion:champion?champion.map(ai=>pname(sess,ai)):null,
@@ -2421,8 +2442,34 @@ function computeAwards(sess){
     blueWins,whiteWins,
     gold:rank[0]?pname(sess,rank[0].ai):null,
     silver:rank[1]?pname(sess,rank[1].ai):null,
-    bronze:rank[2]?pname(sess,rank[2].ai):null
+    bronze:rank[2]?pname(sess,rank[2].ai):null,
+    ranking:rank.map(r=>pname(sess,r.ai))
   };
+}
+
+// 청백전 종료 시 개인 순위에 따라 등급 자동 반영 (1회성: 적용 후 자동 해제)
+// 1~6위 A · 7~11위 B · 12~15위 C · 16위 이하/불참/헬퍼는 변경 없음
+async function applyBWGrades(sess,dateK){
+  try{
+    const aw=computeAwards(sess);
+    if(!aw||!aw.ranking)return false;
+    const ranking=aw.ranking.filter(n=>MEMBERS.includes(n));
+    if(!ranking.length)return false;
+    const grades=await sget('grades')||{};
+    const cut=await sget('bw-grade-cutoffs')||{a:6,b:11,c:15};
+    const ca=+cut.a||6,cb=+cut.b||11,cc=+cut.c||15;
+    const changed=[];
+    ranking.forEach((nm,i)=>{
+      const r=i+1;let g=null;
+      if(r<=ca)g='A';else if(r<=cb)g='B';else if(r<=cc)g='C';
+      if(g){grades[nm]=g;changed.push({name:nm,rank:r,grade:g});}
+    });
+    if(!changed.length)return false;
+    await sset('grades',grades);
+    await sset('grade-bw-note',{date:dateK,appliedAt:Date.now(),changed});
+    await sset('bw-grade-armed',false); // 다음 청백전엔 자동 적용 안 되도록 해제
+    return true;
+  }catch(e){return false;}
 }
 
 // 현재 뱃지 조회: 최신 청백전(다음 대회 전까지 유지) 기준 우승/메달
@@ -2486,7 +2533,7 @@ async function getAwardHistory(name){
 async function showPredictionPopup(){
   if(!me)return;
   try{
-    const dk=dateKey();
+    const dk=actKey();
     const sess=await sget('sessions/'+dk);
     if(!sess||sess.del||!sess.bw||!sess.bwTeams||sess.finished)return;
     // 오늘 이미 닫았으면 스킵
@@ -2495,7 +2542,7 @@ async function showPredictionPopup(){
   }catch(e){}
 }
 async function renderPredictionPopup(){
-  const dk=dateKey();
+  const dk=actKey();
   let votes={};try{votes=await sget('bw-vote/'+dk)||{};}catch(e){}
   const blueV=Object.values(votes).filter(v=>v==='blue').length;
   const whiteV=Object.values(votes).filter(v=>v==='white').length;
@@ -2541,7 +2588,7 @@ async function renderPredictionPopup(){
 }
 async function predPopupVote(team){
   if(!me)return;
-  const dk=dateKey();
+  const dk=actKey();
   try{
     const votes=await sget('bw-vote/'+dk)||{};
     votes[me.replace(/\s/g,'_')]=team;
@@ -2558,7 +2605,7 @@ function closePredPopup(){
 async function showDailyVotePopup(){
   if(!me)return;
   try{
-    const dk=dateKey();
+    const dk=actKey();
     const sess=await sget('sessions/'+dk);
     if(!sess||sess.del||sess.bw||sess.finished)return; // 일반 대진만
     if(localStorage.getItem('termes-daily-popup-'+dk+'-'+me))return;
@@ -2570,7 +2617,7 @@ async function showDailyVotePopup(){
   }catch(e){}
 }
 async function renderDailyVotePopup(){
-  const dk=dateKey();
+  const dk=actKey();
   const topic=getDailyTopic(dk);
   const sess=await sget('sessions/'+dk);if(!sess)return;
   const pl=getP(sess)||[];
@@ -2620,7 +2667,7 @@ async function renderDailyVotePopup(){
 }
 async function dailyPopupVote(name){
   if(!me)return;
-  const dk=dateKey();
+  const dk=actKey();
   try{
     const votes=await sget('daily-vote/'+dk)||{};
     votes[me.replace(/\s/g,'_')]=name;
@@ -2652,7 +2699,7 @@ function getDailyTopic(dk){
 async function renderDailyVote(sess){
   const card=document.getElementById('dailyVoteCard');
   if(!card)return;
-  const dk=dateKey();
+  const dk=actKey();
   const topic=getDailyTopic(dk);
   // 오늘 참가자(헬퍼/게스트 제외, 실제 회원만)
   const pl=getP(sess)||[];
@@ -2685,7 +2732,7 @@ async function renderDailyVote(sess){
 }
 async function dailyVote(name){
   if(!me){toast('로그인이 필요해요');return;}
-  const dk=dateKey();
+  const dk=actKey();
   try{
     const votes=await sget('daily-vote/'+dk)||{};
     const key=me.replace(/\s/g,'_');
@@ -2701,7 +2748,7 @@ async function dailyVote(name){
 async function renderBWPrediction(sess){
   const card=document.getElementById('bwPredCard');
   if(!card)return;
-  const dk=dateKey();
+  const dk=actKey();
   let votes={};
   try{votes=await sget('bw-vote/'+dk)||{};}catch(e){}
   const blueV=Object.values(votes).filter(v=>v==='blue').length;
@@ -2747,7 +2794,7 @@ async function renderBWPrediction(sess){
 }
 async function bwVote(team){
   if(!me){toast('로그인이 필요해요');return;}
-  const dk=dateKey();
+  const dk=actKey();
   try{
     const votes=await sget('bw-vote/'+dk)||{};
     const key=me.replace(/\s/g,'_');
@@ -2933,11 +2980,20 @@ async function getSeasonStats(){
   return stats;
 }
 async function loadBracket(){
+  await resolveActiveKey();
   checkOrderTab();
   const wrap=document.getElementById('bktWrap');
-  const sess=await sget('sessions/'+dateKey());
+  const sess=await sget('sessions/'+actKey());
   if(!sess||sess.del){wrap.innerHTML='<div class="empty">오늘 대진표가 없습니다</div>';return;}
   curSess=sess;wrap.innerHTML='';
+  // 예정(미래) 경기 안내 배너
+  if(actKey()!==dateKey()){
+    const dk=actKey();const md=`${parseInt(dk.slice(4,6))}월 ${parseInt(dk.slice(6,8))}일`;
+    wrap.innerHTML=`<div style="background:linear-gradient(135deg,#fff3ee,#fdf2ec);border:1px solid #f3d3c2;border-radius:14px;padding:13px 16px;margin-bottom:14px;display:flex;align-items:center;gap:11px">
+      <div style="width:38px;height:38px;border-radius:10px;background:#e8845a;flex-shrink:0;display:flex;align-items:center;justify-content:center"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg></div>
+      <div><div style="font-size:15px;font-weight:800;color:#b45309">${md} 경기 (예정)</div><div style="font-size:12px;color:#9a7b66;font-weight:600">미리 발행된 대진이에요 · 경기 당일부터 점수 입력</div></div>
+    </div>`;
+  }
   // 청백전 스코어보드 헤더
   if(sess.bw&&sess.bwTeams){
     const blueIdx=sess.bwTeams.blue||[];
@@ -3092,7 +3148,7 @@ async function loadBracket(){
 // ── 점수 ──
 async function loadScore(){
   const wrap=document.getElementById('scoreWrap');
-  const sess=await sget('sessions/'+dateKey());
+  const sess=await sget('sessions/'+actKey());
   if(!sess||sess.del){wrap.innerHTML='<div class="empty">오늘 대진표가 없습니다</div>';return;}
   curSess=sess;renderScoreUI(sess);
 }
@@ -3158,10 +3214,13 @@ async function saveSc(skey,inp){
   const tr=document.querySelector(`.typing-row[data-tkey="${skey}"]`);if(tr)tr.textContent=(me==='__super__'?'관리자':me)+' 입력 중...';
   clearTimeout(saveT);
   saveT=setTimeout(async()=>{
-    const today=dateKey(),latest=await sget('sessions/'+today);if(!latest||latest.del)return;
+    const today=actKey(),latest=await sget('sessions/'+today);if(!latest||latest.del)return;
     if(!latest.sc)latest.sc={};
     for(const[k,sides]of Object.entries(saveQ)){if(!latest.sc[k])latest.sc[k]={};for(const[side,val]of Object.entries(sides)){if(val===null)delete latest.sc[k][side];else latest.sc[k][side]=val;}}
     saveQ={};latest.sc._totals=calcTotals(latest);latest.finished=checkDone(latest);
+    if(latest.bw&&latest.finished&&!latest.bwGradeApplied){
+      try{const armed=(await sget('bw-grade-armed'))!==false;if(armed){const done=await applyBWGrades(latest,today);if(done){latest.bwGradeApplied=Date.now();invalidateSessCache();}}}catch(e){}
+    }
     if(!latest.sc._typing)latest.sc._typing={};latest.sc._typing[skey]={name:me==='__super__'?'관리자':me,time:Date.now()};
     const ok=await sset('sessions/'+today,latest);
     if(ok){invalidateSessCache();curSess=latest;updateStandings(latest);if(latest.finished){clearInterval(autoTimer);toast('모든 경기가 종료되었습니다');renderScoreUI(latest);}}
@@ -3169,7 +3228,7 @@ async function saveSc(skey,inp){
   },600);
 }
 async function syncScores(){
-  const latest=await sget('sessions/'+dateKey());if(!latest||latest.del){clearInterval(autoTimer);curSess=null;return;}
+  const latest=await sget('sessions/'+actKey());if(!latest||latest.del){clearInterval(autoTimer);curSess=null;return;}
   if(curSess&&latest.pub!==curSess.pub){clearInterval(autoTimer);curSess=latest;toast('새 대진표가 발행되었습니다');loadToday();loadBracket();renderScoreUI(latest);if(!latest.finished&&latest.exp>Date.now())autoTimer=setInterval(syncScores,15000);return;}
   curSess=latest;
   const sc=getSc(latest);
@@ -3250,7 +3309,7 @@ function openHistModal(sess,dk,seqL){
 function printBracketPDF(){
   if(!curSess){toast('대진표가 없습니다');return;}
   const sess=curSess;
-  const today=dateKey();
+  const today=actKey();
   const dateStr=fmt(today);
 
   // 인쇄용 HTML 생성
