@@ -599,7 +599,7 @@ const MEMBERS=['곽주영','최민혁','정윤희','김진수A','김영민','이
 const CC=['#e8845a','#00b493','#f7c244','#f04452','#8b5cf6','#f97316'];
 const RP=[100,80,60,40,20,10];
 let me=null,curYear=new Date().getFullYear(),curSess=null,autoTimer=null,pmTab='history';
-let _pmH='',_pmP=[],_pmPr={};
+let _pmH='',_pmP=[],_pmPr={},_pmVs={};
 function mkKey(n){return 'mp-'+n.replace(/\s/g,'');}
 function getRankPts(r){return r<=0?0:r<=RP.length?RP[r-1]:RP[RP.length-1];}
 function toast(m){const e=document.getElementById('toast');e.textContent=m;e.classList.add('on');setTimeout(()=>e.classList.remove('on'),2600);}
@@ -1221,6 +1221,28 @@ function renderOrderSheet(){
   const teamName=`${dot(accent)} ${team==='blue'?'청팀':'백팀'}`;
   document.getElementById('orderSub').innerHTML=`${teamName} 팀장 · 각 선수 ${GAMES}게임씩 배치`;
 
+  // 오더 잠금 상태
+  const lock=sess.bwLock||{};
+  const oppTeam=team==='blue'?'white':'blue';
+  const myLocked=!!lock[team], oppLocked=!!lock[oppTeam];
+  const stat=(t,locked)=>`<span style="font-size:12px;font-weight:800;color:${locked?'#00b493':'#c4b5a9'}">${t==='blue'?'청팀':'백팀'} ${locked?'✓ 확정':'작성 중'}</span>`;
+  const lockBanner=`<div style="display:flex;align-items:center;justify-content:space-between;background:#fff;border:1px solid #efe6dd;border-radius:14px;padding:12px 16px;margin-bottom:14px">${stat('blue',team==='blue'?myLocked:oppLocked)}<span style="color:#e0d6cc">·</span>${stat('white',team==='white'?myLocked:oppLocked)}</div>`;
+
+  // 내 팀이 확정(잠금)된 경우 → 읽기전용 안내 + 잠금 해제
+  if(myLocked){
+    let revealMsg = oppLocked
+      ? '<div style="background:#e8f9f6;border:1px solid #a7e8dc;border-radius:14px;padding:14px 16px;font-size:13px;color:#00866d;font-weight:700;text-align:center;line-height:1.5">양 팀 오더가 모두 확정되었습니다 · 대진표에서 전체 대진이 공개돼요</div>'
+      : '<div style="background:#fff8f3;border:1px solid #f3dcc8;border-radius:14px;padding:14px 16px;font-size:13px;color:#b06a35;font-weight:600;text-align:center;line-height:1.5">상대 팀이 아직 오더를 작성 중이에요 · 양 팀 모두 확정되면 대진이 공개됩니다</div>';
+    wrap.innerHTML=lockBanner+`<div style="background:${accentSoft};border:1px solid ${accentBorder};border-radius:16px;padding:22px 18px;text-align:center;margin-bottom:14px">
+        <div style="font-size:34px;margin-bottom:8px">🔒</div>
+        <div style="font-size:16px;font-weight:900;color:${accent};margin-bottom:5px">${team==='blue'?'청팀':'백팀'} 오더 확정 완료</div>
+        <div style="font-size:13px;color:#7c6b5e">전략 노출 방지를 위해 잠겼어요</div>
+      </div>`+revealMsg+`
+      <button onclick="unlockOrder()" style="width:100%;margin-top:12px;padding:14px;background:#fff;color:#7c6b5e;border:1.5px solid #e0d6cc;border-radius:14px;font-size:14px;font-weight:700;font-family:inherit;cursor:pointer">잠금 해제하고 수정하기</button>
+      <div style="height:36px"></div>`;
+    return;
+  }
+
   const cnt=orderGameCount(team);
   let placed=0, total=teamIds.length*GAMES;
   teamIds.forEach(ai=>placed+=Math.min(cnt[ai]||0,GAMES));
@@ -1300,11 +1322,12 @@ function renderOrderSheet(){
     </div>`;
   });
 
-  wrap.innerHTML=`${progress}${warn}${roster}
+  wrap.innerHTML=lockBanner+`${progress}${warn}${roster}
     <div style="font-size:13px;font-weight:700;color:#2d1f1a;margin:4px 2px 10px">경기별 배치</div>
     ${games}
     <div style="background:#f4efe9;border-radius:12px;padding:11px 14px;margin-top:6px;font-size:12.5px;color:#a89b8e;font-weight:600;text-align:center;line-height:1.5">배치하는 즉시 자동 저장돼요 · 점수 입력 전까지 언제든 바꿀 수 있어요</div>
-    <button onclick="gTab('bracket',document.querySelectorAll('.nb')[1])" style="width:100%;margin-top:10px;padding:16px;background:#e8845a;color:#fff;border:none;border-radius:15px;font-size:16px;font-weight:700;font-family:inherit;cursor:pointer;box-shadow:0 4px 14px rgba(232,132,90,0.3)">${ok?'완료 · 대진표 보기':'대진표에서 확인하기'}</button>
+    ${ok?`<button onclick="lockOrder()" style="width:100%;margin-top:10px;padding:16px;background:#00b493;color:#fff;border:none;border-radius:15px;font-size:16px;font-weight:800;font-family:inherit;cursor:pointer;box-shadow:0 4px 14px rgba(0,180,147,0.3)">🔒 오더 확정하기 (잠금)</button>`:''}
+    <button onclick="gTab('bracket',document.querySelectorAll('.nb')[1])" style="width:100%;margin-top:10px;padding:16px;background:#e8845a;color:#fff;border:none;border-radius:15px;font-size:16px;font-weight:700;font-family:inherit;cursor:pointer;box-shadow:0 4px 14px rgba(232,132,90,0.3)">${ok?'대진표 보기':'대진표에서 확인하기'}</button>
     <div style="height:36px"></div>`;
 }
 
@@ -1399,6 +1422,29 @@ function autoSaveOrder(){
   },600);
 }
 
+async function lockOrder(){
+  const team=_myTeam,GAMES=4;
+  const cnt=orderGameCount(team);
+  const bad=(_orderSess.bwTeams[team]||[]).some(ai=>(cnt[ai]||0)!==GAMES);
+  if(bad){toast('모든 선수가 정확히 4게임이어야 확정할 수 있어요');return;}
+  await saveOrderSheet();
+  const sess=await sget('sessions/'+dateKey());
+  if(!sess){toast('확정 실패');return;}
+  if(!sess.bwLock)sess.bwLock={};
+  sess.bwLock[team]=true;
+  const ok=await sset('sessions/'+dateKey(),sess);
+  if(ok){_orderSess=sess;toast('오더를 확정했어요 🔒');renderOrderSheet();}
+  else toast('확정 저장 실패');
+}
+async function unlockOrder(){
+  const team=_myTeam;
+  const sess=await sget('sessions/'+dateKey());
+  if(!sess)return;
+  if(!sess.bwLock)sess.bwLock={};
+  sess.bwLock[team]=false;
+  const ok=await sset('sessions/'+dateKey(),sess);
+  if(ok){_orderSess=sess;toast('잠금을 해제했어요');renderOrderSheet();}
+}
 async function saveOrderSheet(){
   const team=_myTeam,GAMES=4;
   const cnt=orderGameCount(team);
@@ -1482,7 +1528,7 @@ async function loadHome(){
     const scoreMap={};
     for(const k of [...idx,...aidx]){
       const s=await sget(String(k).startsWith('arc')?k:'sessions/'+k);
-      if(!s||s.del)continue;
+      if(!s||s.del||s.bw)continue;
       const sc=s.sc||{};
       const pl=s.p||[];
       const winCnt={};
@@ -1711,7 +1757,7 @@ async function loadRankBoard(){
   const list=A.list,alist=A.alist;
   const pm={};
   for(const k of [...list.map(d=>'sessions/'+d),...alist.map(k=>'archives/'+k)]){
-    const s=A.map[k];if(!s||s.del)continue;
+    const s=A.map[k];if(!s||s.del||s.bw)continue;
     const n=getP(s).length;if(!n)continue;
     const pre=getSc(s)._totals||calcTotals(s);
     const sd=calcScoreDiff(s);
@@ -1934,7 +1980,7 @@ async function loadRanking(year){
   const A=await loadAllSessions();
   const pm={};
   for(const k of [...ySess.map(d=>'sessions/'+d),...yArch.map(k=>'archives/'+k)]){
-    const s=A.map[k];if(!s||s.del)continue;
+    const s=A.map[k];if(!s||s.del||s.bw)continue;
     const n=getP(s).length;if(!n)continue;
     const pre=getSc(s)._totals||calcTotals(s);
     const ps=Array.from({length:n},(_,ai)=>({name:pname(s,ai),total:pre[ai]||0,games:countGames(s,ai)})).sort((a,b)=>b.total-a.total);
@@ -2014,7 +2060,7 @@ async function showPlayer(name,year,pageMode){
       overlay.appendChild(sheet);
     }
   }
-  pmTab='history';_pmH='';_pmP=[];_pmPr={};
+  pmTab='history';_pmH='';_pmP=[];_pmPr={};_pmVs={};
   document.getElementById('pmName').textContent=name;
   document.getElementById('pmPts').textContent='불러오는 중...';
   document.getElementById('pmBody').innerHTML='<div class="empty">불러오는 중...</div>';
@@ -2058,6 +2104,24 @@ async function showPlayer(name,year,pageMode){
             <div style="display:flex;flex-direction:column;gap:9px">${hist.map(h=>`<div style="display:flex;align-items:center;gap:9px"><img src="${ico[h.type]}" style="width:24px;height:24px;object-fit:contain;flex-shrink:0"><span style="font-size:13px;font-weight:600;color:#2d1f1a">${h.label}</span></div>`).join('')}</div>
           </div>`;
         }
+        // 청백전 전용 통계
+        try{
+          const bw=await getBWStats(name);
+          if(bw.games>0){
+            const wr=(w,g)=>g>0?Math.round(w/g*100):0;
+            h2+=`<div style="background:linear-gradient(135deg,#eef4ff,#fef0f0);border:1px solid #e3e9f5;border-radius:14px;padding:13px 15px;margin:4px 0 12px">
+              <div style="font-size:12px;font-weight:800;color:#7c6b5e;margin-bottom:10px">청백전 전적 · ${bw.sessions}회 참가</div>
+              <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:11px">
+                <span style="font-size:20px;font-weight:900;color:#2d1f1a">${bw.w}승 ${bw.l}패</span>
+                <span style="font-size:14px;font-weight:800;color:#e8845a">승률 ${wr(bw.w,bw.games)}%</span>
+              </div>
+              <div style="display:flex;gap:8px">
+                <div style="flex:1;background:#fff;border-radius:10px;padding:9px 11px;text-align:center"><div style="font-size:11px;font-weight:700;color:#3b82f6;margin-bottom:3px">청팀일 때</div><div style="font-size:15px;font-weight:900;color:#2d1f1a">${wr(bw.blueW,bw.blueG)}%</div><div style="font-size:10px;color:#a89b8e;margin-top:1px">${bw.blueW}승 ${bw.blueG-bw.blueW}패</div></div>
+                <div style="flex:1;background:#fff;border-radius:10px;padding:9px 11px;text-align:center"><div style="font-size:11px;font-weight:700;color:#ef4444;margin-bottom:3px">백팀일 때</div><div style="font-size:15px;font-weight:900;color:#2d1f1a">${wr(bw.whiteW,bw.whiteG)}%</div><div style="font-size:10px;color:#a89b8e;margin-top:1px">${bw.whiteW}승 ${bw.whiteG-bw.whiteW}패</div></div>
+              </div>
+            </div>`;
+          }
+        }catch(e){}
         pmb.innerHTML=h2;
       }
     }catch(e){}
@@ -2093,7 +2157,7 @@ async function showPlayer(name,year,pageMode){
   const A=await loadAllSessions();
   let totalPts=0,histHtml='',totalScored=0,totalConceded=0,totalWins=0,totalLosses=0,totalDraws=0;
   for(const [k,dk] of [...ySess.map(d=>['sessions/'+d,String(d)]),...yArch.map(k=>['archives/'+k,String(k).slice(0,8)])]){
-    const s=A.map[k];if(!s||s.del)continue;
+    const s=A.map[k];if(!s||s.del||s.bw)continue;
     const n=getP(s).length;let ai=-1;
     for(let i=0;i<n;i++){if(pname(s,i)===name){ai=i;break;}}
     if(ai===-1)continue;
@@ -2117,6 +2181,7 @@ async function showPlayer(name,year,pageMode){
         const pNm=pname(s,pAi),o1=isT1?ct[2]:ct[0],o2=isT1?ct[3]:ct[1];
         if(!_pmPr[pNm])_pmPr[pNm]={games:0,wins:0,losses:0};
         _pmPr[pNm].games++;if(won)_pmPr[pNm].wins++;else if(lost)_pmPr[pNm].losses++;
+        [o1,o2].forEach(oai=>{if(oai==null||oai<0)return;const oNm=pname(s,oai);if(!oNm||oNm.includes('번')||oNm==='헬퍼'||oNm==='미배정')return;if(!_pmVs[oNm])_pmVs[oNm]={games:0,wins:0,losses:0};_pmVs[oNm].games++;if(won)_pmVs[oNm].wins++;else if(lost)_pmVs[oNm].losses++;});
         mHtml+=`<div style="padding:12px 14px;border-bottom:1px solid var(--gray-100)">
           <div style="display:flex;align-items:center;gap:10px;margin-bottom:6px">
             <span style="font-size:13px;font-weight:700;background:${col}20;color:${col};padding:4px 10px;border-radius:8px">R${ri+1} 코트${ci+1}</span>
@@ -2167,7 +2232,7 @@ async function showPlayer(name,year,pageMode){
 }
 function togSess(id){const e=document.getElementById(id),a=document.getElementById(id+'a');if(!e)return;const o=e.style.display!=='none';e.style.display=o?'none':'block';if(a)a.style.transform=o?'':'rotate(90deg)';}
 function renderPMTabs(name,year){
-  document.getElementById('pmTabs').innerHTML=[{id:'history',l:'경기 기록'},{id:'points',l:'포인트 이력'},{id:'partner',l:'파트너 통계'}].map(t=>`<button class="pmt${pmTab===t.id?' on':''}" onclick="pmTab='${t.id}';renderPMTabs('${name}',${year});renderPMContent()">${t.l}</button>`).join('');
+  document.getElementById('pmTabs').innerHTML=[{id:'history',l:'경기 기록'},{id:'points',l:'포인트 이력'},{id:'partner',l:'파트너'},{id:'vs',l:'상대 전적'}].map(t=>`<button class="pmt${pmTab===t.id?' on':''}" onclick="pmTab='${t.id}';renderPMTabs('${name}',${year});renderPMContent()">${t.l}</button>`).join('');
 }
 function renderPMContent(){
   const body=document.getElementById('pmBody');
@@ -2193,9 +2258,38 @@ function renderPMContent(){
     });
     body.innerHTML=html;return;
   }
+  if(pmTab==='vs'){
+    const vs=Object.entries(_pmVs).sort((a,b)=>b[1].games-a[1].games);
+    if(!vs.length){body.innerHTML='<div class="empty">상대 전적 데이터 없음</div>';return;}
+    let h=`<div style="background:var(--white);border-radius:16px;overflow:hidden;box-shadow:0 1px 4px rgba(0,0,0,.06)">
+      <div style="display:grid;grid-template-columns:1fr 56px 56px 80px;padding:12px 16px;border-bottom:1px solid var(--gray-100)">
+        <div style="font-size:13px;font-weight:700;color:var(--gray-400)">상대</div>
+        <div style="font-size:13px;font-weight:700;color:var(--gray-400);text-align:center">경기</div>
+        <div style="font-size:13px;font-weight:700;color:var(--gray-400);text-align:center">승률</div>
+        <div style="font-size:13px;font-weight:700;color:var(--gray-400);text-align:right">전적</div>
+      </div>`;
+    vs.forEach(([on,st])=>{const wr=st.games>0?Math.round(st.wins/st.games*100):0;const wc=wr>=60?'var(--green)':wr>=40?'var(--blue)':'var(--red)';
+      h+=`<div onclick="showPlayerFromName('${on.replace(/'/g,'')}')" style="display:grid;grid-template-columns:1fr 56px 56px 80px;padding:14px 16px;border-bottom:1px solid var(--gray-100);align-items:center;cursor:pointer">
+        <div style="font-size:15px;font-weight:600">${on}</div>
+        <div style="font-size:15px;font-weight:700;color:var(--gray-700);text-align:center">${st.games}</div>
+        <div style="font-size:16px;font-weight:800;color:${wc};text-align:center">${wr}%</div>
+        <div style="font-size:13px;color:var(--gray-500);text-align:right">${st.wins}승 ${st.losses}패</div>
+      </div>`;
+    });
+    body.innerHTML=h+'</div>';return;
+  }
   const pd=_pmPr,partners=Object.entries(pd).sort((a,b)=>b[1].games-a[1].games);
   if(!partners.length){body.innerHTML='<div class="empty">파트너 데이터 없음</div>';return;}
-  let html=`<div style="background:var(--white);border-radius:16px;overflow:hidden;box-shadow:0 1px 4px rgba(0,0,0,.06)">
+  // 베스트 파트너 (2경기+ 중 승률 1위)
+  const elig=partners.filter(([,s])=>s.games>=2).sort((a,b)=>(b[1].wins/b[1].games)-(a[1].wins/a[1].games)||b[1].games-a[1].games);
+  let bestHtml='';
+  if(elig.length){const[bn,bs]=elig[0];const br=Math.round(bs.wins/bs.games*100);
+    bestHtml=`<div onclick="showPlayerFromName('${bn.replace(/'/g,'')}')" style="background:linear-gradient(135deg,#fff3ee,#fde8de);border:1px solid #f5d3c5;border-radius:16px;padding:15px 18px;margin-bottom:14px;cursor:pointer">
+      <div style="font-size:11px;font-weight:800;color:#e8845a;margin-bottom:5px">최고의 파트너</div>
+      <div style="display:flex;align-items:center;justify-content:space-between"><span style="font-size:18px;font-weight:900;color:#2d1f1a">${bn}</span><span style="font-size:14px;font-weight:800;color:#e8845a">승률 ${br}% · ${bs.wins}승 ${bs.losses}패</span></div>
+    </div>`;
+  }
+  let html=bestHtml+`<div style="background:var(--white);border-radius:16px;overflow:hidden;box-shadow:0 1px 4px rgba(0,0,0,.06)">
     <div style="display:grid;grid-template-columns:1fr 60px 60px 80px;padding:12px 16px;border-bottom:1px solid var(--gray-100)">
       <div style="font-size:13px;font-weight:700;color:var(--gray-400)">파트너</div>
       <div style="font-size:13px;font-weight:700;color:var(--gray-400);text-align:center">횟수</div>
@@ -2247,6 +2341,9 @@ async function loadToday(){
 }
 
 // ── 대진표 ──
+// 등급 점수 (admin과 동일: A=3,B=2,C=1)
+function gradeScore(g){return {A:3,B:2,C:1,none:2}[g]||2;}
+
 // 메달/트로피 이미지 (base64)
 const MEDAL_IMG={
   trophy:"data:image/webp;base64,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",
@@ -2676,7 +2773,7 @@ async function computeTitles(){
   const ens=nm=>{if(!data[nm])data[nm]={att:0,results:[],sc:0,cc:0,w:0,l:0,games:0};return data[nm];};
   const sessionDates=[];
   for(const [k,dk] of items){
-    const s=A.map[k];if(!s||s.del)continue;
+    const s=A.map[k];if(!s||s.del||s.bw)continue;
     const sc=getSc(s),br=getB(s);
     const parts=new Set();
     br.forEach((round,ri)=>{
@@ -2740,6 +2837,39 @@ async function getPlayerTitles(name){
   return {titles:t.titles[name]||[],streak:t.streakOf[name]||0};
 }
 
+// 청백전 전용 개인 통계
+async function getBWStats(name){
+  const A=await loadAllSessions();
+  const rec={games:0,w:0,l:0,blueG:0,blueW:0,whiteG:0,whiteW:0,sessions:0};
+  for(const k of A.keys){
+    const s=A.map[k];
+    if(!s||s.del||!s.bw||!s.bwTeams)continue;
+    const P=getP(s);let myAi=-1;
+    for(let ai=0;ai<P.length;ai++){if(pname(s,ai)===name){myAi=ai;break;}}
+    if(myAi<0)continue;
+    const blue=new Set(s.bwTeams.blue||[]),white=new Set(s.bwTeams.white||[]);
+    const isBlue=blue.has(myAi),isWhite=white.has(myAi);
+    if(!isBlue&&!isWhite)continue;
+    rec.sessions++;
+    const sc=getSc(s);
+    getB(s).forEach((round,ri)=>{
+      if(!round.isBW)return;
+      round.courts.forEach((ct,ci)=>{
+        if(!ct.includes(myAi))return;
+        const sv=sc[`${ri}-${ci}`]||{};
+        const s1=parseInt(sv.s1),s2=parseInt(sv.s2);
+        if(isNaN(s1)||isNaN(s2))return;
+        rec.games++;
+        const won=(isBlue&&s1>s2)||(isWhite&&s2>s1);
+        const lost=(isBlue&&s1<s2)||(isWhite&&s2<s1);
+        if(won)rec.w++;else if(lost)rec.l++;
+        if(isBlue){rec.blueG++;if(won)rec.blueW++;}else{rec.whiteG++;if(won)rec.whiteW++;}
+      });
+    });
+  }
+  return rec;
+}
+
 // 명예의 전당 상세 바텀시트
 function openHofSheet(){
   let ov=document.getElementById('hofSheetOverlay');
@@ -2779,7 +2909,7 @@ async function getSeasonStats(){
   const stats={}; // name → {w,l,d,sc,cc,games}
   const ensure=nm=>{if(!stats[nm])stats[nm]={w:0,l:0,d:0,sc:0,cc:0,games:0};return stats[nm];};
   for(const k of [...ySess.map(d=>'sessions/'+d),...yArch.map(k=>'archives/'+k)]){
-    const s=A.map[k];if(!s||s.del)continue;
+    const s=A.map[k];if(!s||s.del||s.bw)continue;
     const sc=getSc(s),br=getB(s),nn=getP(s).length;
     br.forEach((round,ri)=>{
       round.courts.forEach((ct,ci)=>{
@@ -2816,6 +2946,13 @@ async function loadBracket(){
     const blueNames=blueIdx.map(ai=>pname(sess,ai));
     const whiteNames=whiteIdx.map(ai=>pname(sess,ai));
     const seasonStats=await getSeasonStats();
+    // 팀 실력 균형 (등급 기반)
+    let _grades={};try{_grades=await sget('grades')||{};}catch(e){}
+    const teamGrade=arr=>arr.reduce((s,nm)=>s+gradeScore(_grades[nm]||'none'),0);
+    const blueG=teamGrade(blueNames),whiteG=teamGrade(whiteNames);
+    const gSum=blueG+whiteG||1;
+    const bluePct=Math.round(blueG/gSum*100),whitePct=100-bluePct;
+    const gapEval=Math.abs(blueG-whiteG)<=1?'균형이 잘 잡혔어요':Math.abs(blueG-whiteG)<=3?'대체로 균형':'실력 차이 있음';
     // 라인업 한 줄 (번호 없음 → 등급 표시, 이름, 주장 C, 전적)
     const lineupRow=(ai,teamColor,isCap,num)=>{
       const nm=pname(sess,ai);
@@ -2848,6 +2985,24 @@ async function loadBracket(){
       });
     });
     const lead=blueWins>whiteWins?'blue':whiteWins>blueWins?'white':'tie';
+    // 매직넘버 / 무승부 규칙 상태
+    const remaining=totalGames-played;
+    const winTarget=Math.floor(totalGames/2)+1;
+    let statusMsg='';
+    if(played>0){
+      if(blueWins>=winTarget){statusMsg='<b style=\'color:#3b82f6\'>청팀 우승 확정!</b>';}
+      else if(whiteWins>=winTarget){statusMsg='<b style=\'color:#ef4444\'>백팀 우승 확정!</b>';}
+      else if(remaining===0){
+        if(blueWins>whiteWins)statusMsg='<b style=\'color:#3b82f6\'>청팀 승리</b>';
+        else if(whiteWins>blueWins)statusMsg='<b style=\'color:#ef4444\'>백팀 승리</b>';
+        else{const bd=blueScore-whiteScore;statusMsg=bd>0?'승수 동률 → 득실차로 <b style=\'color:#3b82f6\'>청팀 승리</b>':bd<0?'승수 동률 → 득실차로 <b style=\'color:#ef4444\'>백팀 승리</b>':'승수·득실차 모두 동률 → 공동 우승';}
+      } else {
+        const bNeed=Math.max(0,winTarget-blueWins),wNeed=Math.max(0,winTarget-whiteWins);
+        if(lead==='blue')statusMsg=`남은 ${remaining}경기 · 청이 <b>${bNeed}승</b> 더 하면 우승 확정`;
+        else if(lead==='white')statusMsg=`남은 ${remaining}경기 · 백이 <b>${wNeed}승</b> 더 하면 우승 확정`;
+        else statusMsg=`남은 ${remaining}경기 · 양 팀 각 <b>${bNeed}승</b> 필요`;
+      }
+    }
     const banner=document.createElement('div');
     banner.style.cssText='margin-bottom:18px;border-radius:20px;overflow:hidden;box-shadow:0 4px 16px rgba(0,0,0,0.1)';
     banner.innerHTML=`
@@ -2873,6 +3028,7 @@ async function loadBracket(){
           ${played===totalGames&&totalGames>0?(lead==='blue'?' · 청팀 승리!':lead==='white'?' · 백팀 승리!':' · 무승부'):''}
         </div>
       </div>
+      ${statusMsg?`<div style="background:#fff;padding:11px 16px;text-align:center;font-size:13px;font-weight:600;color:#3a2e28;border-bottom:1px solid #f0e8e0">${statusMsg}</div>`:''}
       <div style="background:linear-gradient(160deg,#1e3a8a,#1e40af);padding:14px 16px;color:#fff">
         <div style="font-size:14px;font-weight:900;margin-bottom:6px;letter-spacing:0.5px"><span style="display:inline-block;width:9px;height:9px;border-radius:50%;background:#fff;margin-right:6px;vertical-align:middle"></span>청팀 LINE-UP</div>
         ${blueIdx.map((ai,i)=>lineupRow(ai,'blue',ai===blueCap,i+1)).join('')}
@@ -2882,6 +3038,13 @@ async function loadBracket(){
         ${whiteIdx.map((ai,i)=>lineupRow(ai,'white',ai===whiteCap,i+1)).join('')}
       </div>`;
     wrap.appendChild(banner);
+    // 팀 실력 균형 카드
+    const balCard=document.createElement('div');
+    balCard.style.cssText='background:#fff;border:1px solid #efe6dd;border-radius:16px;padding:14px 16px;margin:0 0 12px;box-shadow:0 2px 10px rgba(120,90,70,0.05)';
+    balCard.innerHTML=`<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:9px"><span style="font-size:13px;font-weight:800;color:#3a2e28">팀 실력 균형</span><span style="font-size:11px;font-weight:700;color:${Math.abs(blueG-whiteG)<=1?'#00b493':Math.abs(blueG-whiteG)<=3?'#e8845a':'#f04452'}">${gapEval}</span></div>
+      <div style="display:flex;align-items:center;gap:8px"><span style="font-size:12px;font-weight:800;color:#3b82f6;width:30px">청 ${blueG}</span><span style="flex:1;height:12px;background:#eef2f7;border-radius:6px;overflow:hidden;display:flex"><span style="height:100%;width:${bluePct}%;background:#3b82f6"></span><span style="height:100%;width:${whitePct}%;background:#ef4444"></span></span><span style="font-size:12px;font-weight:800;color:#ef4444;width:30px;text-align:right">${whiteG} 백</span></div>
+      <div style="font-size:10.5px;color:#a89b8e;margin-top:7px;text-align:center">등급 점수 합계 (A=3·B=2·C=1)</div>`;
+    wrap.appendChild(balCard);
     // 승부 예측 카드
     const predCard=document.createElement('div');
     predCard.id='bwPredCard';

@@ -453,6 +453,7 @@ body{background:var(--bg);color:var(--gray-900);font-family:'Pretendard',-apple-
       </div>
       <div id="bktWrap"><div class="empty-state">래플을 먼저 진행해주세요</div></div>
     </div>
+    <div id="teamSwapWrap" style="display:none;margin-bottom:14px"></div>
     <div id="pubBtnWrap" style="display:none">
       <button class="btn btn-primary" onclick="publish()" style="display:inline-flex;align-items:center;justify-content:center;gap:8px"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg> 정회원에게 발행</button>
     </div>
@@ -1544,6 +1545,7 @@ function genGenderBracket(n,c,r,ppr,waitSz){
   _partnerCnt=pu;
 
   renderBracketGender();
+  renderTeamSwap();
   document.getElementById('pubBtnWrap').style.display='block';
   const md=Object.values(pu).length?Math.max(...Object.values(pu)):0;
   const mo=Object.values(ou).length?Math.max(...Object.values(ou)):0;
@@ -1603,10 +1605,44 @@ function genBlueWhiteBracket(){
   }
 
   renderBracketGender();
+  renderTeamSwap();
   document.getElementById('pubBtnWrap').style.display='block';
   const bcN=pInfo[S.assigned.indexOf(blueCaptain)>=0?S.assigned.indexOf(blueCaptain):0];
   toast(`청백전 오더시트 생성 · 청 팀장 ${S.players[blueCaptain].name} / 백 팀장 ${S.players[whiteCaptain].name}`);
   goTab('bracket',document.querySelectorAll('.tn')[4]);
+}
+
+// 청백전 팀 수동 조정 (청 ↔ 백 교체)
+function renderTeamSwap(){
+  const w=document.getElementById('teamSwapWrap');
+  if(!w)return;
+  if(!S.isBlueWhite||!S.bwTeams||!S.bwTeams.blue){w.style.display='none';return;}
+  w.style.display='block';
+  const blue=S.bwTeams.blue,white=S.bwTeams.white;
+  const cap=(ai,team)=>((team==='b'&&ai===S.bwTeams.blueCaptain)||(team==='w'&&ai===S.bwTeams.whiteCaptain))?' (주장)':'';
+  const opt=(arr,t)=>arr.map(ai=>`<option value="${ai}">${S.players[ai].name}${cap(ai,t)}</option>`).join('');
+  w.innerHTML=`<div style="background:#fff;border:1px solid #e3e9f5;border-radius:14px;padding:14px 16px">
+    <div style="font-size:13px;font-weight:800;color:#3a2e28;margin-bottom:4px">팀 수동 조정</div>
+    <div style="font-size:11px;color:#94a3b8;margin-bottom:11px">자동 배정이 아쉬우면 청·백 선수를 1:1로 교체하세요 (발행 전)</div>
+    <div style="display:flex;gap:7px;align-items:center">
+      <select id="swapBlue" style="flex:1;padding:9px;border:1.5px solid #bfdbfe;border-radius:9px;font-size:13px;color:#1e40af;font-weight:700;background:#eff6ff">${opt(blue,'b')}</select>
+      <span style="font-size:16px;color:#94a3b8;font-weight:800">↔</span>
+      <select id="swapWhite" style="flex:1;padding:9px;border:1.5px solid #fecaca;border-radius:9px;font-size:13px;color:#991b1b;font-weight:700;background:#fef2f2">${opt(white,'w')}</select>
+      <button onclick="swapBWPlayers()" style="background:#e8845a;color:#fff;border:none;border-radius:9px;padding:9px 14px;font-size:13px;font-weight:800;cursor:pointer;white-space:nowrap">교체</button>
+    </div>
+  </div>`;
+}
+function swapBWPlayers(){
+  const ba=parseInt(document.getElementById('swapBlue').value);
+  const wa=parseInt(document.getElementById('swapWhite').value);
+  if(isNaN(ba)||isNaN(wa))return;
+  const bi=S.bwTeams.blue.indexOf(ba),wi=S.bwTeams.white.indexOf(wa);
+  if(bi<0||wi<0)return;
+  S.bwTeams.blue[bi]=wa;S.bwTeams.white[wi]=ba;
+  if(!S.bwTeams.blue.includes(S.bwTeams.blueCaptain))S.bwTeams.blueCaptain=S.bwTeams.blue[0];
+  if(!S.bwTeams.white.includes(S.bwTeams.whiteCaptain))S.bwTeams.whiteCaptain=S.bwTeams.white[0];
+  renderBracketGender();renderTeamSwap();
+  toast(`${S.players[ba].name} ↔ ${S.players[wa].name} 교체했습니다`);
 }
 
 function renderBracketGender(){
