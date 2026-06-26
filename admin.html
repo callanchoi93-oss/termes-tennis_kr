@@ -585,6 +585,28 @@ body{background:var(--bg);color:var(--gray-900);font-family:'Pretendard',-apple-
 </div>
 
 <!-- 스코어 수정 모달 -->
+<div class="modal-overlay" id="bwSwapModal">
+  <div class="modal-sheet" style="max-height:92vh;display:flex;flex-direction:column">
+    <div class="modal-handle"></div>
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;flex-shrink:0">
+      <div class="modal-title" id="bwSwapTitle" style="margin-bottom:0">팀 스왑</div>
+      <button onclick="closeModal('bwSwapModal')" style="background:none;border:none;font-size:24px;color:var(--gray-400);cursor:pointer;line-height:1">×</button>
+    </div>
+    <div style="font-size:13px;color:var(--gray-500);margin-bottom:14px;line-height:1.55;flex-shrink:0">맞바꿀 선수를 <b>청·백에서 같은 수</b>로 골라주세요 (1명, 3명 모두 가능).<br>팀이 바뀌면 <b>오더·점수가 초기화</b>되어 팀장이 다시 짭니다.</div>
+    <div style="display:flex;gap:12px;flex:1;overflow:hidden;min-height:0">
+      <div style="flex:1;display:flex;flex-direction:column;min-height:0">
+        <div style="font-size:13px;font-weight:800;color:#3b82f6;margin-bottom:8px;flex-shrink:0">청 팀</div>
+        <div id="bwSwapBlueList" style="overflow-y:auto;flex:1;display:flex;flex-direction:column;gap:7px;padding-right:2px"></div>
+      </div>
+      <div style="flex:1;display:flex;flex-direction:column;min-height:0">
+        <div style="font-size:13px;font-weight:800;color:#ef4444;margin-bottom:8px;flex-shrink:0">백 팀</div>
+        <div id="bwSwapWhiteList" style="overflow-y:auto;flex:1;display:flex;flex-direction:column;gap:7px;padding-right:2px"></div>
+      </div>
+    </div>
+    <div id="bwSwapCount" style="text-align:center;font-size:14px;font-weight:700;color:var(--gray-500);margin:14px 0 10px;flex-shrink:0">청 0명 · 백 0명 선택</div>
+    <button class="btn btn-primary" style="width:100%;flex-shrink:0" onclick="doBWSwap()">선택한 선수 맞교체</button>
+  </div>
+</div>
 <div class="modal-overlay" id="scoreModal">
   <div class="modal-sheet" style="max-height:90vh">
     <div class="modal-handle"></div>
@@ -1967,7 +1989,7 @@ function renderHistCard(wrap,rec,key,dk,isArch){
     <div class="h-info">${(rec.p||[]).length}명 · 코트 ${rec.ct} · ${rec.r}라운드 · ${rec.gm}게임제</div>
     <div class="h-actions">${isDel
       ?`<button class="btn btn-neutral btn-xs" onclick="restoreSession('${dk}')">복원</button><button class="btn btn-danger-light btn-xs" onclick="confirmPurge('${dk}','${fmt(String(dk).slice(0,8))}')">영구삭제</button>`
-      :`<button class="btn btn-neutral btn-xs" onclick="openScoreEdit('${key}',this)">스코어 ${arch?'확인':'수정'}</button>${!arch?`<button class="btn btn-danger-light btn-xs" onclick="confirmDel('${dk}','${fmt(String(dk).slice(0,8))}')">삭제</button>`:''}`}</div>`;
+      :`${(rec.bw&&rec.bwTeams&&!arch)?`<button class="btn btn-neutral btn-xs" onclick="openBWSwap('${key}')">팀 스왑</button>`:''}<button class="btn btn-neutral btn-xs" onclick="openScoreEdit('${key}',this)">스코어 ${arch?'확인':'수정'}</button>${!arch?`<button class="btn btn-danger-light btn-xs" onclick="confirmDel('${dk}','${fmt(String(dk).slice(0,8))}')">삭제</button>`:''}`}</div>`;
   wrap.appendChild(el);
 }
 let pendingDk=null;
@@ -2008,6 +2030,65 @@ async function doPurge(){
 
 // 스코어 수정
 let editKey=null,editSess=null;
+let _swapKey=null,_swapSess=null,_swBlue=[],_swWhite=[];
+async function openBWSwap(key){
+  _swapKey=key;_swBlue=[];_swWhite=[];
+  const sess=await sget(key);
+  if(!sess||!sess.bwTeams){toast('청백전 세션이 아닙니다');return;}
+  _swapSess=sess;
+  const dk=sess.d||key.split('/').pop().slice(0,8);
+  document.getElementById('bwSwapTitle').textContent=fmt(String(dk).slice(0,8))+' 팀 스왑';
+  renderSwapLists();
+  document.getElementById('bwSwapModal').classList.add('on');
+}
+function renderSwapLists(){
+  const sess=_swapSess;if(!sess)return;
+  const chip=(team,ai)=>{
+    const on=(team==='blue'?_swBlue:_swWhite).includes(ai);
+    const col=team==='blue'?'#3b82f6':'#ef4444';
+    const bg=on?col:'#fff';const fg=on?'#fff':'var(--ink,#2d211b)';
+    const mark=on?'✓ ':'';
+    return `<button type="button" onclick="toggleSwapPick('${team}',${ai})" style="text-align:left;padding:11px 13px;border:1.5px solid ${on?col:'#e0d6cc'};background:${bg};color:${fg};border-radius:10px;font-size:15px;font-weight:${on?'800':'600'};font-family:inherit;cursor:pointer">${mark}${pname2(sess,ai)}</button>`;
+  };
+  document.getElementById('bwSwapBlueList').innerHTML=(sess.bwTeams.blue||[]).map(ai=>chip('blue',ai)).join('');
+  document.getElementById('bwSwapWhiteList').innerHTML=(sess.bwTeams.white||[]).map(ai=>chip('white',ai)).join('');
+  const nb=_swBlue.length,nw=_swWhite.length;
+  const el=document.getElementById('bwSwapCount');
+  const okCnt=(nb===nw&&nb>0);
+  el.style.color=okCnt?'#00b493':(nb!==nw?'#e2604e':'var(--gray-500)');
+  el.textContent= okCnt?`청 ${nb}명 ↔ 백 ${nw}명 맞교체 준비됨` : (nb!==nw?`청 ${nb}명 · 백 ${nw}명 — 같은 수로 맞춰주세요`:`청 ${nb}명 · 백 ${nw}명 선택`);
+}
+function toggleSwapPick(team,ai){
+  const arr=team==='blue'?_swBlue:_swWhite;
+  const i=arr.indexOf(ai);
+  if(i>=0)arr.splice(i,1);else arr.push(ai);
+  renderSwapLists();
+}
+async function doBWSwap(){
+  if(!_swapKey)return;
+  if(_swBlue.length===0||_swBlue.length!==_swWhite.length){toast('청·백에서 같은 수의 선수를 골라주세요');return;}
+  const sess=await sget(_swapKey);
+  if(!sess||!sess.bwTeams){toast('세션을 찾을 수 없습니다');closeModal('bwSwapModal');return;}
+  const blueSel=_swBlue.slice(),whiteSel=_swWhite.slice();
+  const n1=blueSel.map(ai=>pname2(sess,ai)),n2=whiteSel.map(ai=>pname2(sess,ai));
+  // 같은 수만큼 통째로 맞교환
+  sess.bwTeams.blue=(sess.bwTeams.blue||[]).filter(ai=>!blueSel.includes(ai)).concat(whiteSel);
+  sess.bwTeams.white=(sess.bwTeams.white||[]).filter(ai=>!whiteSel.includes(ai)).concat(blueSel);
+  // 팀장 재지정
+  if(!sess.bwTeams.blue.includes(sess.bwTeams.blueCaptain))sess.bwTeams.blueCaptain=sess.bwTeams.blue[0];
+  if(!sess.bwTeams.white.includes(sess.bwTeams.whiteCaptain))sess.bwTeams.whiteCaptain=sess.bwTeams.white[0];
+  // 오더·점수 초기화
+  sess.b=(sess.b||[]).map(rd=>({c:(rd.c||[]).map(ct=>ct.map(()=>null)),w:rd.w||[],ctl:rd.ctl||null,bw:true,ord:rd.ord||true}));
+  sess.bwLock={blue:false,white:false};
+  sess.sc={};sess.finished=false;
+  if(sess.bwGradeApplied)delete sess.bwGradeApplied;
+  const ok=await sset(_swapKey,sess);
+  if(ok){
+    closeModal('bwSwapModal');
+    toast(`${n1.join('·')} ↔ ${n2.join('·')} 맞교체 완료 · 오더 초기화됨`);
+    loadHistory();
+  }else{toast('저장에 실패했습니다');}
+}
 async function openScoreEdit(key){
   editKey=key;const sess=await sget(key);if(!sess){toast('불러오기 실패');return;}editSess=sess;
   const dk=sess.d||key.split('/').pop().slice(0,8);
