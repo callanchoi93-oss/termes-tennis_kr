@@ -632,6 +632,21 @@ body{background:var(--bg);color:var(--gray-900);font-family:'Pretendard',-apple-
   </div>
 </div>
 
+<!-- 인원 추가 모달 -->
+<div class="modal-overlay" id="addPlayerModal">
+  <div class="modal-sheet">
+    <div class="modal-handle"></div>
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
+      <div class="modal-title" id="addPlayerTitle" style="margin-bottom:0">인원 추가</div>
+      <button onclick="closeModal('addPlayerModal')" style="background:none;border:none;font-size:24px;color:var(--gray-400);cursor:pointer;line-height:1">×</button>
+    </div>
+    <div style="font-size:13px;color:var(--gray-500);margin-bottom:8px;line-height:1.6">추가할 정회원을 선택하세요. 입력된 점수는 그대로 유지되고, <b>다음 빈 게임부터</b> 합류합니다.</div>
+    <div id="addPlayerInfo" style="font-size:12px;color:var(--blue);font-weight:700;margin-bottom:14px"></div>
+    <select class="form-input" id="addPlayerSel" style="margin-bottom:18px;cursor:pointer"></select>
+    <button class="btn btn-primary" style="width:100%" onclick="doAddPlayer()">추가하고 남은 게임 다시 생성</button>
+  </div>
+</div>
+
 <div class="toast" id="toast"></div>
 
 <script>
@@ -1989,7 +2004,7 @@ function renderHistCard(wrap,rec,key,dk,isArch){
     <div class="h-info">${(rec.p||[]).length}명 · 코트 ${rec.ct} · ${rec.r}라운드 · ${rec.gm}게임제</div>
     <div class="h-actions">${isDel
       ?`<button class="btn btn-neutral btn-xs" onclick="restoreSession('${dk}')">복원</button><button class="btn btn-danger-light btn-xs" onclick="confirmPurge('${dk}','${fmt(String(dk).slice(0,8))}')">영구삭제</button>`
-      :`${(rec.bw&&rec.bwTeams&&!arch)?`<button class="btn btn-neutral btn-xs" onclick="openBWSwap('${key}')">팀 스왑</button>`:''}<button class="btn btn-neutral btn-xs" onclick="openScoreEdit('${key}',this)">스코어 ${arch?'확인':'수정'}</button>${!arch?`<button class="btn btn-danger-light btn-xs" onclick="confirmDel('${dk}','${fmt(String(dk).slice(0,8))}')">삭제</button>`:''}`}</div>`;
+      :`${(rec.bw&&rec.bwTeams&&!arch)?`<button class="btn btn-neutral btn-xs" onclick="openBWSwap('${key}')">팀 스왑</button>`:''}${(!arch&&!rec.bw&&!fin)?`<button class="btn btn-neutral btn-xs" onclick="openAddPlayer('${key}')">+인원</button>`:''}<button class="btn btn-neutral btn-xs" onclick="openScoreEdit('${key}',this)">스코어 ${arch?'확인':'수정'}</button>${!arch?`<button class="btn btn-danger-light btn-xs" onclick="confirmDel('${dk}','${fmt(String(dk).slice(0,8))}')">삭제</button>`:''}`}</div>`;
   wrap.appendChild(el);
 }
 let pendingDk=null;
@@ -2130,6 +2145,210 @@ async function saveScoreEdit(){
   editSess.sc._totals=calcT2(editSess);editSess.finished=checkDone2(editSess);
   const ok=await sset(editKey,editSess);
   if(ok){toast('스코어가 수정되었습니다');closeModal('scoreModal');loadHistory();}else toast('저장에 실패했습니다');
+}
+
+// ── 인원 추가 (발행된 대진 중간 합류) ──
+let _addKey=null,_addSess=null;
+function _apRoundHasScore(sess,ri){
+  const rd=(sess.b||[])[ri];if(!rd)return false;
+  const courts=rd.c||[],sc=sess.sc||{};
+  for(let ci=0;ci<courts.length;ci++){
+    const s=sc[`${ri}-${ci}`]||{};
+    if(s.s1!==undefined&&s.s1!==null)return true;
+    if(s.s2!==undefined&&s.s2!==null)return true;
+  }
+  return false;
+}
+function _apFirstEmptyRound(sess){
+  const R=(sess.b||[]).length;
+  for(let ri=0;ri<R;ri++){if(!_apRoundHasScore(sess,ri))return ri;}
+  return R;
+}
+async function openAddPlayer(key){
+  const sess=await sget(key);
+  if(!sess){toast('불러오기 실패');return;}
+  if(sess.bw){toast('청백전은 인원 추가를 지원하지 않습니다');return;}
+  // 등급/성별 맵 보강 (혹시 비어있으면 로드)
+  try{if(!Object.keys(genders).length){const g=await sget('genders');if(g)genders=g;}}catch(e){}
+  try{if(!Object.keys(grades).length){const g=await sget('grades');if(g)grades=g;}}catch(e){}
+  const R=(sess.b||[]).length;
+  const K=_apFirstEmptyRound(sess);
+  if(K>=R){toast('남은 빈 게임이 없어 추가할 수 없습니다');return;}
+  // K 이후가 모두 비어있는지 확인 (점수 순서 꼬임 방지)
+  for(let ri=K;ri<R;ri++){if(_apRoundHasScore(sess,ri)){toast('점수가 순서대로 입력되어 있지 않습니다. 정리 후 다시 시도하세요');return;}}
+  // 이미 포함된 이름 제외
+  const inSession=new Set((sess.p||[]).map(p=>p.n));
+  const avail=MEMBERS.filter(n=>!inSession.has(n));
+  if(!avail.length){toast('추가할 수 있는 정회원이 없습니다');return;}
+  _addKey=key;_addSess=sess;
+  document.getElementById('addPlayerSel').innerHTML=avail.map(n=>`<option value="${n}">${n}</option>`).join('');
+  document.getElementById('addPlayerInfo').textContent=`${K+1}게임부터 합류 · 남은 게임 ${R-K}개 다시 생성`;
+  document.getElementById('addPlayerModal').classList.add('on');
+}
+async function doAddPlayer(){
+  if(!_addKey){return;}
+  const name=document.getElementById('addPlayerSel').value;
+  if(!name){toast('정회원을 선택하세요');return;}
+  // 저장 직전 최신 세션 다시 로드 (점수 입력 충돌 최소화)
+  const sess=await sget(_addKey);
+  if(!sess){toast('세션을 찾을 수 없습니다');closeModal('addPlayerModal');return;}
+  if(sess.bw){toast('청백전은 인원 추가를 지원하지 않습니다');closeModal('addPlayerModal');return;}
+  if((sess.p||[]).some(p=>p.n===name)){toast('이미 포함된 회원입니다');return;}
+  const res=rebuildTail(sess,name);
+  if(!res.ok){toast(res.msg);return;}
+  const ok=await sset(_addKey,sess);
+  if(!ok){toast('저장에 실패했습니다');return;}
+  closeModal('addPlayerModal');
+  toast(`${name} 추가 완료 · ${res.startRound}게임부터 ${res.newGames}게임 배정`);
+  _addKey=null;_addSess=null;
+  loadHistory();
+}
+// 핵심: 새 인원을 추가하고 점수 없는 게임만 다시 생성
+function rebuildTail(sess,newName){
+  const p=sess.p||[],a=sess.a||[],sc=sess.sc||{},rounds=sess.b||[];
+  const R=rounds.length,C=sess.ct||3;
+  const K=_apFirstEmptyRound(sess);
+  if(K>=R)return{ok:false,msg:'남은 빈 게임이 없습니다'};
+  for(let ri=K;ri<R;ri++){if(_apRoundHasScore(sess,ri))return{ok:false,msg:'점수가 순서대로 입력되어 있지 않습니다'};}
+
+  // 새 회원을 players/assigned에 추가
+  const newPi=p.length;p.push({n:newName,g:0,s:(grades[newName]||'none')});
+  const newAi=a.length;a.push(newPi);
+  sess.p=p;sess.a=a;
+  const n=a.length;
+
+  // 선수 정보 (성별/등급) — 게스트는 발행 후 성별 정보가 없으므로 'M' 기본
+  const pInfo=a.map(pi=>{
+    const pl=p[pi]||{};
+    const isGuest=pl.g===1;
+    let gender=isGuest?'M':(genders[pl.n]||'M');
+    const grade=isGuest?(pl.s||'none'):(grades[pl.n]||pl.s||'none');
+    const realGender=gender;
+    if(gender==='M'&&grade==='C')gender='F'; // 풀에서만 여성 취급(혼복 허용)
+    return{name:pl.n,gender,grade,realGender};
+  });
+
+  const isReal=ai=>ai>=0&&ai<n;
+  const GAMES=4,MENS_TARGET=2,HELPER=-1;
+  const gradeS=g=>({A:3,B:2,C:1,none:2}[g]||2);
+  const pk=(x,y)=>Math.min(x,y)+','+Math.max(x,y);
+  const ctType=four=>{
+    const m=four.filter(x=>x>=0&&pInfo[x].realGender==='M').length;
+    const f=four.filter(x=>x>=0&&pInfo[x].realGender==='F').length;
+    if(m===4)return'mens';if(f===4)return'ladies';return'mixed';
+  };
+
+  // 보존된 게임(0..K-1)에서 게임수/파트너/상대/남복 기록 시드
+  const gameSoFar=Array(n).fill(0),mensGames=Array(n).fill(0),pu={},ou={};
+  for(let ri=0;ri<K;ri++){
+    (rounds[ri].c||[]).forEach(ct=>{
+      if(!ct||ct.length<4){(ct||[]).forEach(x=>{if(isReal(x))gameSoFar[x]++;});return;}
+      if(ct.includes(HELPER)){ct.forEach(x=>{if(isReal(x))gameSoFar[x]++;});return;}
+      pu[pk(ct[0],ct[1])]=(pu[pk(ct[0],ct[1])]||0)+1;
+      pu[pk(ct[2],ct[3])]=(pu[pk(ct[2],ct[3])]||0)+1;
+      [ct[0],ct[1]].forEach(x=>[ct[2],ct[3]].forEach(y=>{ou[pk(x,y)]=(ou[pk(x,y)]||0)+1;}));
+      const tp=ctType(ct);
+      ct.forEach(x=>{if(isReal(x)){gameSoFar[x]++;if(tp==='mens')mensGames[x]++;}});
+    });
+  }
+
+  const pc=(x,y)=>pu[pk(x,y)]||0,oc=(x,y)=>ou[pk(x,y)]||0;
+  function splitCourt(four){
+    const opts=[[[four[0],four[1]],[four[2],four[3]]],
+                [[four[0],four[2]],[four[1],four[3]]],
+                [[four[0],four[3]],[four[1],four[2]]]];
+    let best=null,bs=Infinity;
+    for(const[[x,y],[u,v]]of opts){
+      const pCost=Math.pow(pc(x,y)+1,2)*1000+Math.pow(pc(u,v)+1,2)*1000;
+      const oCost=(oc(x,u)+oc(x,v)+oc(y,u)+oc(y,v));
+      const bal=Math.abs((gradeS(pInfo[x].grade)+gradeS(pInfo[y].grade))-(gradeS(pInfo[u].grade)+gradeS(pInfo[v].grade)));
+      const s=pCost+oCost*10+bal;
+      if(s<bs){bs=s;best={t1:[x,y],t2:[u,v],cost:s};}
+    }
+    return best;
+  }
+  function courtCost(four){
+    const hasA=four.some(x=>pInfo[x].grade==='A'),hasC=four.some(x=>pInfo[x].grade==='C');
+    const acPenalty=(hasA&&hasC)?500:0;
+    let mensBonus=0;
+    if(four.filter(x=>pInfo[x].realGender==='M').length===4)four.forEach(x=>{if(mensGames[x]<MENS_TARGET)mensBonus-=3000;});
+    return splitCourt(four).cost+acPenalty+mensBonus;
+  }
+  const shuf=arr=>{const b=[...arr];for(let i=b.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[b[i],b[j]]=[b[j],b[i]];}return b;};
+  function buildRound(playing){
+    const cnum=Math.floor(playing.length/4);if(cnum<1)return null;
+    let best=null,bestSc=Infinity;
+    for(let att=0;att<400;att++){
+      const sp=shuf(playing),cts=[];
+      for(let k=0;k<cnum;k++)cts.push(sp.slice(k*4,k*4+4));
+      let s=0;for(const ct of cts)s+=courtCost(ct);
+      if(s<bestSc){bestSc=s;best=cts;}
+      if(bestSc<=0)break;
+    }
+    return best;
+  }
+
+  const tl={mens:'남복',ladies:'여복',mixed:'혼복'};
+  // 점수 없는 게임(K..R-1)만 다시 생성. 전체 게임 수는 그대로 유지
+  for(let ri=K;ri<R;ri++){
+    const elig=Array.from({length:n},(_,i)=>i).filter(i=>gameSoFar[i]<GAMES);
+    elig.sort((x,y)=>gameSoFar[x]-gameSoFar[y]||Math.random()-0.5);
+    let cts=[];
+    if(elig.length>=1){
+      const cnum=Math.min(C,Math.ceil(elig.length/4)),need=cnum*4;
+      const realPlaying=elig.slice(0,Math.min(need,elig.length));
+      const fullCount=Math.floor(realPlaying.length/4)*4;
+      const fullPlayers=realPlaying.slice(0,fullCount),leftover=realPlaying.slice(fullCount);
+      if(fullPlayers.length>=4){const fc=buildRound(fullPlayers);if(fc)cts=fc;}
+      if(leftover.length>0){const hc=leftover.slice();while(hc.length<4)hc.push(HELPER);cts.push(hc);}
+    }
+    const tps=[];
+    cts.forEach(ct=>{
+      if(ct.includes(HELPER)){
+        ct.forEach(x=>{if(x!==HELPER)gameSoFar[x]++;});
+        tps.push('미정');
+      }else{
+        const sp=splitCourt(ct);
+        pu[pk(sp.t1[0],sp.t1[1])]=(pu[pk(sp.t1[0],sp.t1[1])]||0)+1;
+        pu[pk(sp.t2[0],sp.t2[1])]=(pu[pk(sp.t2[0],sp.t2[1])]||0)+1;
+        sp.t1.forEach(x=>sp.t2.forEach(y=>{ou[pk(x,y)]=(ou[pk(x,y)]||0)+1;}));
+        ct.length=0;ct.push(sp.t1[0],sp.t1[1],sp.t2[0],sp.t2[1]);
+        const tp=ctType(ct);tps.push(tl[tp]);
+        ct.forEach(x=>{gameSoFar[x]++;if(tp==='mens')mensGames[x]++;});
+      }
+    });
+    const playingSet=new Set(cts.flat().filter(x=>x!==HELPER));
+    const wl=Array.from({length:n},(_,i)=>i).filter(i=>!playingSet.has(i));
+    rounds[ri]={c:cts,w:wl,ctl:tps,bw:false,ord:false};
+    // 혹시 남아있을 수 있는 이 라운드의 점수 키 제거 (이전엔 비어있었지만 코트 수 변동 대비)
+    for(const kk of Object.keys(sc)){if(kk.indexOf(ri+'-')===0)delete sc[kk];}
+  }
+  sess.b=rounds;
+
+  // 합계/완료 상태 재계산
+  const t={};
+  rounds.forEach((rd,ri)=>{(rd.c||[]).forEach((ct,ci)=>{
+    if(!ct||ct.length<4)return;
+    const s=sc[`${ri}-${ci}`]||{},s1=parseInt(s.s1)||0,s2=parseInt(s.s2)||0;
+    ct.slice(0,2).forEach(x=>{if(x>=0)t[x]=(t[x]||0)+s1;});
+    ct.slice(2,4).forEach(x=>{if(x>=0)t[x]=(t[x]||0)+s2;});
+  });});
+  sc._totals=t;sess.sc=sc;
+  let fin=true;
+  for(let ri=0;ri<rounds.length&&fin;ri++){
+    const courts=rounds[ri].c||[];
+    for(let ci=0;ci<courts.length;ci++){
+      const ct=courts[ci];if(!ct||ct.length<4)continue;
+      const s=sc[`${ri}-${ci}`]||{};
+      if(s.s1===undefined||s.s1===null||s.s2===undefined||s.s2===null){fin=false;break;}
+    }
+  }
+  sess.finished=fin;
+  sess.pub=Date.now(); // 회원 앱이 변경된 대진을 자동으로 다시 불러오도록 갱신
+
+  const newGames=rounds.reduce((acc,rd)=>acc+((rd.c||[]).some(ct=>ct&&ct.includes(newAi))?1:0),0);
+  if(newGames===0)return{ok:false,msg:'남은 게임에 빈 자리가 없어 추가할 수 없습니다 (모든 인원이 이미 4게임 완료)'};
+  return{ok:true,startRound:K+1,newGames};
 }
 
 // ── 공지 ──

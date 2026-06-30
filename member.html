@@ -3229,7 +3229,7 @@ async function saveSc(skey,inp){
 }
 async function syncScores(){
   const latest=await sget('sessions/'+actKey());if(!latest||latest.del){clearInterval(autoTimer);curSess=null;return;}
-  if(curSess&&latest.pub!==curSess.pub){clearInterval(autoTimer);curSess=latest;toast('새 대진표가 발행되었습니다');loadToday();loadBracket();renderScoreUI(latest);if(!latest.finished&&latest.exp>Date.now())autoTimer=setInterval(syncScores,15000);return;}
+  if(curSess&&latest.pub!==curSess.pub){clearInterval(autoTimer);curSess=latest;toast('대진표가 변경되었습니다');loadToday();loadBracket();renderScoreUI(latest);if(!latest.finished&&latest.exp>Date.now())autoTimer=setInterval(syncScores,15000);return;}
   curSess=latest;
   const sc=getSc(latest);
   document.querySelectorAll('.s-inp[data-key]').forEach(inp=>{if(document.activeElement===inp)return;const sv=sc[inp.dataset.key];inp.value=sv&&sv[inp.dataset.side]!==undefined&&sv[inp.dataset.side]!==null?sv[inp.dataset.side]:'';});
