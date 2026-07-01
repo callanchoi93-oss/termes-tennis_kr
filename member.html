@@ -3182,7 +3182,6 @@ function renderBktGames(sess){
   });
   _syncTimerLoopM();
 }
-}
 
 function _gamePlayers(round){const s=new Set();(round.courts||[]).forEach(ct=>{(ct||[]).forEach(ai=>{if(typeof ai==='number'&&ai>=0)s.add(ai);});});return s;}
 function _gameDoneR(round,ri,sc){let any=false;for(let ci=0;ci<round.courts.length;ci++){const ct=round.courts[ci];if(!ct||ct.length<4)continue;any=true;const sv=sc[`${ri}-${ci}`]||{};if(sv.s1===undefined||sv.s1===null||sv.s2===undefined||sv.s2===null)return false;}return any;}
