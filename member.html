@@ -3207,7 +3207,7 @@ function renderGCPanel(sess){
   if(!P.length||B.length===0)return;
   const sched=Array(P.length).fill(0),done=Array(P.length).fill(0);
   const doneR=B.map((r,ri)=>_gameDoneR(r,ri,sc));
-  B.forEach((r,ri)=>r.courts.forEach(ct=>{if(!ct||ct.length<4)return;ct.forEach(ai=>{if(ai>=0&&ai<P.length){sched[ai]++;if(doneR[ri])done[ai]++;}});}));
+  B.forEach((r,ri)=>r.courts.forEach((ct,ci)=>{if(!ct||ct.length<4)return;const sv=sc[`${ri}-${ci}`]||{};const courtDone=sv.s1!==undefined&&sv.s1!==null&&sv.s2!==undefined&&sv.s2!==null;ct.forEach(ai=>{if(ai>=0&&ai<P.length){sched[ai]++;if(courtDone)done[ai]++;}});}));
   let waitSet=new Set();
   for(let ri=0;ri<B.length;ri++){if(!doneR[ri]){(B[ri].wait||[]).forEach(ai=>{if(ai>=0)waitSet.add(ai);});break;}}
   const rows=[];
@@ -3251,7 +3251,9 @@ function renderScoreUI(sess){
       const s1=sv.s1!==undefined?sv.s1:'',s2=sv.s2!==undefined?sv.s2:'';
       const hasHelper=ct.includes(-1);
       const hasEmpty=ct.some(ai=>ai==null||ai===-2);
-      const canEdit=!hasHelper&&!hasEmpty&&!isGuest&&!isFinished&&(isSuper||(me&&(pname(sess,ct[0])===me||pname(sess,ct[1])===me||pname(sess,ct[2])===me||pname(sess,ct[3])===me)));
+      const alreadyScored=(sv.s1!==undefined&&sv.s1!==null)&&(sv.s2!==undefined&&sv.s2!==null);
+      const isMine=me&&(pname(sess,ct[0])===me||pname(sess,ct[1])===me||pname(sess,ct[2])===me||pname(sess,ct[3])===me);
+      const canEdit=!hasHelper&&!hasEmpty&&!isGuest&&!isFinished&&(isSuper||(isMine&&!alreadyScored));
       const dis=canEdit?'':'disabled';
       const dStyle=canEdit?'':'background:var(--gray-100);color:var(--gray-400);';
       const typing=sc._typing&&sc._typing[skey];
@@ -3272,7 +3274,7 @@ function renderScoreUI(sess){
           <div class="s-dash">—</div>
           <div style="flex:1;display:flex;justify-content:center"><input class="s-inp" type="number" min="0" max="99" placeholder="0" value="${s2}" data-key="${skey}" data-side="s2" ${dis} style="${dStyle}" oninput="onSI(this)" onchange="saveSc('${skey}',this)"></div>
         </div>
-        <div class="typing-row" data-tkey="${skey}">${typingText}</div>
+        <div class="typing-row" data-tkey="${skey}">${alreadyScored?'<span style="color:var(--green);font-weight:700">\u2713 \uC810\uC218 \uD655\uC815\uB428'+(isSuper?' (\uAD00\uB9AC\uC790 \uC218\uC815 \uAC00\uB2A5)':'')+'</span>':typingText}</div>
       </div>`;
     });
     const ww=round.wait&&round.wait.length?`<div style="background:var(--gray-50);border-radius:12px;padding:10px 14px"><div style="font-size:13px;font-weight:700;color:var(--gray-500);margin-bottom:6px">대기</div><div style="display:flex;flex-wrap:wrap;gap:6px">${round.wait.map(ai=>`<span class="w-chip">${pname(sess,ai)}</span>`).join('')}</div></div>`:'';
@@ -3309,7 +3311,13 @@ async function saveSc(skey,inp){
     }
     if(!latest.sc._typing)latest.sc._typing={};latest.sc._typing[skey]={name:me==='__super__'?'관리자':me,time:Date.now()};
     const ok=await sset('sessions/'+today,latest);
-    if(ok){invalidateSessCache();curSess=latest;updateStandings(latest);if(latest.finished){clearInterval(autoTimer);toast('모든 경기가 종료되었습니다');renderScoreUI(latest);}}
+    if(ok){
+      invalidateSessCache();curSess=latest;updateStandings(latest);
+      const _mv=(latest.sc&&latest.sc[skey])||{};
+      const _matchDone=_mv.s1!==undefined&&_mv.s1!==null&&_mv.s2!==undefined&&_mv.s2!==null;
+      if(latest.finished){clearInterval(autoTimer);toast('모든 경기가 종료되었습니다');renderScoreUI(latest);}
+      else if(_matchDone&&me!=='__super__'){toast('점수가 확정되었습니다');renderScoreUI(latest);}
+    }
     else toast('저장에 실패했습니다');
   },600);
 }
@@ -3319,6 +3327,7 @@ async function syncScores(){
   curSess=latest;
   const sc=getSc(latest);
   document.querySelectorAll('.s-inp[data-key]').forEach(inp=>{if(document.activeElement===inp)return;const sv=sc[inp.dataset.key];inp.value=sv&&sv[inp.dataset.side]!==undefined&&sv[inp.dataset.side]!==null?sv[inp.dataset.side]:'';});
+  if(me!=='__super__'){document.querySelectorAll('.s-inp[data-key]').forEach(inp=>{if(document.activeElement===inp)return;const sv=sc[inp.dataset.key]||{};if(sv.s1!==undefined&&sv.s1!==null&&sv.s2!==undefined&&sv.s2!==null&&!inp.disabled){inp.disabled=true;inp.style.background='var(--gray-100)';inp.style.color='var(--gray-400)';}});}
   if(sc._typing){Object.entries(sc._typing).forEach(([k,info])=>{const tr=document.querySelector(`.typing-row[data-tkey="${k}"]`);if(tr)tr.textContent=Date.now()-info.time<10000?info.name+' 입력 중...':'';});}
   updateStandings(latest);highlightSI();if(latest.finished)clearInterval(autoTimer);
 }
