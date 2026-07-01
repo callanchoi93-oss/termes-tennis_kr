@@ -599,6 +599,9 @@ const MEMBERS=['곽주영','최민혁','정윤희','김진수A','김영민','이
 const CC=['#e8845a','#00b493','#f7c244','#f04452','#8b5cf6','#f97316'];
 const RP=[100,80,60,40,20,10];
 let me=null,curYear=new Date().getFullYear(),curSess=null,autoTimer=null,pmTab='history';
+// '진행 중' 게임 표시 상태 (겹치는 선수 없는 게임에 '지금 가능' 뱃지 자동 표시)
+let _ipg=new Set(),_ipgKey=null;
+let _ipgStart={},_ipgTimer=null; // 게임 진행 타이머
 let _pmH='',_pmP=[],_pmPr={},_pmVs={};
 function mkKey(n){return 'mp-'+n.replace(/\s/g,'');}
 function getRankPts(r){return r<=0?0:r<=RP.length?RP[r-1]:RP[RP.length-1];}
@@ -3116,8 +3119,42 @@ async function loadBracket(){
     wrap.appendChild(dvCard);
     renderDailyVote(sess);
   }
-  getB(sess).forEach((round,ri)=>{
+  // 게임 진행 순서 유연화: 진행 중 게임 탭 → 겹치는 선수 없는 게임에 '지금 가능' 표시
+  if(_ipgKey!==actKey()){_ipg=new Set();_ipgKey=actKey();}
+  const gcPanel=document.createElement('div');gcPanel.id='gcPanel';
+  wrap.appendChild(gcPanel);
+  renderGCPanel(sess);
+  const gamesCont=document.createElement('div');gamesCont.id='bktGames';
+  wrap.appendChild(gamesCont);
+  renderBktGames(sess);
+}
+
+function renderBktGames(sess){
+  const cont=document.getElementById('bktGames');if(!cont)return;cont.innerHTML='';
+  const B=getB(sess),sc=getSc(sess);
+  const playersByRound=B.map(r=>_gamePlayers(r));
+  const doneByRound=B.map((r,ri)=>_gameDoneR(r,ri,sc));
+  for(const gi of [..._ipg]){if(doneByRound[gi])_ipg.delete(gi);}
+  const _anyProg=_ipg.size>0;
+  // 안내 배너
+  if(B.length>1&&!doneByRound.every(Boolean)){
+    const hint=document.createElement('div');
+    hint.style.cssText='background:#f0faf7;border:1px solid #c9ede2;border-radius:12px;padding:10px 13px;margin-bottom:12px;font-size:12px;color:#3a2e28;line-height:1.55';
+    hint.innerHTML=_anyProg?'현재 <b style="color:#e8845a">진행 중</b>인 게임과 겹치는 선수가 없는 게임에 <b style="color:#00b493">지금 가능</b>이 표시돼요. 순서 상관없이 먼저 진행해도 됩니다.':'게임은 <b>순서 상관없이</b> 진행할 수 있어요. 지금 코트에서 뛰는 게임을 <b>탭</b>하면, 겹치는 선수가 없어 바로 시작해도 되는 게임에 <b style="color:#00b493">지금 가능</b> 표시가 떠요.';
+    cont.appendChild(hint);
+  }
+  B.forEach((round,ri)=>{
     const bl=document.createElement('div');bl.className='round-card';
+    const _pl=playersByRound[ri],_done=doneByRound[ri],_inProg=_ipg.has(ri);
+    let _conflict=false;
+    if(_anyProg&&!_inProg&&!_done){for(const gi of _ipg){if(gi===ri)continue;const op=playersByRound[gi];if(op&&[..._pl].some(x=>op.has(x))){_conflict=true;break;}}}
+    let _badge='';
+    if(_done)_badge='<span style="font-size:11px;font-weight:800;padding:2px 9px;border-radius:20px;background:#eef1f4;color:#9aa5b1;flex-shrink:0">완료</span>';
+    else if(_inProg)_badge='<span style="font-size:11px;font-weight:800;padding:2px 9px;border-radius:20px;background:#fef0e6;color:#e8845a;flex-shrink:0">● 진행 중<span data-ipt="'+ri+'"></span></span>';
+    else if(_anyProg&&!_conflict)_badge='<span style="font-size:11px;font-weight:800;padding:2px 9px;border-radius:20px;background:#e2f7f0;color:#00b493;flex-shrink:0">지금 가능</span>';
+    else if(_anyProg&&_conflict)_badge='<span style="font-size:11px;font-weight:700;padding:2px 9px;border-radius:20px;background:#f4f1ee;color:#b5a99c;flex-shrink:0">대기</span>';
+    if(_inProg)bl.style.cssText='outline:2px solid #e8845a;outline-offset:-1px';
+
     const ch=round.courts.map((ct,ci)=>{
       if(!ct||ct.length<4)return '';
       const col=CC[ci%CC.length];
@@ -3140,9 +3177,59 @@ async function loadBracket(){
       return `<div class="court-row" style="background:${col}10;border-left:4px solid ${col}"><div class="ct-lbl">코트 ${ci+1}</div>${tpBadge}<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap"><div style="display:flex;gap:5px">${p(ct[0])}${p(ct[1])}</div><span class="vs-t">VS</span><div style="display:flex;gap:5px">${p(ct[2])}${p(ct[3])}</div></div>${helperNote}</div>`;
     }).join('');
     const wh=round.wait&&round.wait.length?round.wait.map(ai=>`<span class="w-chip">${pname(sess,ai)}</span>`).join(''):`<span class="w-chip" style="color:var(--green)">전원 참가</span>`;
-    bl.innerHTML=`<div class="round-hdr"><div class="round-title">${ri+1}게임</div><div class="round-badge">${sess.gm}게임제</div></div><div style="padding:14px;display:flex;flex-direction:column;gap:10px">${ch}<div class="wait-row"><span style="font-size:13px;font-weight:700;color:var(--gray-500);min-width:36px">대기</span>${wh}</div></div>`;
-    wrap.appendChild(bl);
+    bl.innerHTML=`<div class="round-hdr"${_done?'':' onclick=\"toggleInProgress('+ '${ri}'+')\" style=\"cursor:pointer\"'}><div class="round-title" style="display:flex;align-items:center;gap:7px">${ri+1}게임 ${_badge}</div><div class="round-badge">${sess.gm}게임제</div></div><div style="padding:14px;display:flex;flex-direction:column;gap:10px">${ch}<div class="wait-row"><span style="font-size:13px;font-weight:700;color:var(--gray-500);min-width:36px">대기</span>${wh}</div></div>`;
+    cont.appendChild(bl);
   });
+  _syncTimerLoopM();
+}
+}
+
+function _gamePlayers(round){const s=new Set();(round.courts||[]).forEach(ct=>{(ct||[]).forEach(ai=>{if(typeof ai==='number'&&ai>=0)s.add(ai);});});return s;}
+function _gameDoneR(round,ri,sc){let any=false;for(let ci=0;ci<round.courts.length;ci++){const ct=round.courts[ci];if(!ct||ct.length<4)continue;any=true;const sv=sc[`${ri}-${ci}`]||{};if(sv.s1===undefined||sv.s1===null||sv.s2===undefined||sv.s2===null)return false;}return any;}
+function toggleInProgress(ri){
+  if(!curSess)return;
+  const B=getB(curSess),sc=getSc(curSess);
+  if(B[ri]&&_gameDoneR(B[ri],ri,sc))return; // 완료된 게임은 진행 중 표시 불가
+  if(_ipg.has(ri)){_ipg.delete(ri);delete _ipgStart[ri];}
+  else {_ipg.add(ri);_ipgStart[ri]=Date.now();}
+  renderBktGames(curSess);
+}
+function _fmtElapsedM(ms){const s=Math.max(0,Math.floor(ms/1000));return Math.floor(s/60)+':'+String(s%60).padStart(2,'0');}
+function _tickTimersM(){document.querySelectorAll('[data-ipt]').forEach(el=>{const ri=el.getAttribute('data-ipt'),st=_ipgStart[ri];if(st)el.textContent=' '+_fmtElapsedM(Date.now()-st);});}
+function _syncTimerLoopM(){
+  if(_ipg.size>0&&!_ipgTimer){_ipgTimer=setInterval(_tickTimersM,1000);_tickTimersM();}
+  else if(_ipg.size===0&&_ipgTimer){clearInterval(_ipgTimer);_ipgTimer=null;}
+}
+
+function renderGCPanel(sess){
+  const cont=document.getElementById('gcPanel');if(!cont)return;cont.innerHTML='';
+  if(sess.bw)return;
+  const P=getP(sess),B=getB(sess),sc=getSc(sess),out=new Set(sess.out||[]);
+  if(!P.length||B.length===0)return;
+  const sched=Array(P.length).fill(0),done=Array(P.length).fill(0);
+  const doneR=B.map((r,ri)=>_gameDoneR(r,ri,sc));
+  B.forEach((r,ri)=>r.courts.forEach(ct=>{if(!ct||ct.length<4)return;ct.forEach(ai=>{if(ai>=0&&ai<P.length){sched[ai]++;if(doneR[ri])done[ai]++;}});}));
+  let waitSet=new Set();
+  for(let ri=0;ri<B.length;ri++){if(!doneR[ri]){(B[ri].wait||[]).forEach(ai=>{if(ai>=0)waitSet.add(ai);});break;}}
+  const rows=[];
+  for(let ai=0;ai<P.length;ai++){if(out.has(ai))continue;if(sched[ai]===0&&done[ai]===0&&!waitSet.has(ai))continue;rows.push({ai,s:sched[ai],d:done[ai],w:waitSet.has(ai),nm:pname(sess,ai)});}
+  if(!rows.length)return;
+  const maxS=Math.max(...rows.map(r=>r.s));
+  rows.sort((a,b)=>a.s-b.s||a.d-b.d||a.nm.localeCompare(b.nm));
+  const chips=rows.map(r=>{
+    const low=r.s<maxS;
+    const bg=low?'#fff3ec':'var(--gray-50)',bd=low?'#f0c3a8':'var(--gray-200)',cl=low?'#c2551f':'var(--gray-700)';
+    return `<span style="display:inline-flex;align-items:center;gap:5px;padding:5px 10px;border-radius:20px;background:${bg};border:1px solid ${bd};font-size:12.5px;font-weight:700;color:${cl}">${r.w?'<span style="width:6px;height:6px;border-radius:50%;background:#e8845a;display:inline-block"></span>':''}${r.nm}<span style="font-weight:800;color:${low?'#e8845a':'var(--gray-400)'}">${r.d}/${r.s}</span></span>`;
+  }).join('');
+  const anyLow=rows.some(r=>r.s<maxS);
+  cont.innerHTML=`<div style="background:var(--white);border-radius:16px;padding:14px 16px;margin-bottom:14px;box-shadow:0 1px 4px rgba(0,0,0,.06)">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
+      <span style="font-size:14px;font-weight:800;color:var(--gray-900)">게임 수 현황 <span style="font-size:11px;font-weight:600;color:var(--gray-400)">완료/배정</span></span>
+      <span style="font-size:11px;font-weight:700;color:${anyLow?'#e8845a':'var(--green)'}">${anyLow?'게임 수 편차 있음':'고르게 배정됨'}</span>
+    </div>
+    <div style="display:flex;flex-wrap:wrap;gap:7px">${chips}</div>
+    <div style="font-size:11px;color:var(--gray-400);margin-top:9px"><span style="width:6px;height:6px;border-radius:50%;background:#e8845a;display:inline-block;vertical-align:middle;margin-right:3px"></span>현재 대기 · 주황 칩은 배정 게임이 적은 인원</div>
+  </div>`;
 }
 
 // ── 점수 ──
