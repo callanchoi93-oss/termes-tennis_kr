@@ -1148,7 +1148,6 @@ function getLateArrivals(){
   });
   return result;
 }
-
 function addGuest(){const list=document.getElementById('plist');const n=list.querySelectorAll('.player-item').length;appendGuestSlot(n);document.getElementById('playerN').value=n+1;}
 function appendSlot(i,name){
   const list=document.getElementById('plist');
@@ -1501,7 +1500,6 @@ function genGenderBracket(n,c,r,ppr,waitSz){
 
   const lateMap=S.lateArrivals||{};
   const startRound=Array(n).fill(0);
-  // lateMap은 S.players(선수) 인덱스 기준인데 대진은 배정(assigned) 인덱스로 돌아감 → 변환 필수
   const _piToNi={};
   S.assigned.forEach((pi,ni)=>{_piToNi[pi]=ni;});
   Object.entries(lateMap).forEach(([ri,pl])=>{pl.forEach(pi=>{const ni=_piToNi[pi];if(ni!==undefined)startRound[ni]=parseInt(ri);});});
