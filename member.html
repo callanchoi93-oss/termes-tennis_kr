@@ -253,12 +253,48 @@ body{background:#f6f3ef;color:var(--gray-900);font-family:'Pretendard',-apple-sy
 .bk-name{font-size:15px;font-weight:800;color:var(--warm-text);cursor:pointer;line-height:1.3}
 .bk-help{color:rgba(45,31,26,.4);font-weight:700}
 .bk-vs{font-size:11px;font-weight:900;color:rgba(45,31,26,.32);letter-spacing:1px}
+.bk-wait-note{font-size:11.5px;font-weight:700;color:rgba(45,31,26,.5);margin-top:11px;padding-top:11px;border-top:1px dashed rgba(45,31,26,.12)}
 .hs-card{border-radius:22px;padding:18px 20px;margin-bottom:11px;box-shadow:0 5px 16px rgba(45,31,26,.05);cursor:pointer;transition:transform .12s}
 .hs-card:active{transform:scale(.985)}
 .hs-top{display:flex;align-items:center;justify-content:space-between}
 .hs-date{font-size:18px;font-weight:900;color:var(--warm-text);letter-spacing:-0.3px}
 .hs-chip{font-size:12px;font-weight:800;background:rgba(255,255,255,.72);padding:5px 13px;border-radius:20px}
 .hs-meta{font-size:13px;color:rgba(45,31,26,.55);margin-top:7px;font-weight:600}
+
+/* 정보 카드 (분위기 메이커 투표 · 게임 수 현황) */
+.info-card{background:#fff;border-radius:24px;padding:20px;margin-bottom:14px;box-shadow:0 6px 20px rgba(45,31,26,.06);border:1px solid var(--warm-border)}
+.info-title{font-size:17px;font-weight:900;color:var(--warm-text);letter-spacing:-0.4px;display:flex;align-items:center;gap:9px}
+.info-emoji{display:inline-flex;align-items:center;justify-content:center;width:34px;height:34px;border-radius:12px;background:#fbe7dd;font-size:18px;flex-shrink:0}
+.info-desc{font-size:12.5px;color:var(--warm-muted);margin-top:6px;font-weight:500}
+.info-chips{display:flex;flex-wrap:wrap;gap:9px;margin-top:16px}
+.mm-chip{display:inline-flex;align-items:center;gap:6px;background:#fff;color:var(--warm-text);border:none;border-radius:22px;padding:11px 17px;font-size:14px;font-weight:800;font-family:inherit;cursor:pointer;box-shadow:0 2px 9px rgba(45,31,26,.08);transition:transform .12s}
+.mm-chip:active{transform:scale(.94)}
+.mm-chip.top{color:#c2551f}
+.mm-chip.sel{background:#e8845a;color:#fff;box-shadow:0 6px 16px rgba(232,132,90,.36)}
+.mm-v{font-size:11px;font-weight:800;background:rgba(45,31,26,.08);padding:1px 8px;border-radius:10px}
+.mm-chip.sel .mm-v{background:rgba(255,255,255,.28)}
+.gc-chip{display:inline-flex;align-items:center;gap:7px;padding:9px 15px;border-radius:22px;font-size:13px;font-weight:800;background:#fff;box-shadow:0 2px 9px rgba(45,31,26,.06);color:var(--warm-text)}
+.gc-chip.low{background:#fdece1}
+.gc-chip.full{background:#e0f4ec}
+.gc-frac{font-weight:900;color:var(--warm-muted)}
+.gc-chip.low .gc-frac{color:#d9662d}
+.gc-chip.full .gc-frac{color:#00a888}
+.gc-dot{width:7px;height:7px;border-radius:50%;background:#e8845a;display:inline-block;flex-shrink:0}
+.gc-flag{font-size:11px;font-weight:800}
+.gc-foot{font-size:11px;color:var(--warm-muted);margin-top:14px;display:flex;align-items:center;gap:5px}
+/* 게임 선택 칩 (요가식 데이 셀렉터) */
+.bk-nav{display:flex;gap:8px;overflow-x:auto;padding:2px 2px 14px;scrollbar-width:none;-webkit-overflow-scrolling:touch}
+.bk-nav::-webkit-scrollbar{display:none}
+.bk-navp{flex-shrink:0;border:none;border-radius:22px;padding:9px 16px;font-size:13px;font-weight:800;font-family:inherit;cursor:pointer;transition:transform .12s}
+.bk-navp:active{transform:scale(.94)}
+.bk-nav-now{background:#00b493;color:#fff;box-shadow:0 4px 12px rgba(0,180,147,.28)}
+.bk-nav-done{background:#fff;color:#9aa5b1;box-shadow:0 2px 8px rgba(45,31,26,.06)}
+.bk-nav-wait{background:#fff;color:var(--warm-sub);box-shadow:0 2px 8px rgba(45,31,26,.06)}
+/* 진행바 (매니지팀식) */
+.gc-prog{margin:15px 0 6px}
+.gc-prog-top{display:flex;justify-content:space-between;font-size:12px;font-weight:800;color:var(--warm-sub);margin-bottom:8px}
+.gc-bar{height:11px;background:#efe7df;border-radius:20px;overflow:hidden}
+.gc-bar-fill{height:100%;background:linear-gradient(90deg,#e8845a,#f2a97f);border-radius:20px;transition:width .4s ease}
 </style>
 </head>
 <body>
@@ -638,6 +674,9 @@ const CC=['#e8845a','#00b493','#f7c244','#f04452','#8b5cf6','#f97316'];
 // 파스텔 스코어카드 팔레트 (코트별 순환) — 지출/요가 앱 스타일
 const PAL=[{bg:'#FCE3D6',ink:'#C2551F'},{bg:'#D8F3EA',ink:'#00866D'},{bg:'#E9E1FA',ink:'#6D5DD3'},{bg:'#FBEFC7',ink:'#A9791B'},{bg:'#DCEBFB',ink:'#2F6FB0'},{bg:'#FBE1EC',ink:'#C43F79'}];
 const pal=i=>PAL[i%PAL.length];
+// 순위 밴드용 색 스케일 (체크마이파일식 그러데이션: 로즈→피치→버터→샌드)
+function _lerpHex(a,b,t){const A=parseInt(a.slice(1),16),B=parseInt(b.slice(1),16);const ar=A>>16,ag=(A>>8)&255,ab=A&255,br=B>>16,bg=(B>>8)&255,bb=B&255;const r=Math.round(ar+(br-ar)*t),g=Math.round(ag+(bg-ag)*t),bl=Math.round(ab+(bb-ab)*t);return '#'+((1<<24)+(r<<16)+(g<<8)+bl).toString(16).slice(1);}
+function _tierColor(t){const st=['#F3B3C4','#F8C9A8','#F5E3A6','#E9E7D6'];const seg=Math.max(0,Math.min(1,t))*(st.length-1);const i=Math.min(st.length-2,Math.floor(seg));return _lerpHex(st[i],st[i+1],seg-i);}
 const RP=[100,80,60,40,20,10];
 let me=null,curYear=new Date().getFullYear(),curSess=null,autoTimer=null,pmTab='history';
 // '진행 중' 게임 표시 상태 (겹치는 선수 없는 게임에 '지금 가능' 뱃지 자동 표시)
@@ -1943,33 +1982,21 @@ async function loadRankBoard(){
     html+=`</div>`;
   }
 
-  // ── 컬럼 헤더 ──
-  html+=`<div style="display:flex;align-items:center;padding:0 12px 8px;font-size:10px;font-weight:700;color:#a89b8e;letter-spacing:0.3px">
-    <div style="width:26px">순위</div>
-    <div style="flex:1">이름</div>
-    <div style="width:46px;text-align:center">평균</div>
-    <div style="width:44px;text-align:center">득실차</div>
-    <div style="width:42px;text-align:center">누적</div>
-    <div style="width:38px;text-align:center">참여</div>
-  </div>`;
-
-  // ── 전체 순위 리스트 ──
+  // ── 전체 순위: 그러데이션 밴드 (체크마이파일식 색 스케일) ──
+  html+=`<div style="font-size:11px;font-weight:800;color:#a89b8e;padding:2px 6px 10px;letter-spacing:.2px">평균 포인트 높은 순</div>`;
   let dr=1;
+  const _rn=ranked.length;
   ranked.forEach((p,i)=>{
     // 평균+득실차가 모두 같을 때만 공동 순위
     if(i>0&&!(p.avg===ranked[i-1].avg&&p.diff===ranked[i-1].diff))dr=i+1;
     const isMe=p.name===myName;
-    const medalColor=dr===1?'#e8845a':dr===2?'#c4a35a':dr===3?'#cf7a52':'#c4b5a9';
     const diff=p.diff||0;
-    const diffColor=diff>0?'#16a34a':diff<0?'#d4506a':'#a89b8e';
     const diffTxt=(diff>0?'+':'')+diff;
-    html+=`<div onclick="showPlayer('${p.name}',new Date().getFullYear())" style="display:flex;align-items:center;padding:12px;margin-bottom:7px;background:${isMe?'#fdf0ec':'#fff'};border-radius:14px;cursor:pointer;box-shadow:0 2px 8px rgba(120,90,70,0.05);${isMe?'border:1.5px solid #e8845a':''}">
-      <div style="width:26px;font-size:15px;font-weight:800;color:${medalColor}">${dr}</div>
-      <div style="flex:1;font-size:14px;font-weight:700;color:#3a2e28;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${p.name}${isMe?' <span style="font-size:10px;color:#d4506a">(나)</span>':''}</div>
-      <div style="width:46px;text-align:center"><span style="font-size:15px;font-weight:800;color:#d4506a">${p.avg}</span></div>
-      <div style="width:44px;text-align:center"><span style="font-size:13px;font-weight:700;color:${diffColor}">${diffTxt}</span></div>
-      <div style="width:42px;text-align:center;font-size:12px;font-weight:600;color:#a89b8e">${p.pts}</div>
-      <div style="width:38px;text-align:center;font-size:13px;font-weight:600;color:#7c6b5e">${p.days}</div>
+    const bg=_tierColor(_rn>1?i/(_rn-1):0);
+    html+=`<div onclick="showPlayer('${p.name}',new Date().getFullYear())" style="display:flex;align-items:center;gap:14px;padding:15px 18px;margin-bottom:8px;background:${bg};border-radius:20px;cursor:pointer;box-shadow:0 4px 14px rgba(120,90,70,.06);${isMe?'outline:2.5px solid #2d1f1a;outline-offset:-2px':''}">
+      <div style="font-size:25px;font-weight:900;color:#2d1f1a;min-width:32px;text-align:center;letter-spacing:-1px">${dr}</div>
+      <div style="flex:1;min-width:0"><div style="font-size:16.5px;font-weight:900;color:#2d1f1a;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${p.name}${isMe?' <span style="font-size:11px">(나)</span>':''}</div><div style="font-size:11.5px;font-weight:700;color:rgba(45,31,26,.55);margin-top:3px">${p.days}회 참여 · 누적 ${p.pts} · 득실 ${diffTxt}</div></div>
+      <div style="text-align:right;flex-shrink:0"><div style="font-size:22px;font-weight:900;color:#2d1f1a;line-height:1">${p.avg}</div><div style="font-size:10px;font-weight:800;color:rgba(45,31,26,.5);margin-top:3px;letter-spacing:.3px">평균 PTS</div></div>
     </div>`;
   });
 
@@ -2766,12 +2793,12 @@ async function renderDailyVote(sess){
     const v=tally[nm]||0;
     const sel=myVote===nm;
     const isTop=v>0&&v===maxV;
-    return `<button onclick="dailyVote('${nm.replace(/'/g,'')}')" style="display:inline-flex;align-items:center;gap:5px;background:${sel?'#e8845a':'#faf7f3'};color:${sel?'#fff':'#3a2e28'};border:1.5px solid ${sel?'#e8845a':'#f0ebe7'};border-radius:18px;padding:8px 13px;font-size:13px;font-weight:700;font-family:inherit;cursor:pointer">${isTop?'👑 ':''}${nm}${v?` <span style="font-size:11px;font-weight:800;opacity:0.85">${v}</span>`:''}</button>`;
+    return `<button onclick="dailyVote('${nm.replace(/'/g,'')}')" class="mm-chip${sel?' sel':''}${isTop&&!sel?' top':''}">${isTop?'👑 ':''}${nm}${v?`<span class="mm-v">${v}</span>`:''}</button>`;
   }).join('');
-  card.innerHTML=`<div style="background:#fff;border-radius:16px;padding:16px 18px;box-shadow:0 2px 10px rgba(120,90,70,0.07)">
-    <div style="font-size:14px;font-weight:800;color:#2d1f1a;margin-bottom:3px">${topic.emoji} ${topic.title}</div>
-    <div style="font-size:11px;color:#a89b8e;margin-bottom:12px">${topic.desc}${totalV?` · ${totalV}명 참여`:''}${myVote?' · 다시 누르면 변경':''}</div>
-    <div style="display:flex;flex-wrap:wrap;gap:7px">${chips}</div>
+  card.innerHTML=`<div class="info-card">
+    <div class="info-title"><span class="info-emoji">${topic.emoji}</span> ${topic.title}</div>
+    <div class="info-desc">${topic.desc}${totalV?` · ${totalV}명 참여`:''}${myVote?' · 다시 누르면 변경':''}</div>
+    <div class="info-chips">${chips}</div>
   </div>`;
 }
 async function dailyVote(name){
@@ -3182,6 +3209,14 @@ function renderBktGames(sess){
   B.forEach((r,ri)=>r.courts.forEach((ct,ci)=>{if(!_cScoreable(ct)||_cScored(ri,ci))return;ct.forEach(ai=>{if(ai>=0){(_pBusy[ai]=_pBusy[ai]||new Set()).add(ri);}});}));
   const _blockedBefore=(ai,ri)=>{const s=_pBusy[ai];if(!s)return false;for(const rj of s){if(rj<ri)return true;}return false;};
   const _courtStat=(ri,ci,ct)=>{if(_cScored(ri,ci))return 'done';for(const p of ct){if(p>=0&&_blockedBefore(p,ri))return 'wait';}return 'now';};
+  // 게임(라운드)별 상태 요약
+  const roundStat=B.map((r,ri)=>{let anyNow=false,allDone=true,has=false;r.courts.forEach((ct,ci)=>{if(!ct||ct.length<4)return;has=true;const st=_courtStat(ri,ci,ct);if(st!=='done')allDone=false;if(st==='now')anyNow=true;});return !has?'wait':(allDone?'done':(anyNow?'now':'wait'));});
+  // 게임 선택 칩 (요가 앱식 데이 셀렉터) — 눌러서 해당 게임으로 이동
+  if(B.length>1){
+    const nav=document.createElement('div');nav.className='bk-nav';
+    nav.innerHTML=B.map((r,ri)=>{const st=roundStat[ri];const c=st==='done'?'bk-nav-done':st==='now'?'bk-nav-now':'bk-nav-wait';const mk=st==='done'?' ✓':st==='now'?' ●':'';return `<button class="bk-navp ${c}" onclick="var e=document.getElementById('bkg${ri}');if(e)e.scrollIntoView({behavior:'smooth',block:'start'})">${ri+1}게임${mk}</button>`;}).join('');
+    cont.appendChild(nav);
+  }
   // 안내 배너 (점수 입력으로 자동 판정 — 탭 불필요)
   if(B.length>1&&!doneByRound.every(Boolean)){
     const hint=document.createElement('div');
@@ -3190,7 +3225,7 @@ function renderBktGames(sess){
     cont.appendChild(hint);
   }
   B.forEach((round,ri)=>{
-    const bl=document.createElement('div');bl.className='bk-group';
+    const bl=document.createElement('div');bl.className='bk-group';bl.id='bkg'+ri;
     const _done=doneByRound[ri];
     // 이 게임 안의 코트별 상태 요약 (하나라도 지금 가능하면 지금 가능)
     let _anyNow=false,_allDone=true,_hasCourt=false;
@@ -3225,7 +3260,9 @@ function renderBktGames(sess){
       const tpColor=tpLabel==='남복'?'#e8845a':tpLabel==='여복'?'#f04452':tpLabel==='혼복'?'#00b493':tpLabel==='미정'?'#8b95a1':'';
       const tpBadge=tpLabel?`<span style="font-size:11px;font-weight:700;padding:2px 8px;border-radius:6px;background:${tpColor}20;color:${tpColor};flex-shrink:0">${tpLabel}</span>`:'';
       const helperNote=hasHelper?`<div style="font-size:11px;color:#8b95a1;font-weight:600;margin-top:6px">헬퍼가 포함된 코트로 점수가 반영되지 않습니다</div>`:'';
-      return `<div class="bk-court" style="background:${P.bg}"><div class="bk-top"><span class="bk-ct" style="color:${P.ink}">코트 ${ci+1}${tpLabel?' · '+tpLabel:''}</span>${doneBadge}</div><div class="bk-teams"><div class="bk-team">${nm(ct[0])}${nm(ct[1])}</div><span class="bk-vs">vs</span><div class="bk-team bk-team-r">${nm(ct[2])}${nm(ct[3])}</div></div>${helperNote}</div>`;
+      const _blockers=(!_cDone&&_cScoreable(ct)&&_stat==='wait')?ct.filter(a=>a>=0&&_blockedBefore(a,ri)).map(a=>pname(sess,a)):[];
+      const waitNote=_blockers.length?`<div class="bk-wait-note">${_blockers.join('·')} 경기가 끝나면 가능해요</div>`:'';
+      return `<div class="bk-court" style="background:${P.bg}"><div class="bk-top"><span class="bk-ct" style="color:${P.ink}">코트 ${ci+1}${tpLabel?' · '+tpLabel:''}</span>${doneBadge}</div><div class="bk-teams"><div class="bk-team">${nm(ct[0])}${nm(ct[1])}</div><span class="bk-vs">vs</span><div class="bk-team bk-team-r">${nm(ct[2])}${nm(ct[3])}</div></div>${helperNote}${waitNote}</div>`;
     }).join('');
     const wh=round.wait&&round.wait.length?round.wait.map(ai=>`<span class="w-chip">${pname(sess,ai)}</span>`).join(''):`<span class="w-chip" style="color:var(--green)">전원 참가</span>`;
     bl.innerHTML=`<div class="bk-ghdr"><span class="bk-gnum">${ri+1}게임</span>${_badge}<span class="bk-gpill">${sess.gm}게임제</span></div><div class="bk-list">${ch}<div class="sc-wait"><span class="sc-wait-lbl">대기</span>${wh}</div></div>`;
@@ -3268,17 +3305,21 @@ function renderGCPanel(sess){
   rows.sort((a,b)=>a.s-b.s||a.d-b.d||a.nm.localeCompare(b.nm));
   const chips=rows.map(r=>{
     const low=r.s<maxS;
-    const bg=low?'#fff3ec':'var(--gray-50)',bd=low?'#f0c3a8':'var(--gray-200)',cl=low?'#c2551f':'var(--gray-700)';
-    return `<span style="display:inline-flex;align-items:center;gap:5px;padding:5px 10px;border-radius:20px;background:${bg};border:1px solid ${bd};font-size:12.5px;font-weight:700;color:${cl}">${r.w?'<span style="width:6px;height:6px;border-radius:50%;background:#e8845a;display:inline-block"></span>':''}${r.nm}<span style="font-weight:800;color:${low?'#e8845a':'var(--gray-400)'}">${r.d}/${r.s}</span></span>`;
+    const full=r.d>=r.s&&r.s>0;
+    return `<span class="gc-chip${low?' low':''}${full?' full':''}">${r.w?'<span class="gc-dot"></span>':''}${r.nm}<span class="gc-frac">${r.d}/${r.s}</span></span>`;
   }).join('');
   const anyLow=rows.some(r=>r.s<maxS);
-  cont.innerHTML=`<div style="background:var(--white);border-radius:16px;padding:14px 16px;margin-bottom:14px;box-shadow:0 1px 4px rgba(0,0,0,.06)">
-    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
-      <span style="font-size:14px;font-weight:800;color:var(--gray-900)">게임 수 현황 <span style="font-size:11px;font-weight:600;color:var(--gray-400)">완료/배정</span></span>
-      <span style="font-size:11px;font-weight:700;color:${anyLow?'#e8845a':'var(--green)'}">${anyLow?'게임 수 편차 있음':'고르게 배정됨'}</span>
+  let totalCourts=0,doneCourts=0;
+  B.forEach((r,ri)=>r.courts.forEach((ct,ci)=>{if(!ct||ct.length<4)return;totalCourts++;const sv=sc[`${ri}-${ci}`]||{};if(sv.s1!==undefined&&sv.s1!==null&&sv.s2!==undefined&&sv.s2!==null)doneCourts++;}));
+  const pct=totalCourts?Math.round(doneCourts/totalCourts*100):0;
+  cont.innerHTML=`<div class="info-card">
+    <div style="display:flex;align-items:center;justify-content:space-between">
+      <span class="info-title">게임 수 현황 <span style="font-size:11px;font-weight:700;color:var(--warm-muted)">완료/배정</span></span>
+      <span class="gc-flag" style="color:${anyLow?'#e8845a':'#00b493'}">${anyLow?'게임 수 편차 있음':'고르게 배정됨'}</span>
     </div>
-    <div style="display:flex;flex-wrap:wrap;gap:7px">${chips}</div>
-    <div style="font-size:11px;color:var(--gray-400);margin-top:9px"><span style="width:6px;height:6px;border-radius:50%;background:#e8845a;display:inline-block;vertical-align:middle;margin-right:3px"></span>현재 대기 · 주황 칩은 배정 게임이 적은 인원</div>
+    <div class="gc-prog"><div class="gc-prog-top"><span>오늘 진행률</span><span>${doneCourts}/${totalCourts} 경기 · ${pct}%</span></div><div class="gc-bar"><div class="gc-bar-fill" style="width:${pct}%"></div></div></div>
+    <div class="info-chips">${chips}</div>
+    <div class="gc-foot"><span class="gc-dot"></span>현재 대기 · 주황 칩은 배정 게임이 적은 인원</div>
   </div>`;
 }
 
