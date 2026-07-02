@@ -290,6 +290,12 @@ body{background:#f6f3ef;color:var(--gray-900);font-family:'Pretendard',-apple-sy
 .bk-nav-now{background:#00b493;color:#fff;box-shadow:0 4px 12px rgba(0,180,147,.28)}
 .bk-nav-done{background:#fff;color:#9aa5b1;box-shadow:0 2px 8px rgba(45,31,26,.06)}
 .bk-nav-wait{background:#fff;color:var(--warm-sub);box-shadow:0 2px 8px rgba(45,31,26,.06)}
+.bk-nav-play{background:#e8845a;color:#fff;box-shadow:0 4px 12px rgba(232,132,90,.3)}
+.bk-badges{display:flex;align-items:center;gap:7px;flex-shrink:0}
+.bk-start{border:none;border-radius:20px;padding:6px 13px;font-size:12px;font-weight:800;font-family:inherit;cursor:pointer;background:#2d1f1a;color:#fff;transition:transform .12s}
+.bk-start:active{transform:scale(.93)}
+.bk-cancel{border:none;border-radius:20px;padding:6px 12px;font-size:11.5px;font-weight:700;font-family:inherit;cursor:pointer;background:rgba(255,255,255,.7);color:#9c8f82;transition:transform .12s}
+.bk-cancel:active{transform:scale(.93)}
 /* 진행바 (매니지팀식) */
 .gc-prog{margin:15px 0 6px}
 .gc-prog-top{display:flex;justify-content:space-between;font-size:12px;font-weight:800;color:var(--warm-sub);margin-bottom:8px}
@@ -3197,6 +3203,11 @@ async function loadBracket(){
   renderBktGames(sess);
 }
 
+// 진행 중(코트에 올린) 경기 표시 — 기기 로컬 저장
+function _ipKey(d){return 'termes-ip-'+d;}
+function _loadStarted(d){try{return new Set(JSON.parse(localStorage.getItem(_ipKey(d))||'[]'));}catch(e){return new Set();}}
+function _saveStarted(d,set){try{localStorage.setItem(_ipKey(d),JSON.stringify([...set]));}catch(e){}}
+function tstart(key){const d=actKey();const s=_loadStarted(d);if(s.has(key))s.delete(key);else s.add(key);_saveStarted(d,s);if(curSess)renderBktGames(curSess);}
 function renderBktGames(sess){
   const cont=document.getElementById('bktGames');if(!cont)return;cont.innerHTML='';
   const B=getB(sess),sc=getSc(sess);
@@ -3205,35 +3216,46 @@ function renderBktGames(sess){
   // 경기(코트) 단위 진행 판정: 한 코트라도 점수가 나면 그 선수들은 자유 → 다음 게임 경기가 열림
   const _cScored=(ri,ci)=>{const v=sc[`${ri}-${ci}`]||{};return v.s1!==undefined&&v.s1!==null&&v.s2!==undefined&&v.s2!==null;};
   const _cScoreable=ct=>ct&&ct.length>=4&&!ct.includes(-1)&&!ct.some(a=>a==null||a===-2);
-  // 진행 판정: 선수가 겹치지 않으면 몇 게임이든 먼저 시작 가능 (이른 순서부터 자동 선택)
-  const _busy=new Set();     // 지금 코트에 오른 선수
-  const _nowSet=new Set();   // '지금 가능'으로 잡힌 경기 키
-  for(let ri=0;ri<B.length;ri++){const cts=B[ri].courts||[];for(let ci=0;ci<cts.length;ci++){const ct=cts[ci];if(!_cScoreable(ct)||_cScored(ri,ci))continue;const ps=ct.filter(a=>a>=0);if(ps.some(p=>_busy.has(p)))continue;_nowSet.add(ri+'-'+ci);ps.forEach(p=>_busy.add(p));}}
-  const _courtStat=(ri,ci,ct)=>{if(_cScored(ri,ci))return 'done';if(!_cScoreable(ct))return 'wait';return _nowSet.has(ri+'-'+ci)?'now':'wait';};
+  // 진행 판정: '시작' 표시가 있으면 그 경기만 선수 점유 → 겹치지 않는 다른 경기 자동 개방
+  //            없으면 이른 순서부터 겹치지 않는 경기 자동 제안
+  const _day=actKey();
+  let _started=_loadStarted(_day);
+  _started=new Set([..._started].filter(k=>{const a=k.split('-'),r=+a[0],c=+a[1];const ct=B[r]&&B[r].courts&&B[r].courts[c];return ct&&_cScoreable(ct)&&!_cScored(r,c);}));
+  const _hasStarted=_started.size>0;
+  const _busy=new Set();
+  const _nowSet=new Set();
+  if(_hasStarted){
+    _started.forEach(k=>{const a=k.split('-'),r=+a[0],c=+a[1];(B[r].courts[c]||[]).forEach(x=>{if(x>=0)_busy.add(x);});});
+    for(let ri=0;ri<B.length;ri++){const cts=B[ri].courts||[];for(let ci=0;ci<cts.length;ci++){const ct=cts[ci];if(!_cScoreable(ct)||_cScored(ri,ci)||_started.has(ri+'-'+ci))continue;if(!ct.some(a=>a>=0&&_busy.has(a)))_nowSet.add(ri+'-'+ci);}}
+  } else {
+    for(let ri=0;ri<B.length;ri++){const cts=B[ri].courts||[];for(let ci=0;ci<cts.length;ci++){const ct=cts[ci];if(!_cScoreable(ct)||_cScored(ri,ci))continue;const ps=ct.filter(a=>a>=0);if(ps.some(p=>_busy.has(p)))continue;_nowSet.add(ri+'-'+ci);ps.forEach(p=>_busy.add(p));}}
+  }
+  const _courtStat=(ri,ci,ct)=>{if(_cScored(ri,ci))return 'done';if(!_cScoreable(ct))return 'wait';if(_hasStarted&&_started.has(ri+'-'+ci))return 'playing';return _nowSet.has(ri+'-'+ci)?'now':'wait';};
   // 게임(라운드)별 상태 요약
-  const roundStat=B.map((r,ri)=>{let anyNow=false,allDone=true,has=false;r.courts.forEach((ct,ci)=>{if(!ct||ct.length<4)return;has=true;const st=_courtStat(ri,ci,ct);if(st!=='done')allDone=false;if(st==='now')anyNow=true;});return !has?'wait':(allDone?'done':(anyNow?'now':'wait'));});
+  const roundStat=B.map((r,ri)=>{let anyNow=false,anyPlay=false,allDone=true,has=false;r.courts.forEach((ct,ci)=>{if(!ct||ct.length<4)return;has=true;const st=_courtStat(ri,ci,ct);if(st!=='done')allDone=false;if(st==='now')anyNow=true;if(st==='playing')anyPlay=true;});return !has?'wait':(allDone?'done':(anyNow?'now':(anyPlay?'playing':'wait')));});
   // 게임 선택 칩 (요가 앱식 데이 셀렉터) — 눌러서 해당 게임으로 이동
   if(B.length>1){
     const nav=document.createElement('div');nav.className='bk-nav';
-    nav.innerHTML=B.map((r,ri)=>{const st=roundStat[ri];const c=st==='done'?'bk-nav-done':st==='now'?'bk-nav-now':'bk-nav-wait';const mk=st==='done'?' ✓':st==='now'?' ●':'';return `<button class="bk-navp ${c}" onclick="var e=document.getElementById('bkg${ri}');if(e)e.scrollIntoView({behavior:'smooth',block:'start'})">${ri+1}게임${mk}</button>`;}).join('');
+    nav.innerHTML=B.map((r,ri)=>{const st=roundStat[ri];const c=st==='done'?'bk-nav-done':st==='now'?'bk-nav-now':st==='playing'?'bk-nav-play':'bk-nav-wait';const mk=st==='done'?' ✓':(st==='now'||st==='playing')?' ●':'';return `<button class="bk-navp ${c}" onclick="var e=document.getElementById('bkg${ri}');if(e)e.scrollIntoView({behavior:'smooth',block:'start'})">${ri+1}게임${mk}</button>`;}).join('');
     cont.appendChild(nav);
   }
   // 안내 배너 (점수 입력으로 자동 판정 — 탭 불필요)
   if(B.length>1&&!doneByRound.every(Boolean)){
     const hint=document.createElement('div');
     hint.style.cssText='background:#f0faf7;border:1px solid #c9ede2;border-radius:12px;padding:10px 13px;margin-bottom:12px;font-size:12px;color:#3a2e28;line-height:1.55';
-    hint.innerHTML='게임은 <b>순서 상관없이</b> 진행할 수 있어요. 한 경기라도 점수가 입력되면 그 선수들이 자유가 되어, 그들이 들어가는 다음 게임 경기에 <b style="color:#00b493">지금 가능</b>이 자동으로 떠요. 끝난 경기는 <b style="color:#00b493">경기 완료</b>로 표시돼요.';
+    hint.innerHTML='게임은 <b>순서 상관없이</b> 진행할 수 있어요. 겹치는 선수가 없으면 <b style="color:#00b493">지금 가능</b>이 떠요. 코트에 올린 경기의 <b>▶ 시작</b>을 누르면, 그 선수들과 안 겹치는 다른 게임(4·5·6게임 포함)이 자동으로 열립니다.';
     cont.appendChild(hint);
   }
   B.forEach((round,ri)=>{
     const bl=document.createElement('div');bl.className='bk-group';bl.id='bkg'+ri;
     const _done=doneByRound[ri];
     // 이 게임 안의 코트별 상태 요약 (하나라도 지금 가능하면 지금 가능)
-    let _anyNow=false,_allDone=true,_hasCourt=false;
-    round.courts.forEach((ct,ci)=>{if(!ct||ct.length<4)return;_hasCourt=true;const st=_courtStat(ri,ci,ct);if(st!=='done')_allDone=false;if(st==='now')_anyNow=true;});
+    let _anyNow=false,_anyPlay=false,_allDone=true,_hasCourt=false;
+    round.courts.forEach((ct,ci)=>{if(!ct||ct.length<4)return;_hasCourt=true;const st=_courtStat(ri,ci,ct);if(st!=='done')_allDone=false;if(st==='now')_anyNow=true;if(st==='playing')_anyPlay=true;});
     let _badge='';
     if(_hasCourt&&_allDone)_badge='<span style="font-size:11px;font-weight:800;padding:2px 9px;border-radius:20px;background:#eef1f4;color:#9aa5b1;flex-shrink:0">완료</span>';
     else if(_anyNow)_badge='<span style="font-size:11px;font-weight:800;padding:2px 9px;border-radius:20px;background:#e2f7f0;color:#00b493;flex-shrink:0">지금 가능</span>';
+    else if(_anyPlay)_badge='<span style="font-size:11px;font-weight:800;padding:2px 9px;border-radius:20px;background:#fdeee6;color:#e8845a;flex-shrink:0">진행 중</span>';
     else _badge='<span style="font-size:11px;font-weight:700;padding:2px 9px;border-radius:20px;background:#f4f1ee;color:#b5a99c;flex-shrink:0">대기</span>';
 
     const ch=round.courts.map((ct,ci)=>{
@@ -3244,7 +3266,13 @@ function renderBktGames(sess){
       const _csv=sc[`${ri}-${ci}`]||{};
       const _cDone=(_csv.s1!==undefined&&_csv.s1!==null&&_csv.s2!==undefined&&_csv.s2!==null);
       const _stat=_courtStat(ri,ci,ct);
-      const doneBadge=_cDone?`<span style="font-size:11px;font-weight:800;padding:3px 9px;border-radius:20px;background:#fff;color:#00866D;flex-shrink:0">\u2713 ${_csv.s1}:${_csv.s2}</span>`:(_cScoreable(ct)?(_stat==='now'?`<span style="font-size:11px;font-weight:800;padding:3px 9px;border-radius:20px;background:#fff;color:#00866D;flex-shrink:0">지금 가능</span>`:`<span style="font-size:11px;font-weight:700;padding:3px 9px;border-radius:20px;background:rgba(255,255,255,.5);color:#9c8f82;flex-shrink:0">대기</span>`):'');
+      let doneBadge;
+      if(_cDone)doneBadge=`<span style="font-size:11px;font-weight:800;padding:3px 9px;border-radius:20px;background:#fff;color:#00866D;flex-shrink:0">\u2713 ${_csv.s1}:${_csv.s2}</span>`;
+      else if(_stat==='playing')doneBadge=`<span style="font-size:11px;font-weight:800;padding:3px 9px;border-radius:20px;background:#fff;color:#e8845a;flex-shrink:0">● 진행 중</span>`;
+      else if(_stat==='now')doneBadge=`<span style="font-size:11px;font-weight:800;padding:3px 9px;border-radius:20px;background:#fff;color:#00866D;flex-shrink:0">지금 가능</span>`;
+      else if(_cScoreable(ct))doneBadge=`<span style="font-size:11px;font-weight:700;padding:3px 9px;border-radius:20px;background:rgba(255,255,255,.5);color:#9c8f82;flex-shrink:0">대기</span>`;
+      else doneBadge='';
+      const startBtn=(!_cDone&&_cScoreable(ct))?(_stat==='now'?`<button class="bk-start" onclick="event.stopPropagation();tstart('${ri}-${ci}')">▶ 시작</button>`:(_stat==='playing'?`<button class="bk-cancel" onclick="event.stopPropagation();tstart('${ri}-${ci}')">시작 취소</button>`:'')):'';
       const p=ai=>ai===-1
         ?`<span class="p-tag" style="color:#a89b8e;background:#f5f0eb">헬퍼</span>`
         :`<span class="p-tag" onclick="showPlayerFromName('${pname(sess,ai)}')">${pname(sess,ai)}</span>`;
@@ -3263,7 +3291,7 @@ function renderBktGames(sess){
       const helperNote=hasHelper?`<div style="font-size:11px;color:#8b95a1;font-weight:600;margin-top:6px">헬퍼가 포함된 코트로 점수가 반영되지 않습니다</div>`:'';
       const _blockers=(!_cDone&&_cScoreable(ct)&&_stat==='wait')?ct.filter(a=>a>=0&&_busy.has(a)).map(a=>pname(sess,a)):[];
       const waitNote=_blockers.length?`<div class="bk-wait-note">${_blockers.join('·')} 경기가 끝나면 가능해요</div>`:'';
-      return `<div class="bk-court" style="background:${P.bg}"><div class="bk-top"><span class="bk-ct" style="color:${P.ink}">코트 ${ci+1}${tpLabel?' · '+tpLabel:''}</span>${doneBadge}</div><div class="bk-teams"><div class="bk-team">${nm(ct[0])}${nm(ct[1])}</div><span class="bk-vs">vs</span><div class="bk-team bk-team-r">${nm(ct[2])}${nm(ct[3])}</div></div>${helperNote}${waitNote}</div>`;
+      return `<div class="bk-court" style="background:${P.bg}${_stat==='playing'?';outline:2.5px solid #e8845a;outline-offset:-2px':''}"><div class="bk-top"><span class="bk-ct" style="color:${P.ink}">코트 ${ci+1}${tpLabel?' · '+tpLabel:''}</span><div class="bk-badges">${doneBadge}${startBtn}</div></div><div class="bk-teams"><div class="bk-team">${nm(ct[0])}${nm(ct[1])}</div><span class="bk-vs">vs</span><div class="bk-team bk-team-r">${nm(ct[2])}${nm(ct[3])}</div></div>${helperNote}${waitNote}</div>`;
     }).join('');
     const wh=round.wait&&round.wait.length?round.wait.map(ai=>`<span class="w-chip">${pname(sess,ai)}</span>`).join(''):`<span class="w-chip" style="color:var(--green)">전원 참가</span>`;
     bl.innerHTML=`<div class="bk-ghdr"><span class="bk-gnum">${ri+1}게임</span>${_badge}<span class="bk-gpill">${sess.gm}게임제</span></div><div class="bk-list">${ch}<div class="sc-wait"><span class="sc-wait-lbl">대기</span>${wh}</div></div>`;
