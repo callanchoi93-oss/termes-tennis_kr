@@ -3134,31 +3134,32 @@ function renderBktGames(sess){
   const B=getB(sess),sc=getSc(sess);
   const playersByRound=B.map(r=>_gamePlayers(r));
   const doneByRound=B.map((r,ri)=>_gameDoneR(r,ri,sc));
-  for(const gi of [..._ipg]){if(doneByRound[gi])_ipg.delete(gi);}
-  const _anyProg=_ipg.size>0;
-  // 안내 배너
+  // 안내 배너 (점수 입력으로 자동 판정 — 탭 불필요)
   if(B.length>1&&!doneByRound.every(Boolean)){
     const hint=document.createElement('div');
     hint.style.cssText='background:#f0faf7;border:1px solid #c9ede2;border-radius:12px;padding:10px 13px;margin-bottom:12px;font-size:12px;color:#3a2e28;line-height:1.55';
-    hint.innerHTML=_anyProg?'현재 <b style="color:#e8845a">진행 중</b>인 게임과 겹치는 선수가 없는 게임에 <b style="color:#00b493">지금 가능</b>이 표시돼요. 순서 상관없이 먼저 진행해도 됩니다.':'게임은 <b>순서 상관없이</b> 진행할 수 있어요. 지금 코트에서 뛰는 게임을 <b>탭</b>하면, 겹치는 선수가 없어 바로 시작해도 되는 게임에 <b style="color:#00b493">지금 가능</b> 표시가 떠요.';
+    hint.innerHTML='게임은 <b>순서 상관없이</b> 진행할 수 있어요. 점수가 입력된 경기는 <b style="color:#00b493">경기 완료</b>로 표시되고, 아직 안 끝난 앞 게임과 <b>겹치는 선수가 없는</b> 게임에는 <b style="color:#00b493">지금 가능</b>이 자동으로 떠요.';
     cont.appendChild(hint);
   }
   B.forEach((round,ri)=>{
     const bl=document.createElement('div');bl.className='round-card';
-    const _pl=playersByRound[ri],_done=doneByRound[ri],_inProg=_ipg.has(ri);
+    const _pl=playersByRound[ri],_done=doneByRound[ri];
+    // 앞선 '미완료' 게임과 선수가 겹치면 대기, 안 겹치면 지금 가능 (점수 기반 자동)
     let _conflict=false;
-    if(_anyProg&&!_inProg&&!_done){for(const gi of _ipg){if(gi===ri)continue;const op=playersByRound[gi];if(op&&[..._pl].some(x=>op.has(x))){_conflict=true;break;}}}
+    if(!_done){for(let rj=0;rj<ri;rj++){if(doneByRound[rj])continue;const op=playersByRound[rj];if(op&&[..._pl].some(x=>op.has(x))){_conflict=true;break;}}}
     let _badge='';
     if(_done)_badge='<span style="font-size:11px;font-weight:800;padding:2px 9px;border-radius:20px;background:#eef1f4;color:#9aa5b1;flex-shrink:0">완료</span>';
-    else if(_inProg)_badge='<span style="font-size:11px;font-weight:800;padding:2px 9px;border-radius:20px;background:#fef0e6;color:#e8845a;flex-shrink:0">● 진행 중<span data-ipt="'+ri+'"></span></span>';
-    else if(_anyProg&&!_conflict)_badge='<span style="font-size:11px;font-weight:800;padding:2px 9px;border-radius:20px;background:#e2f7f0;color:#00b493;flex-shrink:0">지금 가능</span>';
-    else if(_anyProg&&_conflict)_badge='<span style="font-size:11px;font-weight:700;padding:2px 9px;border-radius:20px;background:#f4f1ee;color:#b5a99c;flex-shrink:0">대기</span>';
-    if(_inProg)bl.style.cssText='outline:2px solid #e8845a;outline-offset:-1px';
+    else if(!_conflict)_badge='<span style="font-size:11px;font-weight:800;padding:2px 9px;border-radius:20px;background:#e2f7f0;color:#00b493;flex-shrink:0">지금 가능</span>';
+    else _badge='<span style="font-size:11px;font-weight:700;padding:2px 9px;border-radius:20px;background:#f4f1ee;color:#b5a99c;flex-shrink:0">대기</span>';
+    if(!_done&&!_conflict)bl.style.cssText='outline:2px solid #00b493;outline-offset:-1px';
 
     const ch=round.courts.map((ct,ci)=>{
       if(!ct||ct.length<4)return '';
       const col=CC[ci%CC.length];
       const hasHelper=ct.includes(-1);
+      const _csv=sc[`${ri}-${ci}`]||{};
+      const _cDone=(_csv.s1!==undefined&&_csv.s1!==null&&_csv.s2!==undefined&&_csv.s2!==null);
+      const doneBadge=_cDone?`<span style="font-size:11px;font-weight:800;padding:2px 8px;border-radius:20px;background:#e2f7f0;color:#00b493;flex-shrink:0">\u2713 경기 완료 ${_csv.s1}:${_csv.s2}</span>`:'';
       const p=ai=>ai===-1
         ?`<span class="p-tag" style="color:#a89b8e;background:#f5f0eb">헬퍼</span>`
         :`<span class="p-tag" onclick="showPlayerFromName('${pname(sess,ai)}')">${pname(sess,ai)}</span>`;
@@ -3167,17 +3168,17 @@ function renderBktGames(sess){
         const isEmpty=ai=>ai==null||ai===-2;
         const blueChip=ai=>isEmpty(ai)?`<span class="p-tag" style="background:#f5f0eb;color:#c4b5a9;border:1px dashed #ddd3c8">미정</span>`:`<span class="p-tag" style="background:#dbeafe;color:#1e40af;border:1px solid #93c5fd" onclick="showPlayerFromName('${pname(sess,ai)}')">${pname(sess,ai)}</span>`;
         const whiteChip=ai=>isEmpty(ai)?`<span class="p-tag" style="background:#f5f0eb;color:#c4b5a9;border:1px dashed #ddd3c8">미정</span>`:`<span class="p-tag" style="background:#fff;color:#b91c1c;border:1px solid #fca5a5" onclick="showPlayerFromName('${pname(sess,ai)}')">${pname(sess,ai)}</span>`;
-        return `<div class="court-row" style="background:linear-gradient(90deg,#eff6ff,#fef2f2);border-left:4px solid #3b82f6"><div class="ct-lbl">코트 ${ci+1}</div><div style="display:flex;align-items:center;gap:6px;flex-wrap:nowrap"><span style="font-size:10px;font-weight:800;color:#1e40af;flex-shrink:0">청</span><div style="display:flex;gap:4px;flex:1;min-width:0">${blueChip(ct[0])}${blueChip(ct[1])}</div><span class="vs-t" style="flex-shrink:0;margin:0 2px">VS</span><div style="display:flex;gap:4px;flex:1;min-width:0">${whiteChip(ct[2])}${whiteChip(ct[3])}</div><span style="font-size:10px;font-weight:800;color:#b91c1c;flex-shrink:0">백</span></div></div>`;
+        return `<div class="court-row" style="background:${_cDone?'#f0faf7':'linear-gradient(90deg,#eff6ff,#fef2f2)'};border-left:4px solid ${_cDone?'#00b493':'#3b82f6'}"><div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-bottom:2px"><div class="ct-lbl" style="margin:0">코트 ${ci+1}</div>${doneBadge}</div><div style="display:flex;align-items:center;gap:6px;flex-wrap:nowrap"><span style="font-size:10px;font-weight:800;color:#1e40af;flex-shrink:0">청</span><div style="display:flex;gap:4px;flex:1;min-width:0">${blueChip(ct[0])}${blueChip(ct[1])}</div><span class="vs-t" style="flex-shrink:0;margin:0 2px">VS</span><div style="display:flex;gap:4px;flex:1;min-width:0">${whiteChip(ct[2])}${whiteChip(ct[3])}</div><span style="font-size:10px;font-weight:800;color:#b91c1c;flex-shrink:0">백</span></div></div>`;
       }
       // 성별 대진 타입 배지
       const tpLabel=round.courtTypeLabels?round.courtTypeLabels[ci]:'';
       const tpColor=tpLabel==='남복'?'#e8845a':tpLabel==='여복'?'#f04452':tpLabel==='혼복'?'#00b493':tpLabel==='미정'?'#8b95a1':'';
       const tpBadge=tpLabel?`<span style="font-size:11px;font-weight:700;padding:2px 8px;border-radius:6px;background:${tpColor}20;color:${tpColor};flex-shrink:0">${tpLabel}</span>`:'';
       const helperNote=hasHelper?`<div style="font-size:11px;color:#8b95a1;font-weight:600;margin-top:6px">헬퍼가 포함된 코트로 점수가 반영되지 않습니다</div>`:'';
-      return `<div class="court-row" style="background:${col}10;border-left:4px solid ${col}"><div class="ct-lbl">코트 ${ci+1}</div>${tpBadge}<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap"><div style="display:flex;gap:5px">${p(ct[0])}${p(ct[1])}</div><span class="vs-t">VS</span><div style="display:flex;gap:5px">${p(ct[2])}${p(ct[3])}</div></div>${helperNote}</div>`;
+      return `<div class="court-row" style="background:${_cDone?'#f0faf7':col+'10'};border-left:4px solid ${_cDone?'#00b493':col}"><div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap"><div class="ct-lbl">코트 ${ci+1}</div>${tpBadge}${doneBadge}</div><div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-top:6px"><div style="display:flex;gap:5px">${p(ct[0])}${p(ct[1])}</div><span class="vs-t">VS</span><div style="display:flex;gap:5px">${p(ct[2])}${p(ct[3])}</div></div>${helperNote}</div>`;
     }).join('');
     const wh=round.wait&&round.wait.length?round.wait.map(ai=>`<span class="w-chip">${pname(sess,ai)}</span>`).join(''):`<span class="w-chip" style="color:var(--green)">전원 참가</span>`;
-    bl.innerHTML=`<div class="round-hdr"${_done?'':' onclick=\"toggleInProgress('+ '${ri}'+')\" style=\"cursor:pointer\"'}><div class="round-title" style="display:flex;align-items:center;gap:7px">${ri+1}게임 ${_badge}</div><div class="round-badge">${sess.gm}게임제</div></div><div style="padding:14px;display:flex;flex-direction:column;gap:10px">${ch}<div class="wait-row"><span style="font-size:13px;font-weight:700;color:var(--gray-500);min-width:36px">대기</span>${wh}</div></div>`;
+    bl.innerHTML=`<div class="round-hdr"><div class="round-title" style="display:flex;align-items:center;gap:7px">${ri+1}게임 ${_badge}</div><div class="round-badge">${sess.gm}게임제</div></div><div style="padding:14px;display:flex;flex-direction:column;gap:10px">${ch}<div class="wait-row"><span style="font-size:13px;font-weight:700;color:var(--gray-500);min-width:36px">대기</span>${wh}</div></div>`;
     cont.appendChild(bl);
   });
   _syncTimerLoopM();
