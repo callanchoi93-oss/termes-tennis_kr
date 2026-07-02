@@ -1539,9 +1539,11 @@ function genGenderBracket(n,c,r,ppr,waitSz){
   // 4명 그룹의 "코트 비용" (이 4명을 한 코트에 묶는 비용)
   function courtCost(four){
     // A↔C 같은 코트 소프트 페널티 (최대한 피하되 불가피하면 허용)
+    // 단, 늦참자가 포함된 코트는 면제 → 늦참 패널티로 A라도 C와 같은 팀 허용
     const hasA=four.some(x=>pInfo[x].grade==='A');
     const hasC=four.some(x=>pInfo[x].grade==='C');
-    const acPenalty=(hasA&&hasC)?500:0;
+    const hasLate=four.some(x=>startRound[x]>0);
+    const acPenalty=(hasA&&hasC&&!hasLate)?500:0;
     // 남복 우선: 실제 남성 4명 코트이고 남복 목표 미달자가 있으면 비용 감소(보너스)
     let mensBonus=0;
     const realMaleCnt=four.filter(x=>pInfo[x].realGender==='M').length;
