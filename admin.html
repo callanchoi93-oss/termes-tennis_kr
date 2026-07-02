@@ -1149,20 +1149,6 @@ function getLateArrivals(){
   return result;
 }
 
-function getLateArrivals(){
-  // {roundIndex: [playerIndex, ...]} 형태로 반환
-  const result={};
-  document.querySelectorAll('#lateList > div').forEach(div=>{
-    const sels=div.querySelectorAll('select');
-    if(sels.length<2)return;
-    const pi=parseInt(sels[0].value);
-    const ri=parseInt(sels[1].value);
-    if(isNaN(pi)||isNaN(ri))return;
-    if(!result[ri])result[ri]=[];
-    result[ri].push(pi);
-  });
-  return result;
-}
 function addGuest(){const list=document.getElementById('plist');const n=list.querySelectorAll('.player-item').length;appendGuestSlot(n);document.getElementById('playerN').value=n+1;}
 function appendSlot(i,name){
   const list=document.getElementById('plist');
