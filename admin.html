@@ -1651,22 +1651,21 @@ function genGenderBracket(n,c,r,ppr,waitSz){
     // 게임 적게 한 순(공평) + 약간 랜덤
     elig.sort((a,b)=>gameSoFar[a]-gameSoFar[b]||Math.random()-0.5);
     if(elig.length<1)continue; // 이번 라운드 가능 인원 없음(늦참 대기) → 다음 라운드
-    // 이번 라운드 코트 수: 남은 인원을 4명씩 (올림) → 부족분은 헬퍼로 채움 (단 c코트 이하)
-    const cnum=Math.min(c,Math.ceil(elig.length/4));
-    if(cnum<1)break;
+    // 도착한 전체 인원(헬퍼 없이 실제 인원으로만 코트 구성)
+    const arrived=Array.from({length:n},(_,i)=>i).filter(i=>startRound[i]<=ri);
+    // 코트 수: 게임 필요 인원(올림)과, 실제 인원으로 꽉 채울 수 있는 수(내림) 중 작은 값
+    // → 인원이 4의 배수가 아니면 코트를 줄이고 나머지는 대기 (헬퍼 안 씀)
+    const cnum=Math.min(c,Math.ceil(elig.length/4),Math.floor(arrived.length/4));
+    if(cnum<1)continue; // 도착 인원 4명 미만 → 이 라운드 건너뜀(다음 라운드에 더 도착)
     const need=cnum*4;
-    // 실제 선수 (게임 적은 순), 부족하면 헬퍼로 채움
+    // 게임 적은 순으로 need명 선발: 게임 필요한 사람 먼저, 부족분은 나머지 도착자로 (헬퍼 없음)
     let realPlaying=elig.slice(0,Math.min(need,elig.length));
-    // 헬퍼로 채우기 전에: 이미 도착한 인원(4게임 채운 사람 포함)으로 실제 코트를 채운다.
-    // → 사람이 있는데도 헬퍼가 많아지는 문제 방지 (특히 늦참 이후 뒷게임)
     if(realPlaying.length<need){
       const inSet=new Set(realPlaying);
-      const fill=Array.from({length:n},(_,i)=>i)
-        .filter(i=>startRound[i]<=ri&&!inSet.has(i))
-        .sort((a,b)=>gameSoFar[a]-gameSoFar[b]||Math.random()-0.5);
+      const fill=arrived.filter(i=>!inSet.has(i)).sort((a,b)=>gameSoFar[a]-gameSoFar[b]||Math.random()-0.5);
       for(const f of fill){if(realPlaying.length>=need)break;realPlaying.push(f);}
     }
-    const helperCnt=need-realPlaying.length;
+    const helperCnt=need-realPlaying.length; // 위 로직상 항상 0
 
     // 실제 선수만으로 코트 구성 최적화 → 그 후 헬퍼를 마지막 코트 빈자리에 배치
     // buildRound는 4의 배수만 처리하므로, 완전 코트(실선수 4명)와 헬퍼 코트를 분리
