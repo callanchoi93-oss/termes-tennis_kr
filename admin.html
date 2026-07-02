@@ -1659,6 +1659,15 @@ function genGenderBracket(n,c,r,ppr,waitSz){
     const need=cnum*4;
     // 실제 선수 (게임 적은 순), 부족하면 헬퍼로 채움
     let realPlaying=elig.slice(0,Math.min(need,elig.length));
+    // 헬퍼로 채우기 전에: 이미 도착한 인원(4게임 채운 사람 포함)으로 실제 코트를 채운다.
+    // → 사람이 있는데도 헬퍼가 많아지는 문제 방지 (특히 늦참 이후 뒷게임)
+    if(realPlaying.length<need){
+      const inSet=new Set(realPlaying);
+      const fill=Array.from({length:n},(_,i)=>i)
+        .filter(i=>startRound[i]<=ri&&!inSet.has(i))
+        .sort((a,b)=>gameSoFar[a]-gameSoFar[b]||Math.random()-0.5);
+      for(const f of fill){if(realPlaying.length>=need)break;realPlaying.push(f);}
+    }
     const helperCnt=need-realPlaying.length;
 
     // 실제 선수만으로 코트 구성 최적화 → 그 후 헬퍼를 마지막 코트 빈자리에 배치
