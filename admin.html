@@ -2194,17 +2194,17 @@ function renderScoreEditBody(sess){
     else if(anyProg&&!_conflict)_badge='<span style="font-size:11px;font-weight:800;padding:2px 9px;border-radius:20px;background:#e2f7f0;color:#00b493">지금 가능</span>';
     else if(anyProg&&_conflict)_badge='<span style="font-size:11px;font-weight:700;padding:2px 9px;border-radius:20px;background:#f4f1ee;color:#b5a99c">대기</span>';
     const swapOn=_swapRoundA===ri;
-    const swapBtn=_done?'':`<button onclick="startSwapA(${ri})" style="margin-left:auto;font-size:11px;font-weight:700;padding:3px 12px;border-radius:20px;border:1px solid ${swapOn?'#e8845a':'var(--gray-200)'};background:${swapOn?'#fef0e6':'var(--white)'};color:${swapOn?'#e8845a':'var(--gray-500)'};font-family:inherit;cursor:pointer">${swapOn?'✓ 완료':'인원 수정'}</button>`;
+    const swapBtn=`<button onclick="startSwapA(${ri})" style="margin-left:auto;font-size:11px;font-weight:700;padding:3px 12px;border-radius:20px;border:1px solid ${swapOn?'#e8845a':'var(--gray-200)'};background:${swapOn?'#fef0e6':'var(--white)'};color:${swapOn?'#e8845a':'var(--gray-500)'};font-family:inherit;cursor:pointer">${swapOn?'✓ 완료':'인원 수정'}</button>`;
     const titleTap=(_done||swapOn)?'':` onclick="toggleInProgressA(${ri})"`;
     sec.innerHTML=`<div class="se-round-title" style="display:flex;align-items:center;gap:8px${(_done||swapOn)?'':';cursor:pointer'}"${titleTap}>${ri+1}게임 ${_badge}${swapBtn}</div>`;
     if(_inProg)sec.style.cssText='outline:2px solid #e8845a;outline-offset:2px;border-radius:8px';
-    if(swapOn){const note=document.createElement('div');note.style.cssText='font-size:12px;color:#e8845a;font-weight:700;margin:2px 0 10px;line-height:1.5';note.innerHTML='바꿀 자리를 눌러 <b>다른 선수를 선택</b>하세요. 선택한 선수가 있던 자리(코트·대기)와 <b>자동으로 맞바뀝니다.</b>';sec.appendChild(note);}
+    if(swapOn){const note=document.createElement('div');note.style.cssText='font-size:12px;color:#e8845a;font-weight:700;margin:2px 0 10px;line-height:1.5';note.innerHTML='바꿀 자리를 눌러 <b>다른 선수</b>나 <b>헬퍼(비회원)</b>를 선택하세요.'+(_done?' <span style="color:#f04452">끝난 경기도 수정되며, 헬퍼로 바꾸면 그 자리는 회원 기록에서 빠집니다.</span>':' 선택한 선수가 있던 자리와 자동으로 맞바뀝니다.');sec.appendChild(note);}
     const _allEditM=Array.from({length:(sess.a||[]).length},(_,i)=>i).filter(i=>!(sess.out||[]).includes(i));
     const pdiv=(ai,slot)=>{
       const nm=pname2(sess,ai);
       if(swapOn){
         const pr=slot.split(':'); // ri : c : court : pos
-        const opts=_allEditM.map(mi=>`<option value="${mi}"${mi===ai?' selected':''}>${pname2(sess,mi)}</option>`).join('');
+        const opts=`<option value="-1"${ai===-1?' selected':''}>― 헬퍼(비회원)</option>`+_allEditM.map(mi=>`<option value="${mi}"${mi===ai?' selected':''}>${pname2(sess,mi)}</option>`).join('');
         return `<select class="se-edit-sel" onchange="editSlotA(${pr[0]},${pr[2]},${pr[3]},this.value)">${opts}</select>`;
       }
       return `<div class="se-player">${nm}</div>`;
@@ -2253,19 +2253,29 @@ function _findSlotA(rd,ai){
   const w=rd.w||[];for(let i=0;i<w.length;i++){if(w[i]===ai)return{type:'w',idx:i};}
   return null;
 }
-// 경기 인원 수동 수정: 특정 자리에 다른 선수를 직접 지정(있던 자리와 자동 맞바꿈)
-async function editSlotA(ri,court,pos,newAiRaw){
-  const newAi=parseInt(newAiRaw);const rd=editSess.b[ri];if(!rd||isNaN(newAi))return;
+// 경기 인원 수동 수정: 자리에 다른 선수 또는 헬퍼(-1)를 직접 지정
+async function editSlotA(ri,court,pos,newVal){
+  newVal=parseInt(newVal);const rd=editSess.b[ri];if(!rd||isNaN(newVal))return;
   const oldAi=rd.c[court][pos];
-  if(oldAi===newAi){renderScoreEditBody(editSess);return;}
-  const loc=_findSlotA(rd,newAi);
-  rd.c[court][pos]=newAi;
-  if(loc){if(loc.type==='c')rd.c[loc.court][loc.pos]=oldAi;else rd.w[loc.idx]=oldAi;}
+  if(oldAi===newVal){renderScoreEditBody(editSess);return;}
+  if(!rd.w)rd.w=[];
+  if(newVal<0){
+    // 이 자리를 헬퍼로 → 있던 실제 선수는 대기로
+    rd.c[court][pos]=-1;
+    if(oldAi>=0)rd.w.push(oldAi);
+  }else{
+    const loc=_findSlotA(rd,newVal); // 실제 선수 위치(코트/대기)
+    rd.c[court][pos]=newVal;
+    if(loc){
+      if(loc.type==='w'){ if(oldAi>=0)rd.w[loc.idx]=oldAi; else rd.w.splice(loc.idx,1); }
+      else{ rd.c[loc.court][loc.pos]=oldAi; }
+    }else if(oldAi>=0){ rd.w.push(oldAi); }
+  }
   _relabelRoundA(ri);
   _captureScoreInputs();
   editSess.sc._totals=calcT2(editSess);editSess.finished=checkDone2(editSess);editSess.pub=Date.now();
   const ok=await sset(editKey,editSess);
-  toast(ok?`${pname2(editSess,newAi)} 배치 완료`:'저장 실패');
+  toast(ok?(newVal<0?'헬퍼로 변경했습니다':pname2(editSess,newVal)+' 배치 완료'):'저장 실패');
   renderScoreEditBody(editSess);
 }
 async function pickSwapA(slot){
