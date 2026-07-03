@@ -1977,12 +1977,34 @@ async function archiveSession(today,sess){
 }
 
 // ── 기록 ──
+// 기록 목록(index) 복구: 실제 세션 데이터(sessions/archives)에서 목록을 다시 만든다 (삭제 없음)
+async function recoverHistory(){
+  const wrap=document.getElementById('histList');
+  wrap.innerHTML='<div class="empty-state">기록 복구 중… (세션 데이터 확인)</div>';
+  try{
+    const sessions=await sget('sessions');
+    const archives=await sget('archives');
+    const dates=sessions?Object.keys(sessions).filter(k=>/^\d{8}$/.test(k)):[];
+    const akeys=archives?Object.keys(archives):[];
+    if(!dates.length&&!akeys.length){
+      wrap.innerHTML='<div class="empty-state" style="line-height:1.7">저장된 세션 데이터를 찾지 못했습니다.<br><span style="font-size:12px;color:var(--gray-400)">잠시 후 새로고침으로 다시 시도해보세요</span></div>';
+      return;
+    }
+    dates.sort().reverse();akeys.sort().reverse();
+    if(dates.length)await sset('index',dates.slice(0,200));
+    if(akeys.length)await sset('archive-index',akeys.slice(0,500));
+    toast(`기록 ${dates.length+akeys.length}건 복구 완료`);
+    loadHistory();
+  }catch(e){
+    wrap.innerHTML='<div class="empty-state">복구 중 오류 · 새로고침 후 다시 시도해주세요</div>';
+  }
+}
 async function loadHistory(){
   const wrap=document.getElementById('histList');wrap.innerHTML='<div class="empty-state">불러오는 중...</div>';
   const idx=await sget('index'),aidx=await sget('archive-index');
   const list=idx?(Array.isArray(idx)?idx:Object.values(idx)):[];
   const alist=aidx?(Array.isArray(aidx)?aidx:Object.values(aidx)):[];
-  if(!list.length&&!alist.length){wrap.innerHTML='<div class="empty-state">발행된 기록이 없습니다</div>';return;}
+  if(!list.length&&!alist.length){wrap.innerHTML='<div class="empty-state" style="line-height:1.7">발행된 기록이 없습니다<br><span style="font-size:12px;color:var(--gray-400)">목록만 비어있고 데이터는 남아있을 수 있어요</span><br><button onclick="recoverHistory()" style="margin-top:14px;background:#e8845a;color:#fff;border:none;border-radius:12px;padding:11px 20px;font-family:inherit;font-size:14px;font-weight:800;cursor:pointer">기록 복구 시도</button></div>';return;}
   wrap.innerHTML='';
   const active=[],trash=[];
   for(const dk of list){const rec=await sget('sessions/'+dk);if(!rec)continue;(rec.del===true?trash:active).push({rec,key:'sessions/'+dk,dk,isArch:false});}
