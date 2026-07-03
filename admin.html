@@ -213,6 +213,7 @@ body{background:var(--bg);color:var(--gray-900);font-family:'Pretendard',-apple-
 .se-teams{display:flex;align-items:center;gap:10px}
 .se-team{flex:1;text-align:center}
 .se-player{font-size:13px;font-weight:600;color:var(--gray-700);margin-bottom:4px}
+.se-edit-sel{display:block;width:100%;margin-bottom:5px;font-family:'Pretendard',sans-serif;font-size:13px;font-weight:700;color:var(--gray-800);background:#fff8f0;border:1.5px solid #f2c9b0;border-radius:9px;padding:6px 8px;cursor:pointer;-webkit-appearance:none;appearance:none;background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='10' height='10' viewBox='0 0 24 24' fill='none' stroke='%23e8845a' stroke-width='3'><path d='M6 9l6 6 6-6'/></svg>");background-repeat:no-repeat;background-position:right 8px center}
 .se-input{width:60px;height:50px;border:2px solid var(--gray-200);border-radius:12px;text-align:center;font-size:22px;font-weight:800;font-family:'Pretendard',sans-serif;color:var(--gray-900);background:var(--white);outline:none;transition:border-color .15s}
 .se-input:focus{border-color:var(--blue)}
 .se-dash{font-size:20px;font-weight:800;color:var(--gray-300)}
@@ -471,7 +472,7 @@ body{background:var(--bg);color:var(--gray-900);font-family:'Pretendard',-apple-
   <div id="p-bracket" class="page">
     <div class="section">
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
-        <div class="section-title" style="margin-bottom:0;display:flex;align-items:center;gap:8px">대진표 미리보기 <span style="font-size:10px;font-weight:800;color:#e8845a;background:#fdecec;padding:2px 7px;border-radius:8px;letter-spacing:0.3px">빌드 FC2·풀코트</span></div>
+        <div class="section-title" style="margin-bottom:0;display:flex;align-items:center;gap:8px">대진표 미리보기 <span style="font-size:10px;font-weight:800;color:#e8845a;background:#fdecec;padding:2px 7px;border-radius:8px;letter-spacing:0.3px">빌드 FC3·시간기록</span></div>
         <button onclick="adminPrintPDF()" style="display:inline-flex;align-items:center;gap:6px;background:var(--blue-l);color:var(--blue);border:none;border-radius:10px;padding:8px 14px;font-family:'Pretendard',sans-serif;font-size:14px;font-weight:700;cursor:pointer">
           <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
           PDF 저장
@@ -2193,15 +2194,19 @@ function renderScoreEditBody(sess){
     else if(anyProg&&!_conflict)_badge='<span style="font-size:11px;font-weight:800;padding:2px 9px;border-radius:20px;background:#e2f7f0;color:#00b493">지금 가능</span>';
     else if(anyProg&&_conflict)_badge='<span style="font-size:11px;font-weight:700;padding:2px 9px;border-radius:20px;background:#f4f1ee;color:#b5a99c">대기</span>';
     const swapOn=_swapRoundA===ri;
-    const swapBtn=_done?'':`<button onclick="startSwapA(${ri})" style="margin-left:auto;font-size:11px;font-weight:700;padding:3px 10px;border-radius:20px;border:1px solid ${swapOn?'#e8845a':'var(--gray-200)'};background:${swapOn?'#fef0e6':'var(--white)'};color:${swapOn?'#e8845a':'var(--gray-500)'};font-family:inherit;cursor:pointer">${swapOn?'교체 취소':'교체'}</button>`;
+    const swapBtn=_done?'':`<button onclick="startSwapA(${ri})" style="margin-left:auto;font-size:11px;font-weight:700;padding:3px 12px;border-radius:20px;border:1px solid ${swapOn?'#e8845a':'var(--gray-200)'};background:${swapOn?'#fef0e6':'var(--white)'};color:${swapOn?'#e8845a':'var(--gray-500)'};font-family:inherit;cursor:pointer">${swapOn?'✓ 완료':'인원 수정'}</button>`;
     const titleTap=(_done||swapOn)?'':` onclick="toggleInProgressA(${ri})"`;
     sec.innerHTML=`<div class="se-round-title" style="display:flex;align-items:center;gap:8px${(_done||swapOn)?'':';cursor:pointer'}"${titleTap}>${ri+1}게임 ${_badge}${swapBtn}</div>`;
     if(_inProg)sec.style.cssText='outline:2px solid #e8845a;outline-offset:2px;border-radius:8px';
-    if(swapOn){const note=document.createElement('div');note.style.cssText='font-size:12px;color:#e8845a;font-weight:700;margin:2px 0 8px';note.textContent=_swapFirstA===null?'교체할 두 선수를 차례로 탭하세요 (대기 인원 포함)':'바꿀 상대 선수를 탭하세요';sec.appendChild(note);}
+    if(swapOn){const note=document.createElement('div');note.style.cssText='font-size:12px;color:#e8845a;font-weight:700;margin:2px 0 10px;line-height:1.5';note.innerHTML='바꿀 자리를 눌러 <b>다른 선수를 선택</b>하세요. 선택한 선수가 있던 자리(코트·대기)와 <b>자동으로 맞바뀝니다.</b>';sec.appendChild(note);}
+    const _allEditM=Array.from({length:(sess.a||[]).length},(_,i)=>i).filter(i=>!(sess.out||[]).includes(i));
     const pdiv=(ai,slot)=>{
-      const seld=swapOn&&_swapFirstA===slot;
       const nm=pname2(sess,ai);
-      if(swapOn)return `<div class="se-player" onclick="pickSwapA('${slot}')" style="cursor:pointer;border-radius:8px;${seld?'background:#fef0e6;outline:2px solid #e8845a':''}">${nm}</div>`;
+      if(swapOn){
+        const pr=slot.split(':'); // ri : c : court : pos
+        const opts=_allEditM.map(mi=>`<option value="${mi}"${mi===ai?' selected':''}>${pname2(sess,mi)}</option>`).join('');
+        return `<select class="se-edit-sel" onchange="editSlotA(${pr[0]},${pr[2]},${pr[3]},this.value)">${opts}</select>`;
+      }
       return `<div class="se-player">${nm}</div>`;
     };
     round.courts.forEach((ct,ci)=>{
@@ -2223,8 +2228,8 @@ function renderScoreEditBody(sess){
     });
     if(swapOn){
       const wl=(editSess.b[ri]&&editSess.b[ri].w)||[];
-      const wrow=document.createElement('div');wrow.style.cssText='display:flex;flex-wrap:wrap;gap:6px;align-items:center;padding:6px 2px 2px';
-      wrow.innerHTML=`<span style="font-size:12px;font-weight:800;color:var(--gray-500)">대기</span>`+(wl.length?wl.map((ai,idx)=>{const slot=ri+':w:'+idx;const seld=_swapFirstA===slot;return `<span class="se-player" onclick="pickSwapA('${slot}')" style="cursor:pointer;padding:5px 10px;border-radius:8px;background:${seld?'#fef0e6':'var(--gray-100)'};${seld?'outline:2px solid #e8845a':''};font-size:14px;font-weight:600">${pname2(sess,ai)}</span>`;}).join(''):'<span style="font-size:12px;color:var(--gray-400)">없음</span>');
+      const wrow=document.createElement('div');wrow.style.cssText='display:flex;flex-wrap:wrap;gap:6px;align-items:center;padding:8px 2px 2px';
+      wrow.innerHTML=`<span style="font-size:12px;font-weight:800;color:var(--gray-500)">대기</span>`+(wl.length?wl.map(ai=>`<span style="padding:5px 10px;border-radius:8px;background:var(--gray-100);font-size:13px;font-weight:600;color:var(--gray-600)">${pname2(sess,ai)}</span>`).join(''):'<span style="font-size:12px;color:var(--gray-400)">없음</span>');
       sec.appendChild(wrow);
     }
     wrap.appendChild(sec);
@@ -2242,6 +2247,27 @@ function _relabelRoundA(ri){
   rd.ctl=(rd.c||[]).map(ct=>{if(!ct||ct.length<4||ct.includes(-1))return '미정';const m=ct.filter(x=>x>=0&&gof(x)==='M').length,f=ct.filter(x=>x>=0&&gof(x)==='F').length;return m===4?'남복':f===4?'여복':'혼복';});
 }
 function startSwapA(ri){_swapRoundA=(_swapRoundA===ri?null:ri);_swapFirstA=null;renderScoreEditBody(editSess);}
+function _findSlotA(rd,ai){
+  const cs=rd.c||[];
+  for(let ci=0;ci<cs.length;ci++){const ct=cs[ci];for(let p=0;p<ct.length;p++){if(ct[p]===ai)return{type:'c',court:ci,pos:p};}}
+  const w=rd.w||[];for(let i=0;i<w.length;i++){if(w[i]===ai)return{type:'w',idx:i};}
+  return null;
+}
+// 경기 인원 수동 수정: 특정 자리에 다른 선수를 직접 지정(있던 자리와 자동 맞바꿈)
+async function editSlotA(ri,court,pos,newAiRaw){
+  const newAi=parseInt(newAiRaw);const rd=editSess.b[ri];if(!rd||isNaN(newAi))return;
+  const oldAi=rd.c[court][pos];
+  if(oldAi===newAi){renderScoreEditBody(editSess);return;}
+  const loc=_findSlotA(rd,newAi);
+  rd.c[court][pos]=newAi;
+  if(loc){if(loc.type==='c')rd.c[loc.court][loc.pos]=oldAi;else rd.w[loc.idx]=oldAi;}
+  _relabelRoundA(ri);
+  _captureScoreInputs();
+  editSess.sc._totals=calcT2(editSess);editSess.finished=checkDone2(editSess);editSess.pub=Date.now();
+  const ok=await sset(editKey,editSess);
+  toast(ok?`${pname2(editSess,newAi)} 배치 완료`:'저장 실패');
+  renderScoreEditBody(editSess);
+}
 async function pickSwapA(slot){
   if(_swapFirstA===null){_swapFirstA=slot;renderScoreEditBody(editSess);return;}
   if(_swapFirstA===slot){_swapFirstA=null;renderScoreEditBody(editSess);return;}
@@ -2266,6 +2292,17 @@ function checkDone2(sess){const b=getB2(sess),sc=sess.sc||{};for(let ri=0;ri<b.l
 async function saveScoreEdit(){
   if(!editKey||!editSess)return;
   _captureScoreInputs();
+  // 경기 종료(양팀 점수 입력) 시 경기 시간(분) 고정 저장 — 시작 시각(ipt) 있는 코트만
+  if(!editSess.dur)editSess.dur={};
+  const _ipt=editSess.ipt||{};
+  (editSess.b||[]).forEach((rd,ri)=>(rd.c||[]).forEach((ct,ci)=>{
+    if(!ct||ct.length<4)return;
+    const k=ri+'-'+ci,mv=(editSess.sc&&editSess.sc[k])||{};
+    const done=mv.s1!==undefined&&mv.s1!==null&&mv.s2!==undefined&&mv.s2!==null;
+    if(done&&_ipt[k]&&editSess.dur[k]===undefined){
+      editSess.dur[k]=Math.max(0,Math.floor((Date.now()-_ipt[k])/60000));
+    }
+  }));
   editSess.sc._totals=calcT2(editSess);editSess.finished=checkDone2(editSess);
   const ok=await sset(editKey,editSess);
   if(ok){toast('스코어가 수정되었습니다');closeScoreEdit();loadHistory();}else toast('저장에 실패했습니다');
