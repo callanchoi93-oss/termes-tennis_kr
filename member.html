@@ -1738,72 +1738,81 @@ function buildTodayHomeCard(sess, myName, isGuest){
   return wrap(card)+pillRow;
 }
 
-// ── 내 통계 계산 (홈/리포트 공용) ──
+// ── 내 통계 계산 (홈/리포트 공용) · 순위 탭과 동일한 계산 ──
 async function computeMyStats(){
   const name=me==='__super__'?'관리자':me;
   const isGuest=!me||me==='__super__';
-  const R={name,isGuest,totalGames:0,totalWins:0,totalPoints:0,sessions:0,myScored:0,myConceded:0,menG:0,menW:0,mixG:0,mixW:0,closeG:0,closeW:0,closeLoss:0,recentR:[],partnerS:{},oppS:{},sessHist:[],attendedDk:[],allSessDk:[],sessContrib:{},myRank:'—',rankChange:null,rankedList:[],memStats:{}};
+  const R={name,isGuest,totalGames:0,totalWins:0,totalPoints:0,sessions:0,myScored:0,myConceded:0,menG:0,menW:0,mixG:0,mixW:0,closeG:0,closeW:0,closeLoss:0,recentR:[],partnerS:{},oppS:{},sessHist:[],attendedDk:[],allSessDk:[],myRank:'—',rankChange:null,rankedList:[],memStats:{}};
   if(isGuest)return R;
+  const bad=(nm)=>!nm||nm.indexOf('번')>=0||nm==='헬퍼'||nm==='미정'||nm==='미배정';
   try{
-    const idx=await sget('index')||[], aidx=await sget('archive-index')||[];
-    const scoreMap={};
-    for(const k of [...idx,...aidx]){
-      const s=await sget(String(k).startsWith('arc')?k:'sessions/'+k);
-      if(!s||s.del||s.bw)continue;
-      R.allSessDk.push(String(k));
-      const sc=s.sc||{}, pl=s.p||[], winCnt={};
-      const myIdx=pl.findIndex(p=>(p.n||p.name||'')===name);
-      if(myIdx>=0)R.sessions++;
+    const A=await loadAllSessions();
+    const list=A.list||[], alist=A.alist||[];
+    const pm={}, deltas={};
+    const P=(nm)=>pm[nm]||(pm[nm]={pts:0,days:0,scored:0,conceded:0,g:0,w:0,cg:0,cw:0,mg:0,mw:0,xg:0,xw:0});
+    const sessKeys=[...list.map(d=>({k:'sessions/'+d,dk:String(d)})),...alist.map(k=>({k:'archives/'+k,dk:String(k).slice(0,8)}))];
+    for(const sk of sessKeys){
+      const s=A.map[sk.k], dk=sk.dk; if(!s||s.del||s.bw)continue;
+      const B=getB(s), sc=getSc(s), n=getP(s).length; if(!n)continue;
+      R.allSessDk.push(dk);
+      // 순위 탭과 동일: 세션 순위→포인트, calcScoreDiff→득실
+      const pre=getSc(s)._totals||calcTotals(s);
+      const sd=calcScoreDiff(s);
+      const ps=Array.from({length:n},(_,ai)=>({nm:pname(s,ai),total:pre[ai]||0,ai})).sort((a,b)=>b.total-a.total);
+      let rank=1; deltas[dk]=deltas[dk]||{};
+      for(let i=0;i<ps.length;i++){
+        if(i>0&&ps[i].total<ps[i-1].total)rank=i+1;
+        const nm=ps[i].nm, ai=ps[i].ai; if(bad(nm))continue;
+        const m=P(nm); const rp=getRankPts(rank);
+        m.pts+=rp; m.days++; m.scored+=(sd.scored[ai]||0); m.conceded+=(sd.conceded[ai]||0);
+        deltas[dk][nm]={pts:rp,days:1};
+      }
+      // 나의 배정 인덱스
+      let myAi=-1; for(let i=0;i<n;i++){ if(pname(s,i)===name){myAi=i;break;} }
+      if(myAi>=0)R.sessions++;
       let sessG=0,sessW=0;
-      Object.entries(sc).forEach(([k2,v])=>{
-        if(k2.startsWith('_'))return;
-        const [ri,ci]=k2.split('-').map(Number);
-        const rd=(s.b||[])[ri];if(!rd)return;
-        const ct=(rd.c||rd.courts||[])[ci];if(!ct)return;
-        const s1=v.s1||0,s2=v.s2||0;
-        const ctype=((rd.ctl||rd.courtTypeLabels||[])[ci])||'';
+      B.forEach((rd,ri)=>{(rd.courts||[]).forEach((ct,ci)=>{
+        if(!ct||ct.length<4)return;
+        const sv=sc[`${ri}-${ci}`]||{}; if(sv.s1===undefined||sv.s1===null||sv.s2===undefined||sv.s2===null)return;
+        const s1=parseInt(sv.s1)||0,s2=parseInt(sv.s2)||0;
+        const ctype=((rd.courtTypeLabels||rd.ctl||[])[ci])||'';
         const isMen=ctype.indexOf('남')>=0||ctype.indexOf('여')>=0, isMix=ctype.indexOf('혼')>=0;
-        // 회원별 집계 (클럽 평균/분포/레이더)
-        [[ct[0],ct[1],s1,s2],[ct[2],ct[3],s2,s1]].forEach(pair=>{
-          const ss=pair[2],oo=pair[3];
-          [pair[0],pair[1]].forEach(pa=>{
-            if(pa==null||pa<0)return; const pn=(pl[pa]&&(pl[pa].n||pl[pa].name))||''; if(!pn)return;
-            const m=R.memStats[pn]||(R.memStats[pn]={g:0,w:0,sc:0,co:0,cg:0,cw:0,mg:0,mw:0,xg:0,xw:0});
-            const won=ss>oo; m.g++; if(won)m.w++; m.sc+=ss; m.co+=oo;
-            if(Math.abs(ss-oo)<=2){m.cg++; if(won)m.cw++;}
-            if(isMen){m.mg++; if(won)m.mw++;} else if(isMix){m.xg++; if(won)m.xw++;}
-          });
+        // 회원별 세부(승/접전/남복/혼복) — pname 기준
+        [[ct[0],ct[1],s1,s2],[ct[2],ct[3],s2,s1]].forEach(pr=>{
+          const ss=pr[2],oo=pr[3],won=ss>oo,close=Math.abs(ss-oo)<=2;
+          [pr[0],pr[1]].forEach(pa=>{const pn=pname(s,pa);if(bad(pn))return;const m=P(pn);m.g++;if(won)m.w++;if(close){m.cg++;if(won)m.cw++;}if(isMen){m.mg++;if(won)m.mw++;}else if(isMix){m.xg++;if(won)m.xw++;}});
         });
-        if(myIdx>=0&&ct.includes(myIdx)){
+        // 나의 세부
+        if(myAi>=0&&ct.indexOf(myAi)>=0){
           R.totalGames++;
-          const isT1=ct.indexOf(myIdx)<2, my=isT1?s1:s2, op=isT1?s2:s1, won=my>op;
-          if(won)R.totalWins++;
-          R.myScored+=my; R.myConceded+=op; sessG++; if(won)sessW++;
-          if(isMix){R.mixG++; if(won)R.mixW++;} else if(isMen){R.menG++; if(won)R.menW++;}
-          if(Math.abs(my-op)<=2){R.closeG++; if(won)R.closeW++;}
+          const isT1=ct.indexOf(myAi)<2, my=isT1?s1:s2, op=isT1?s2:s1, won=my>op;
+          if(won)R.totalWins++; sessG++; if(won)sessW++;
+          if(isMix){R.mixG++;if(won)R.mixW++;}else if(isMen){R.menG++;if(won)R.menW++;}
+          if(Math.abs(my-op)<=2){R.closeG++;if(won)R.closeW++;}
           if(!won&&op-my>0&&op-my<=2)R.closeLoss++;
-          R.recentR.push({dk:String(k),won});
+          R.recentR.push({dk,won});
           const team=isT1?[ct[0],ct[1]]:[ct[2],ct[3]], opps=isT1?[ct[2],ct[3]]:[ct[0],ct[1]];
-          const paAi=team.find(a=>a!==myIdx);
-          if(paAi!=null&&paAi>=0){const pn=(pl[paAi]&&(pl[paAi].n||pl[paAi].name))||'';if(pn){R.partnerS[pn]=R.partnerS[pn]||{g:0,w:0};R.partnerS[pn].g++;if(won)R.partnerS[pn].w++;}}
-          opps.forEach(a=>{if(a==null||a<0)return;const on=(pl[a]&&(pl[a].n||pl[a].name))||'';if(on){R.oppS[on]=R.oppS[on]||{g:0,w:0};R.oppS[on].g++;if(won)R.oppS[on].w++;}});
+          const paAi=team.find(x=>x!==myAi);
+          if(paAi!=null&&paAi>=0){const pn=pname(s,paAi);if(!bad(pn)){R.partnerS[pn]=R.partnerS[pn]||{g:0,w:0};R.partnerS[pn].g++;if(won)R.partnerS[pn].w++;}}
+          opps.forEach(x=>{if(x==null||x<0)return;const on=pname(s,x);if(!bad(on)){R.oppS[on]=R.oppS[on]||{g:0,w:0};R.oppS[on].g++;if(won)R.oppS[on].w++;}});
         }
-        if(s1!==s2){const winners=s1>s2?[ct[0],ct[1]]:[ct[2],ct[3]];winners.forEach(ai=>{const n2=(pl[ai]&&(pl[ai].n||pl[ai].name))||'';if(n2)winCnt[n2]=(winCnt[n2]||0)+1;});}
-      });
-      const pts=[10,20,40,60,80,100];const contrib={};
-      Object.entries(winCnt).forEach(([n2,w])=>{scoreMap[n2]=(scoreMap[n2]||0)+(pts[Math.min(w,5)]||10);contrib[n2]=(pts[Math.min(w,5)]||10);});
-      R.sessContrib[String(k)]=contrib;
-      if(myIdx>=0&&sessG>0){R.sessHist.push({dk:String(k),rate:Math.round(sessW/sessG*100),g:sessG,w:sessW});R.attendedDk.push(String(k).slice(0,8));}
+      });});
+      if(myAi>=0&&sessG>0){R.sessHist.push({dk,rate:Math.round(sessW/sessG*100),g:sessG,w:sessW});R.attendedDk.push(dk);}
     }
-    const ranked=Object.entries(scoreMap).sort((a,b)=>b[1]-a[1]);
-    R.rankedList=ranked; R.totalPoints=scoreMap[name]||0;
-    const ri=ranked.findIndex(r=>r[0]===name); R.myRank=ri>=0?ri+1:'—';
-    if(ri>=0&&R.sessHist.length>=1){
-      const latestDk=R.sessHist.map(h=>h.dk).sort().reverse()[0], contrib=R.sessContrib[latestDk]||{};
-      const prevMap={};Object.keys(scoreMap).forEach(n2=>{prevMap[n2]=scoreMap[n2]-(contrib[n2]||0);});
-      const prevRanked=Object.entries(prevMap).filter(r=>r[1]>0).sort((a,b)=>b[1]-a[1]);
-      const prevRi=prevRanked.findIndex(r=>r[0]===name);
-      if(prevRi>=0)R.rankChange=(prevRi+1)-(ri+1);
+    const mkRank=(obj)=>Object.entries(obj).map(([nm,d])=>({nm,avg:d.days>0?Math.round(d.pts/d.days*10)/10:0,diff:(d.scored||0)-(d.conceded||0),days:d.days})).sort((a,b)=>b.avg-a.avg||b.diff-a.diff||b.days-a.days);
+    const all=mkRank(pm); R.rankedList=all;
+    const mine=pm[name];
+    if(mine){R.totalPoints=mine.pts;R.myScored=mine.scored;R.myConceded=mine.conceded;}
+    const ri=all.findIndex(x=>x.nm===name); R.myRank=ri>=0?ri+1:'—';
+    Object.entries(pm).forEach(([nm,d])=>{R.memStats[nm]={g:d.g,w:d.w,sc:d.scored,co:d.conceded,cg:d.cg,cw:d.cw,mg:d.mg,mw:d.mw,xg:d.xg,xw:d.xw};});
+    // 순위 변화: 내 최근 세션 제외 시 순위 대비
+    if(ri>=0&&R.attendedDk.length>=1){
+      const latest=R.attendedDk.slice().sort().reverse()[0];
+      const prev=JSON.parse(JSON.stringify(pm)); const del=deltas[latest]||{};
+      Object.entries(del).forEach(([nm,d])=>{if(prev[nm]){prev[nm].pts-=d.pts;prev[nm].days-=d.days;}});
+      const prevRank=mkRank(prev).filter(x=>x.days>0);
+      const pRi=prevRank.findIndex(x=>x.nm===name);
+      if(pRi>=0)R.rankChange=(pRi+1)-(ri+1);
     }
   }catch(e){console.log('computeMyStats',e);}
   return R;
@@ -1922,13 +1931,18 @@ async function loadReport(){
   html+='<div class="rpt-card"><div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:18px"><div><div class="rpt-k">현재 순위</div><div style="font-size:32px;font-weight:900;color:#2d1f1a;letter-spacing:-1px;line-height:1;margin-top:3px">'+(typeof R.myRank==='number'?R.myRank+'<span style="font-size:18px;color:#c9beac">위</span>':R.myRank)+'</div></div><div style="text-align:right"><div class="rpt-k">지난 세션 대비</div><div style="font-size:17px;font-weight:900;margin-top:5px">'+rcTxt+'</div></div></div><div class="rpt-k" style="margin-bottom:8px">다음 목표까지</div>'+goals.map(g=>'<div class="rpt-goal">'+g+'</div>').join('')+'</div>';
   html+=relCard;
   // 출석
-  const thisMonth=(new Date()).toISOString().slice(0,7).replace('-','');
-  const monthDates=Array.from(new Set(R.attendedDk.filter(d=>d.startsWith(thisMonth))));
-  const attSet=new Set(R.attendedDk), allDays=Array.from(new Set(R.allSessDk.map(d=>d.slice(0,8)))).sort().reverse();
-  let streak=0;for(const d of allDays){if(attSet.has(d))streak++;else break;}
-  const yr=+thisMonth.slice(0,4),mo=+thisMonth.slice(4,6),dim=new Date(yr,mo,0).getDate();
-  let cal='';for(let d=1;d<=dim;d++){const dk=thisMonth+String(d).padStart(2,'0');cal+='<div style="width:100%;aspect-ratio:1;border-radius:50%;background:'+(monthDates.includes(dk)?'#e8845a':'#f1ece4')+'"></div>';}
-  html+='<div class="rpt-card"><div class="rpt-h"><span class="rpt-hi">'+rptSvg(RPT_IC.cal,16)+'</span><h3>이번 달 출석</h3><span class="rpt-rt" style="color:#e8845a">연속 '+streak+'회</span></div><div style="display:grid;grid-template-columns:repeat(16,1fr);gap:5px">'+cal+'</div><div class="rpt-capt" style="text-align:left;margin-top:12px">이번 달 <b style="color:#2d1f1a">'+monthDates.length+'회</b> 참석 · <span style="color:#e8845a">●</span> 참석한 날</div></div>';
+  // 출석: 화·금만 (공휴일 제외)
+  const _an=new Date(),_ay=_an.getFullYear(),_am=_an.getMonth();
+  const _todayK=`${_ay}${String(_am+1).padStart(2,'0')}${String(_an.getDate()).padStart(2,'0')}`;
+  const _hol=['0101','0301','0505','0506','0606','0815','1003','1009','1225'];
+  const _tf=[];{const _d=new Date(_ay,_am,1);while(_d.getMonth()===_am){const _dw=_d.getDay();if(_dw===2||_dw===5){const _k=`${_ay}${String(_am+1).padStart(2,'0')}${String(_d.getDate()).padStart(2,'0')}`;if(!_hol.includes(_k.slice(4)))_tf.push(_k);}_d.setDate(_d.getDate()+1);}}
+  const _att=new Set(R.attendedDk);
+  const _pastTf=_tf.filter(k=>k<=_todayK);
+  let streak=0;for(let i=_pastTf.length-1;i>=0;i--){if(_att.has(_pastTf[i]))streak++;else break;}
+  const _attCnt=_tf.filter(k=>_att.has(k)).length;
+  const _dows=['일','월','화','수','목','금','토'];
+  const cal=_tf.map(k=>{const day=parseInt(k.slice(6,8));const dw=new Date(+k.slice(0,4),+k.slice(4,6)-1,day).getDay();const on=_att.has(k),past=k<=_todayK;const bg=on?'#e8845a':(past?'#d3c7b8':'#f1ece4');const tc=on?'#e8845a':'#b0a396';return '<div style="text-align:center"><div style="width:100%;aspect-ratio:1;border-radius:50%;background:'+bg+'"></div><div style="font-size:9.5px;color:'+tc+';font-weight:'+(on?'800':'600')+';margin-top:5px">'+day+'</div><div style="font-size:8px;color:#c4b8ab;font-weight:700">'+_dows[dw]+'</div></div>';}).join('');
+  html+='<div class="rpt-card"><div class="rpt-h"><span class="rpt-hi">'+rptSvg(RPT_IC.cal,16)+'</span><h3>이번 달 출석</h3><span class="rpt-rt" style="color:#e8845a">연속 '+streak+'회</span></div><div style="display:grid;grid-template-columns:repeat('+Math.max(1,_tf.length)+',1fr);gap:6px">'+cal+'</div><div class="rpt-capt" style="text-align:left;margin-top:14px">화·금 기준 · 이번 달 <b style="color:#2d1f1a">'+_attCnt+'/'+_tf.length+'회</b> 참석 · <span style="color:#e8845a">●</span> 참석 <span style="color:#d3c7b8">●</span> 불참</div></div>';
   html+='</div>';
   wrap.innerHTML=html;
 }
@@ -1946,87 +1960,12 @@ async function loadHome(){
   const isGuest=!me||me==='__super__';
 
   // 데이터 수집
-  let totalGames=0,totalWins=0,totalPoints=0,sessions=0;
-  let myRank='—';
-  let rankChange=null;
-  let rankedList=[];
-  let myScored=0,myConceded=0,menG=0,menW=0,mixG=0,mixW=0,closeLoss=0;
-  const recentR=[];
-  const partnerS={},oppS={},sessHist=[],attendedDk=[],sessContrib={},allSessDk=[];
-
+  // 홈 통계: 리포트와 동일 계산 재사용
+  let totalGames=0,totalWins=0,totalPoints=0,sessions=0,myRank='—';
   try{
-    const idx=await sget('index')||[];
-    const aidx=await sget('archive-index')||[];
-    const scoreMap={};
-    for(const k of [...idx,...aidx]){
-      const s=await sget(String(k).startsWith('arc')?k:'sessions/'+k);
-      if(!s||s.del||s.bw)continue;
-      allSessDk.push(String(k));
-      const sc=s.sc||{};
-      const pl=s.p||[];
-      const winCnt={};
-      let sessG=0,sessW=0;
-      // 내 참가 확인
-      const myIdx=pl.findIndex(p=>(p.n||p.name||'')===name);
-      if(!isGuest&&myIdx>=0)sessions++;
-      Object.entries(sc).forEach(([k2,v])=>{
-        if(k2.startsWith('_'))return;
-        const [ri,ci]=k2.split('-').map(Number);
-        const rd=(s.b||[])[ri];if(!rd)return;
-        const ct=(rd.c||rd.courts||[])[ci];if(!ct)return;
-        const s1=v.s1||0,s2=v.s2||0;
-        // 내 게임 통계
-        if(!isGuest&&myIdx>=0&&ct.includes(myIdx)){
-          totalGames++;
-          const isT1=ct.indexOf(myIdx)<2;
-          const my=isT1?s1:s2, op=isT1?s2:s1, won=my>op;
-          if(won)totalWins++;
-          myScored+=my; myConceded+=op;
-          sessG++; if(won)sessW++;
-          const ctype=((rd.ctl||rd.courtTypeLabels||[])[ci])||'';
-          if(ctype.indexOf('혼')>=0){mixG++; if(won)mixW++;}
-          else if(ctype.indexOf('남')>=0||ctype.indexOf('여')>=0){menG++; if(won)menW++;}
-          if(!won&&op-my>0&&op-my<=2)closeLoss++;
-          recentR.push({dk:String(k),won});
-          // 파트너 / 상대
-          const team=isT1?[ct[0],ct[1]]:[ct[2],ct[3]];
-          const opps=isT1?[ct[2],ct[3]]:[ct[0],ct[1]];
-          const paAi=team.find(a=>a!==myIdx);
-          if(paAi!=null&&paAi>=0){const pn=(pl[paAi]?.n||pl[paAi]?.name||'');if(pn){partnerS[pn]=partnerS[pn]||{g:0,w:0};partnerS[pn].g++;if(won)partnerS[pn].w++;}}
-          opps.forEach(a=>{if(a==null||a<0)return;const on=(pl[a]?.n||pl[a]?.name||'');if(on){oppS[on]=oppS[on]||{g:0,w:0};oppS[on].g++;if(won)oppS[on].w++;}});
-        }
-        // 승리 카운트 (포인트용)
-        if(s1!==s2){
-          const winners=s1>s2?[ct[0],ct[1]]:[ct[2],ct[3]];
-          winners.forEach(ai=>{
-            const n2=(pl[ai]?.n||pl[ai]?.name||'');
-            if(n2)winCnt[n2]=(winCnt[n2]||0)+1;
-          });
-        }
-      });
-      const pts=[10,20,40,60,80,100];
-      Object.entries(winCnt).forEach(([n2,w])=>{
-        scoreMap[n2]=(scoreMap[n2]||0)+(pts[Math.min(w,5)]||10);
-      });
-      const _contrib={};Object.entries(winCnt).forEach(([n2,w])=>{_contrib[n2]=(pts[Math.min(w,5)]||10);});
-      sessContrib[String(k)]=_contrib;
-      if(!isGuest&&myIdx>=0&&sessG>0){sessHist.push({dk:String(k),rate:Math.round(sessW/sessG*100),g:sessG,w:sessW});attendedDk.push(String(k).slice(0,8));}
-    }
-    const ranked=Object.entries(scoreMap).sort((a,b)=>b[1]-a[1]);
-    rankedList=ranked;
-    totalPoints=scoreMap[name]||0;
-    const ri=ranked.findIndex(r=>r[0]===name);
-    myRank=ri>=0?(ri+1):'—';
-    // 순위 변화 (최근 세션 제외 시 순위 대비)
-    if(ri>=0&&sessHist.length>=1){
-      const latestDk=sessHist.map(h=>h.dk).sort().reverse()[0];
-      const contrib=sessContrib[latestDk]||{};
-      const prevMap={};Object.keys(scoreMap).forEach(n2=>{prevMap[n2]=scoreMap[n2]-(contrib[n2]||0);});
-      const prevRanked=Object.entries(prevMap).filter(r=>r[1]>0).sort((a,b)=>b[1]-a[1]);
-      const prevRi=prevRanked.findIndex(r=>r[0]===name);
-      if(prevRi>=0)rankChange=(prevRi+1)-(ri+1);
-    }
-  }catch(e){console.log(e);}
+    const _R=await computeMyStats();
+    totalGames=_R.totalGames; totalWins=_R.totalWins; totalPoints=_R.totalPoints; sessions=_R.sessions; myRank=_R.myRank;
+  }catch(e){console.log('home stats',e);}
 
   const att=await calcAttendance(name);
   const winRate=totalGames>0?Math.round(totalWins/totalGames*100):0;
