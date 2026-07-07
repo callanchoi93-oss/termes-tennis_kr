@@ -1689,6 +1689,7 @@ function getDailyQuote(){
 }
 
 // ── 홈: 오늘 경기 카드 + 게임 pill ──
+function goTab(id){var nbs=document.querySelectorAll('.nb');var b=null;for(var i=0;i<nbs.length;i++){var oc=nbs[i].getAttribute('onclick')||'';if(oc.indexOf("gTab('"+id+"'")>=0){b=nbs[i];break;}}if(!b)b=nbs[0];if(window.gTab)gTab(id,b);}
 function buildTodayHomeCard(sess, myName, isGuest){
   const navBtn=(id)=>`document.querySelector(".nb[onclick*='${id}']")`;
   const wrap=(inner)=>`<div style="margin:0 22px 20px">${inner}</div>`;
@@ -1709,18 +1710,18 @@ function buildTodayHomeCard(sess, myName, isGuest){
     for(let ci=0;ci<cc.length;ci++){const ct=cc[ci];if(!ct||ct.length<4)continue;any=true;if(!courtDone(ri,ci))done=false;if(startedSet.has(`${ri}-${ci}`)&&!courtDone(ri,ci))live=true;}
     if(!any)continue;
     const st=done?'완료':live?'진행 중':'대기', cls=done?'done':live?'live':'wait';
-    pills+=`<div class="hpill ${cls}"><div class="hg">${ri+1}게임</div><div class="hs">${st}</div></div>`;
+    pills+=`<div class="hpill ${cls}" onclick="goTab('bracket')" style="cursor:pointer"><div class="hg">${ri+1}게임</div><div class="hs">${st}</div></div>`;
   }
   const pillRow=pills?`<div class="hpill-row">${pills}</div>`:'';
   if(isGuest||myAi<0){
-    return wrap(`<div style="background:#2d1f1a;border-radius:28px;padding:24px;color:#fff"><div style="font-size:11px;font-weight:800;letter-spacing:1.2px;color:#e6a98f;margin-bottom:14px">오늘 경기</div><div style="font-size:22px;font-weight:900;letter-spacing:-.5px">${sessMeta}</div><div style="font-size:13px;color:#b6ab9e;font-weight:600;margin-top:6px">${isGuest?'게스트로 대진표를 확인하세요':'오늘 경기에 미참가'}</div><button onclick="gTab('bracket',${navBtn('bracket')})" style="margin-top:18px;width:100%;background:#faf6f2;color:#2d1f1a;border:none;font-family:inherit;font-size:14px;font-weight:800;padding:14px;border-radius:16px;cursor:pointer">대진표 보기</button></div>`)+pillRow;
+    return wrap(`<div style="background:#2d1f1a;border-radius:28px;padding:24px;color:#fff"><div style="font-size:11px;font-weight:800;letter-spacing:1.2px;color:#e6a98f;margin-bottom:14px">오늘 경기</div><div style="font-size:22px;font-weight:900;letter-spacing:-.5px">${sessMeta}</div><div style="font-size:13px;color:#b6ab9e;font-weight:600;margin-top:6px">${isGuest?'게스트로 대진표를 확인하세요':'오늘 경기에 미참가'}</div><button onclick="goTab('bracket')" style="margin-top:18px;width:100%;background:#faf6f2;color:#2d1f1a;border:none;font-family:inherit;font-size:14px;font-weight:800;padding:14px;border-radius:16px;cursor:pointer">대진표 보기</button></div>`)+pillRow;
   }
   // find my live / next game
   let live=null,next=null,myDone=0;
   for(let ri=0;ri<B.length;ri++){const cc=cts_(ri);for(let ci=0;ci<cc.length;ci++){const ct=cc[ci];if(!ct||ct.indexOf(myAi)<0)continue;if(courtDone(ri,ci)){myDone++;continue;}const info={ri,ci,ct,label:lab_(ri,ci),isLive:startedSet.has(`${ri}-${ci}`)};if(info.isLive&&!live)live=info;else if(!next)next=info;}}
   const g=live||next;
   if(!g){
-    return wrap(`<div style="background:#2d1f1a;border-radius:28px;padding:24px;color:#fff"><div style="font-size:11px;font-weight:800;letter-spacing:1.2px;color:#7fd8bf;margin-bottom:14px">오늘 경기 완료</div><div style="font-size:24px;font-weight:900;letter-spacing:-.5px">${myDone}경기 완료</div><div style="font-size:13px;color:#b6ab9e;font-weight:600;margin-top:6px">수고하셨어요! 리포트에서 기록을 확인하세요</div><button onclick="gTab('report',${navBtn('report')})" style="margin-top:18px;width:100%;background:#faf6f2;color:#2d1f1a;border:none;font-family:inherit;font-size:14px;font-weight:800;padding:14px;border-radius:16px;cursor:pointer">내 리포트 보기</button></div>`)+pillRow;
+    return wrap(`<div style="background:#2d1f1a;border-radius:28px;padding:24px;color:#fff"><div style="font-size:11px;font-weight:800;letter-spacing:1.2px;color:#7fd8bf;margin-bottom:14px">오늘 경기 완료</div><div style="font-size:24px;font-weight:900;letter-spacing:-.5px">${myDone}경기 완료</div><div style="font-size:13px;color:#b6ab9e;font-weight:600;margin-top:6px">수고하셨어요! 리포트에서 기록을 확인하세요</div><button onclick="goTab('report')" style="margin-top:18px;width:100%;background:#faf6f2;color:#2d1f1a;border:none;font-family:inherit;font-size:14px;font-weight:800;padding:14px;border-radius:16px;cursor:pointer">내 리포트 보기</button></div>`)+pillRow;
   }
   const nm=ai=>ai===myAi?`<b style="color:#fff">${pname(sess,ai)}</b>`:(ai>=0?pname(sess,ai):'헬퍼');
   const isLive=!!live;
@@ -1733,7 +1734,7 @@ function buildTodayHomeCard(sess, myName, isGuest){
       <div style="font-size:15px;font-weight:800;color:#5a5147">VS</div>
       <div style="font-size:15px;font-weight:700;color:#d8cfc0;line-height:1.5;text-align:right">${nm(g.ct[2])}<br>${nm(g.ct[3])}</div>
     </div>
-    <button onclick="gTab('${btnTab}',${navBtn(btnTab)})" style="margin-top:22px;width:100%;background:#faf6f2;color:#2d1f1a;border:none;font-family:inherit;font-size:14px;font-weight:800;padding:15px;border-radius:16px;cursor:pointer">${btnLabel}</button>
+    <button onclick="goTab('${btnTab}')" style="margin-top:22px;width:100%;background:#faf6f2;color:#2d1f1a;border:none;font-family:inherit;font-size:14px;font-weight:800;padding:15px;border-radius:16px;cursor:pointer">${btnLabel}</button>
   </div>`;
   return wrap(card)+pillRow;
 }
@@ -2000,7 +2001,7 @@ async function loadHome(){
 
   // ── 내 리포트 진입 (상세 데이터는 리포트 탭) ──
   if(!isGuest && totalGames>0){
-    html+=`<div onclick="gTab('report',document.querySelector('.nb[onclick*=\\'report\\']'))" style="margin:0 20px 16px;background:#fff;border:1px solid #f0e9e0;border-radius:22px;padding:17px 20px;display:flex;align-items:center;justify-content:space-between;cursor:pointer">
+    html+=`<div onclick="goTab('report')" style="margin:0 20px 16px;background:#fff;border:1px solid #f0e9e0;border-radius:22px;padding:17px 20px;display:flex;align-items:center;justify-content:space-between;cursor:pointer">
       <div style="display:flex;align-items:center;gap:13px">
         <div style="width:40px;height:40px;border-radius:13px;background:#eaf6f1;display:flex;align-items:center;justify-content:center;color:#00b493"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 17l5-5 4 4 8-8"/><path d="M17 8h4v4"/></svg></div>
         <div><div style="font-size:15px;font-weight:900;color:#2d1f1a">내 리포트</div><div style="font-size:12px;color:#a89b8e;font-weight:600">승률 ${winRate}% · 클럽 평균 대비 · 능력 분석</div></div>
