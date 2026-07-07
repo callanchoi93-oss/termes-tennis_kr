@@ -1647,6 +1647,7 @@ async function loadHome(){
   const wrap=document.getElementById('homeContent');
   if(!wrap)return;
   wrap.innerHTML='<div class="empty" style="padding-top:60px">불러오는 중...</div>';
+  const _homeGuard=setTimeout(()=>{const w=document.getElementById('homeContent');if(w&&w.innerHTML.indexOf('불러오는 중')>=0){w.innerHTML='<div style="padding:70px 26px 0;text-align:center"><div style="font-size:16px;font-weight:800;color:#3a2e28;margin-bottom:8px">데이터를 불러오지 못했어요</div><div style="font-size:13px;color:#a89b8e;line-height:1.7;margin-bottom:20px">서버 연결이 지연되고 있어요.<br>네트워크를 확인하거나 잠시 후 다시 시도해주세요.</div><button onclick="loadHome()" style="background:#e8845a;color:#fff;border:none;border-radius:14px;padding:12px 24px;font-family:inherit;font-size:14px;font-weight:800;cursor:pointer">다시 시도</button></div>';}},10000);
 
   const today=actKey();
   const curYr=new Date().getFullYear();
@@ -1991,6 +1992,7 @@ async function loadHome(){
   </div>`;
 
   html+=`</div>`;
+  clearTimeout(_homeGuard);
   wrap.innerHTML=html;
 }
 
