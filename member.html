@@ -246,6 +246,12 @@ body{background:#f6f3ef;color:var(--gray-900);font-family:'Pretendard',-apple-sy
 .sc-score{display:flex;align-items:center;justify-content:center;gap:18px}
 .sc-colon{font-size:30px;font-weight:900;color:rgba(45,31,26,.32)}
 .sc-wait{display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding:13px 16px;background:#fff;border-radius:18px;box-shadow:0 3px 12px rgba(45,31,26,.04)}
+.bk-help-sug{background:#f0faf5;border:1px solid #cdeade;border-radius:16px;padding:12px 15px;font-size:12.5px;color:#1f4536;line-height:1.55}
+.bk-help-sug b{font-size:12.5px;font-weight:800;color:#12805e}
+.bk-help-sug .bk-help-names{margin-top:6px;font-size:13.5px;font-weight:700;color:#215c46}
+.bk-help-sug.soon{background:#fbf7ef;border-color:#ecdfc9}
+.bk-help-sug.soon b{color:#b5762a}.bk-help-sug.soon .bk-help-names{color:#7a6a52}
+.bk-help-sug.none{background:#fdf2f0;border-color:#f3d3cb;color:#a2483a;font-weight:700}
 .sc-wait-lbl{font-size:12px;font-weight:800;color:var(--warm-muted);margin-right:2px}
 .bk-court{border-radius:22px;padding:15px 18px;box-shadow:0 5px 16px rgba(45,31,26,.05)}
 .bk-top{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:12px}
@@ -1650,6 +1656,10 @@ async function loadHome(){
   // 데이터 수집
   let totalGames=0,totalWins=0,totalPoints=0,sessions=0;
   let myRank='—';
+  let rankChange=null;
+  let myScored=0,myConceded=0,menG=0,menW=0,mixG=0,mixW=0,closeLoss=0;
+  const recentR=[];
+  const partnerS={},oppS={},sessHist=[],attendedDk=[],sessContrib={},allSessDk=[];
 
   try{
     const idx=await sget('index')||[];
@@ -1658,9 +1668,11 @@ async function loadHome(){
     for(const k of [...idx,...aidx]){
       const s=await sget(String(k).startsWith('arc')?k:'sessions/'+k);
       if(!s||s.del||s.bw)continue;
+      allSessDk.push(String(k));
       const sc=s.sc||{};
       const pl=s.p||[];
       const winCnt={};
+      let sessG=0,sessW=0;
       // 내 참가 확인
       const myIdx=pl.findIndex(p=>(p.n||p.name||'')===name);
       if(!isGuest&&myIdx>=0)sessions++;
@@ -1674,7 +1686,21 @@ async function loadHome(){
         if(!isGuest&&myIdx>=0&&ct.includes(myIdx)){
           totalGames++;
           const isT1=ct.indexOf(myIdx)<2;
-          if((isT1&&s1>s2)||(!isT1&&s2>s1))totalWins++;
+          const my=isT1?s1:s2, op=isT1?s2:s1, won=my>op;
+          if(won)totalWins++;
+          myScored+=my; myConceded+=op;
+          sessG++; if(won)sessW++;
+          const ctype=((rd.ctl||rd.courtTypeLabels||[])[ci])||'';
+          if(ctype.indexOf('혼')>=0){mixG++; if(won)mixW++;}
+          else if(ctype.indexOf('남')>=0||ctype.indexOf('여')>=0){menG++; if(won)menW++;}
+          if(!won&&op-my>0&&op-my<=2)closeLoss++;
+          recentR.push({dk:String(k),won});
+          // 파트너 / 상대
+          const team=isT1?[ct[0],ct[1]]:[ct[2],ct[3]];
+          const opps=isT1?[ct[2],ct[3]]:[ct[0],ct[1]];
+          const paAi=team.find(a=>a!==myIdx);
+          if(paAi!=null&&paAi>=0){const pn=(pl[paAi]?.n||pl[paAi]?.name||'');if(pn){partnerS[pn]=partnerS[pn]||{g:0,w:0};partnerS[pn].g++;if(won)partnerS[pn].w++;}}
+          opps.forEach(a=>{if(a==null||a<0)return;const on=(pl[a]?.n||pl[a]?.name||'');if(on){oppS[on]=oppS[on]||{g:0,w:0};oppS[on].g++;if(won)oppS[on].w++;}});
         }
         // 승리 카운트 (포인트용)
         if(s1!==s2){
@@ -1689,11 +1715,23 @@ async function loadHome(){
       Object.entries(winCnt).forEach(([n2,w])=>{
         scoreMap[n2]=(scoreMap[n2]||0)+(pts[Math.min(w,5)]||10);
       });
+      const _contrib={};Object.entries(winCnt).forEach(([n2,w])=>{_contrib[n2]=(pts[Math.min(w,5)]||10);});
+      sessContrib[String(k)]=_contrib;
+      if(!isGuest&&myIdx>=0&&sessG>0){sessHist.push({dk:String(k),rate:Math.round(sessW/sessG*100),g:sessG,w:sessW});attendedDk.push(String(k).slice(0,8));}
     }
     const ranked=Object.entries(scoreMap).sort((a,b)=>b[1]-a[1]);
     totalPoints=scoreMap[name]||0;
     const ri=ranked.findIndex(r=>r[0]===name);
     myRank=ri>=0?(ri+1):'—';
+    // 순위 변화 (최근 세션 제외 시 순위 대비)
+    if(ri>=0&&sessHist.length>=1){
+      const latestDk=sessHist.map(h=>h.dk).sort().reverse()[0];
+      const contrib=sessContrib[latestDk]||{};
+      const prevMap={};Object.keys(scoreMap).forEach(n2=>{prevMap[n2]=scoreMap[n2]-(contrib[n2]||0);});
+      const prevRanked=Object.entries(prevMap).filter(r=>r[1]>0).sort((a,b)=>b[1]-a[1]);
+      const prevRi=prevRanked.findIndex(r=>r[0]===name);
+      if(prevRi>=0)rankChange=(prevRi+1)-(ri+1);
+    }
   }catch(e){console.log(e);}
 
   const att=await calcAttendance(name);
@@ -1784,6 +1822,121 @@ async function loadHome(){
       <div style="margin-top:8px;height:4px;border-radius:2px;background:#efe7df;overflow:hidden"><div style="width:${winRate}%;height:100%;background:#00b493;border-radius:2px"></div></div>
     </div>
   </div>`;
+
+  // ── 내 기록 통계 (도식화 + 부족한 점) ──
+  if(!isGuest && totalGames>0){
+    const losses=totalGames-totalWins;
+    const diff=myScored-myConceded;
+    const menRate=menG?Math.round(menW/menG*100):0;
+    const mixRate=mixG?Math.round(mixW/mixG*100):0;
+    recentR.sort((a,b)=>b.dk.localeCompare(a.dk));
+    const recent=recentR.slice(0,6).reverse();
+    const _r=47,_c=2*Math.PI*_r,_fill=_c*(winRate/100);
+    const tips=[];
+    if(mixG>=2&&menG>=2&&mixRate<menRate-15)tips.push(['혼복 승률 '+mixRate+'%','남복('+menRate+'%)보다 낮아요. 혼복 파트너와 호흡을 맞춰보세요.']);
+    if(menG>=2&&mixG>=2&&menRate<mixRate-15)tips.push(['남복 승률 '+menRate+'%','혼복('+mixRate+'%)보다 낮아요. 남복 조합·전술을 점검해보세요.']);
+    if(diff<0)tips.push(['득실차 '+diff,'실점이 득점보다 많아요. 리턴·수비 안정에 신경 써보세요.']);
+    if(closeLoss>=2)tips.push(['접전 패배 '+closeLoss+'회','2점차 이내로 아깝게 진 경기가 많아요. 듀스 집중력을 키워보세요.']);
+    if(winRate<40&&totalGames>=4)tips.push(['승률 '+winRate+'%','최근 폼이 아쉬워요. 꾸준히 나오면 분명 올라가요!']);
+    if(!tips.length)tips.push(['밸런스가 좋아요 👍','뚜렷한 약점이 안 보여요. 지금처럼 유지하세요!']);
+    const tipHtml=tips.slice(0,2).map((x,i)=>`<div style="display:flex;gap:11px;align-items:flex-start;padding:13px 0;${i?'border-top:1px solid #f0e9e0':''}"><div style="width:26px;height:26px;border-radius:9px;background:#fdf0e9;display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:13px">${i?'⏱':'🎾'}</div><div><div style="font-size:13.5px;font-weight:800;color:#2d1f1a">${x[0]}</div><div style="font-size:12.5px;color:#a89b8e;font-weight:500;margin-top:3px;line-height:1.5">${x[1]}</div></div></div>`).join('');
+    const dtBar=(label,rate,g,color)=>`<div style="margin-bottom:14px"><div style="display:flex;justify-content:space-between;font-size:13px;font-weight:800;color:#2d1f1a;margin-bottom:8px"><span>${label} <span style="color:#a89b8e;font-weight:700">${g}경기</span></span><span style="color:${g?color:'#c4b8ab'}">${g?rate+'%':'-'}</span></div><div style="height:8px;background:#f0eae2;border-radius:5px;overflow:hidden"><div style="width:${g?rate:0}%;height:100%;background:${color};border-radius:5px"></div></div></div>`;
+    const recentDots=recent.length?recent.map(x=>`<span style="width:24px;height:24px;border-radius:8px;display:inline-flex;align-items:center;justify-content:center;font-size:10px;font-weight:900;color:#fff;background:${x.won?'#00b493':'#e0a0a0'}">${x.won?'승':'패'}</span>`).join(''):'<span style="font-size:12px;color:#b0a396">기록 없음</span>';
+    html+=`<div style="margin:0 20px 14px;background:#fff;border:1px solid #f0e9e0;border-radius:24px;padding:22px">
+      <div style="display:flex;align-items:center;gap:20px;padding-bottom:20px;border-bottom:1px solid #f0e9e0;margin-bottom:20px">
+        <div style="position:relative;width:112px;height:112px;flex-shrink:0">
+          <svg width="112" height="112" viewBox="0 0 112 112" style="transform:rotate(-90deg)">
+            <circle cx="56" cy="56" r="${_r}" fill="none" stroke="#f0eae2" stroke-width="11"/>
+            <circle cx="56" cy="56" r="${_r}" fill="none" stroke="#00b493" stroke-width="11" stroke-linecap="round" stroke-dasharray="${_fill} ${_c}"/>
+          </svg>
+          <div style="position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center">
+            <span style="font-size:28px;font-weight:900;color:#2d1f1a;letter-spacing:-1px;line-height:1">${winRate}%</span>
+            <span style="font-size:11px;color:#a89b8e;font-weight:800;margin-top:2px">승률</span>
+          </div>
+        </div>
+        <div style="flex:1">
+          <div style="font-size:30px;font-weight:900;color:#2d1f1a;letter-spacing:-1.5px;line-height:1">${totalWins}<span style="font-size:19px;color:#cdc2b2">승</span> ${losses}<span style="font-size:19px;color:#cdc2b2">패</span></div>
+          <div style="font-size:13px;font-weight:700;color:#a89b8e;margin-top:7px">득실 <span style="color:${diff>=0?'#e8845a':'#9aa0b5'};font-weight:800">${diff>=0?'+':''}${diff}</span> · ${totalGames}경기</div>
+          <div style="display:flex;gap:5px;margin-top:13px">${recentDots}</div>
+        </div>
+      </div>
+      ${dtBar('남복',menRate,menG,'#e8845a')}
+      ${dtBar('혼복',mixRate,mixG,'#d4506a')}
+    </div>`;
+    html+=`<div style="margin:0 20px 16px;background:#fff;border:1px solid #f0e9e0;border-radius:24px;padding:20px 22px">
+      <div style="font-size:14px;font-weight:900;color:#2d1f1a;margin-bottom:4px">💡 보완하면 좋아요</div>
+      ${tipHtml}
+    </div>`;
+
+    // ── 폼 추세 (스파크라인) ──
+    const sh=sessHist.slice().sort((a,b)=>a.dk.localeCompare(b.dk));
+    if(sh.length>=2){
+      const W=286,H=64,pd=6,rates=sh.map(h=>h.rate),n2=rates.length;
+      const xs=i=>pd+(W-2*pd)*(n2===1?0.5:i/(n2-1)), ys=r=>pd+(H-2*pd)*(1-r/100);
+      const pts2=rates.map((r,i)=>`${xs(i).toFixed(1)},${ys(r).toFixed(1)}`).join(' ');
+      const area=`${pd},${H-pd} ${pts2} ${xs(n2-1).toFixed(1)},${H-pd}`;
+      const rr=recentR.slice().sort((a,b)=>a.dk.localeCompare(b.dk)).slice(-5);
+      const r5=rr.length?Math.round(rr.filter(x=>x.won).length/rr.length*100):winRate;
+      const trend=r5-winRate;
+      const trendTxt=trend>3?`<span style="color:#00b493">▲ ${trend}%p 상승세</span>`:trend<-3?`<span style="color:#e57373">▼ ${-trend}%p 하락세</span>`:`<span style="color:#a89b8e">유지 중</span>`;
+      html+=`<div style="margin:0 20px 14px;background:#fff;border:1px solid #f0e9e0;border-radius:24px;padding:22px">
+        <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:14px"><span style="font-size:15px;font-weight:900;color:#2d1f1a">📈 폼 추세</span><span style="font-size:12px;font-weight:800">최근 5경기 ${r5}% · ${trendTxt}</span></div>
+        <svg width="100%" viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" style="display:block;height:64px">
+          <defs><linearGradient id="spg" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#e8845a" stop-opacity="0.20"/><stop offset="1" stop-color="#e8845a" stop-opacity="0"/></linearGradient></defs>
+          <polygon points="${area}" fill="url(#spg)"/>
+          <polyline points="${pts2}" fill="none" stroke="#e8845a" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+          ${rates.map((r,i)=>`<circle cx="${xs(i).toFixed(1)}" cy="${ys(r).toFixed(1)}" r="${i===n2-1?4:2.5}" fill="${i===n2-1?'#e8845a':'#f0b592'}"/>`).join('')}
+        </svg>
+        <div style="display:flex;justify-content:space-between;font-size:10.5px;color:#b0a396;font-weight:700;margin-top:6px"><span>${sh[0].dk.slice(4,6)}/${sh[0].dk.slice(6,8)}</span><span>시즌 평균 ${winRate}%</span><span>${sh[sh.length-1].dk.slice(4,6)}/${sh[sh.length-1].dk.slice(6,8)}</span></div>
+      </div>`;
+    }
+
+    // ── 베스트 파트너 & 천적 ──
+    const pEnt=Object.entries(partnerS).filter(x=>x[1].g>=2);
+    const bestP=pEnt.sort((a,b)=>(b[1].w/b[1].g)-(a[1].w/a[1].g)||b[1].w-a[1].w)[0];
+    const oEnt=Object.entries(oppS).filter(x=>x[1].g>=2);
+    const nem=oEnt.sort((a,b)=>(b[1].g-b[1].w)-(a[1].g-a[1].w)||(a[1].w/a[1].g)-(b[1].w/b[1].g))[0];
+    if(bestP||nem){
+      const row=(emoji,label,nm2,detail,color)=>`<div style="display:flex;align-items:center;gap:12px;padding:13px 0"><div style="width:40px;height:40px;border-radius:13px;background:${color}18;display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0">${emoji}</div><div style="flex:1"><div style="font-size:11px;color:#a89b8e;font-weight:700">${label}</div><div style="font-size:15px;font-weight:900;color:#2d1f1a;margin-top:1px">${nm2}</div></div><div style="font-size:13px;font-weight:800;color:${color}">${detail}</div></div>`;
+      html+=`<div style="margin:0 20px 14px;background:#fff;border:1px solid #f0e9e0;border-radius:24px;padding:6px 22px">
+        ${bestP?row('🤝','최고의 케미',bestP[0],`${bestP[1].w}승 ${bestP[1].g-bestP[1].w}패`,'#00b493'):''}
+        ${bestP&&nem?'<div style="height:1px;background:#f0e9e0"></div>':''}
+        ${nem?row('🔥','다음엔 설욕할 상대',nem[0],`${nem[1].w}승 ${nem[1].g-nem[1].w}패`,'#e8845a'):''}
+      </div>`;
+    }
+
+    // ── 순위 변화 + 다음 목표 ──
+    const nextWin=(Math.floor(totalWins/10)+1)*10;
+    const nextPts=Math.ceil((totalPoints+1)/100)*100;
+    const goals=[];
+    goals.push(`🏆 <b>${nextWin-totalWins}승</b>이면 ${nextWin}승 달성`);
+    if(typeof myRank==='number'&&myRank>1){const above=ranked[myRank-2];if(above)goals.push(`⬆️ <b>${above[1]-totalPoints+1}점</b>이면 ${myRank-1}위로`);}
+    goals.push(`⭐ <b>${nextPts-totalPoints}점</b>이면 ${nextPts}점 돌파`);
+    const rc=rankChange;
+    const rcTxt=(rc==null||rc===0)?'<span style="color:#a89b8e">변동 없음</span>':rc>0?`<span style="color:#00b493">▲ ${rc}계단</span>`:`<span style="color:#e57373">▼ ${-rc}계단</span>`;
+    html+=`<div style="margin:0 20px 14px;background:#fff;border:1px solid #f0e9e0;border-radius:24px;padding:22px">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:18px">
+        <div><div style="font-size:11px;color:#a89b8e;font-weight:800">현재 순위</div><div style="font-size:32px;font-weight:900;color:#2d1f1a;letter-spacing:-1px;line-height:1;margin-top:3px">${typeof myRank==='number'?myRank+'<span style=\"font-size:18px;color:#c9beac\">위</span>':myRank}</div></div>
+        <div style="text-align:right"><div style="font-size:11px;color:#a89b8e;font-weight:800">지난 세션 대비</div><div style="font-size:17px;font-weight:900;margin-top:5px">${rcTxt}</div></div>
+      </div>
+      <div style="font-size:11px;color:#a89b8e;font-weight:800;margin-bottom:9px">다음 목표까지</div>
+      <div style="display:flex;flex-direction:column;gap:8px">${goals.map(g=>`<div style="background:#faf6f0;border-radius:12px;padding:11px 15px;font-size:13px;font-weight:700;color:#5c4d42">${g}</div>`).join('')}</div>
+    </div>`;
+
+    // ── 이번 달 출석 (스트릭 + 캘린더) ──
+    const thisMonth=(new Date()).toISOString().slice(0,7).replace('-','');
+    const monthDates=Array.from(new Set(attendedDk.filter(d=>d.startsWith(thisMonth))));
+    const attSet=new Set(attendedDk);
+    const allDays=Array.from(new Set(allSessDk.map(d=>d.slice(0,8)))).sort().reverse();
+    let streak=0;for(const d of allDays){if(attSet.has(d))streak++;else break;}
+    const yr=+thisMonth.slice(0,4),mo=+thisMonth.slice(4,6),dim=new Date(yr,mo,0).getDate();
+    let dots='';for(let d=1;d<=dim;d++){const dk=thisMonth+String(d).padStart(2,'0');const att=monthDates.includes(dk);dots+=`<div title="${d}" style="width:100%;aspect-ratio:1;border-radius:50%;background:${att?'#e8845a':'#f1ece4'}"></div>`;}
+    html+=`<div style="margin:0 20px 16px;background:#fff;border:1px solid #f0e9e0;border-radius:24px;padding:22px">
+      <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:15px"><span style="font-size:15px;font-weight:900;color:#2d1f1a">🗓️ 이번 달 출석</span><span style="font-size:13px;font-weight:800;color:#e8845a">🔥 연속 ${streak}회</span></div>
+      <div style="display:grid;grid-template-columns:repeat(16,1fr);gap:5px">${dots}</div>
+      <div style="font-size:11px;color:#a89b8e;font-weight:700;margin-top:12px">이번 달 <b style="color:#2d1f1a">${monthDates.length}회</b> 참석 · <span style="color:#e8845a">●</span> 참석한 날</div>
+    </div>`;
+  }
 
   // ── 오늘 경기 카드 ──
   let todaySess=null;
@@ -2302,7 +2455,7 @@ async function showPlayer(name,year,pageMode){
         mHtml+=`<div style="padding:12px 14px;border-bottom:1px solid var(--gray-100)">
           <div style="display:flex;align-items:center;gap:10px;margin-bottom:6px">
             <span style="font-size:13px;font-weight:700;background:${col}20;color:${col};padding:4px 10px;border-radius:8px">R${ri+1} 코트${ci+1}</span>
-            <span style="font-size:16px;font-weight:800;color:${won?'var(--blue)':lost?'var(--red)':'var(--gray-500)'}">${myS} — ${opS} ${won?'승':lost?'패':'—'}</span>
+            <span style="font-size:16px;font-weight:800;color:${won?'var(--blue)':lost?'var(--red)':'var(--gray-500)'}">${myS} — ${opS} ${won?'승':lost?'패':'—'}</span>${(s.dur&&s.dur[skey]!==undefined&&s.dur[skey]!==null)?`<span style="font-size:12px;font-weight:800;color:#e8845a;background:#fdecec;padding:3px 9px;border-radius:8px;margin-left:auto">\u23f1 ${s.dur[skey]}분</span>`:''}
           </div>
           <div style="font-size:14px;color:var(--gray-600);line-height:1.8">파트너 <strong>${pNm}</strong> &nbsp;·&nbsp; 상대 <strong>${pname(s,o1)}</strong>, <strong>${pname(s,o2)}</strong></div>
         </div>`;
@@ -3327,7 +3480,7 @@ function renderBktGames(sess){
       const _cDone=(_csv.s1!==undefined&&_csv.s1!==null&&_csv.s2!==undefined&&_csv.s2!==null);
       const _stat=_courtStat(ri,ci,ct);
       let doneBadge;
-      if(_cDone)doneBadge=`<span style="font-size:11px;font-weight:800;padding:3px 9px;border-radius:20px;background:#fff;color:#00866D;flex-shrink:0">\u2713 ${_csv.s1}:${_csv.s2}</span>`;
+      if(_cDone){const _dm=(sess.dur&&sess.dur[`${ri}-${ci}`]);doneBadge=`<span style="font-size:11px;font-weight:800;padding:3px 9px;border-radius:20px;background:#fff;color:#00866D;flex-shrink:0">\u2713 ${_csv.s1}:${_csv.s2}${(_dm!==undefined&&_dm!==null)?' · '+_dm+'분':''}</span>`;}
       else if(_stat==='playing'){const _em=_elapsedMin(`${ri}-${ci}`);doneBadge=`<span style="font-size:11px;font-weight:800;padding:3px 9px;border-radius:20px;background:#fff;color:#e8845a;flex-shrink:0">● 진행 중${_em!=null?' · '+_em+'분':''}</span>`;}
       else if(_stat==='now')doneBadge=`<span style="font-size:11px;font-weight:800;padding:3px 9px;border-radius:20px;background:#fff;color:#00866D;flex-shrink:0">지금 가능</span>`;
       else if(_cScoreable(ct))doneBadge=`<span style="font-size:11px;font-weight:700;padding:3px 9px;border-radius:20px;background:rgba(255,255,255,.5);color:#9c8f82;flex-shrink:0">대기</span>`;
@@ -3356,7 +3509,30 @@ function renderBktGames(sess){
       return `<div class="bk-court" style="background:${P.bg}${_stat==='playing'?';outline:2.5px solid #e8845a;outline-offset:-2px':''}"><div class="bk-top"><span class="bk-ct" style="color:${P.ink}">코트 ${ci+1}${tpLabel?' · '+tpLabel:''}</span><div class="bk-badges">${doneBadge}${startBtn}</div></div><div class="bk-teams"><div class="bk-team">${nm(ct[0])}${nm(ct[1])}</div><span class="bk-vs">vs</span><div class="bk-team bk-team-r">${nm(ct[2])}${nm(ct[3])}</div></div>${helperNote}${waitNote}</div>`;
     }).join('');
     const wh=round.wait&&round.wait.length?round.wait.map(ai=>{const pc=_playedCount[ai]||0;const rest=pc===_waitMin;return `<span class="w-chip${rest?' w-rest':''}">${pname(sess,ai)}<b class="w-cnt">${pc}</b></span>`;}).join(''):`<span class="w-chip" style="color:var(--green)">전원 참가</span>`;
-    bl.innerHTML=`<div class="bk-ghdr"><span class="bk-gnum">${ri+1}게임</span>${_badge}<span class="bk-gpill">${sess.gm}게임제</span></div><div class="bk-list">${ch}<div class="sc-wait"><span class="sc-wait-lbl">대기</span>${wh}</div></div>`;
+    // 헬퍼 추천: 이 게임에 헬퍼 자리가 있으면, 이후 남은 경기가 없어(안 꼬이는) 세울 수 있는 사람 추천
+    let helperSuggestHtml='';
+    const _helperN=(round.courts||[]).reduce((a,ct)=>a+((ct||[]).filter(x=>x===-1).length),0);
+    if(_helperN>0){
+      const _out=new Set(sess.out||[]),_free=[],_soon=[];
+      const _PN=getP(sess).length;
+      for(let ai=0;ai<_PN;ai++){
+        if(_out.has(ai))continue;
+        const nm=pname(sess,ai);
+        if(!nm||nm==='헬퍼'||nm==='미정'||nm==='미배정'||nm.indexOf('번')>=0)continue;
+        if(playersByRound[ri].has(ai))continue; // 이 게임 뛰는 사람 제외
+        let playsAfter=false;
+        for(let rj=ri+1;rj<B.length;rj++){if(playersByRound[rj].has(ai)){playsAfter=true;break;}}
+        (playsAfter?_soon:_free).push(nm);
+      }
+      if(_free.length){
+        helperSuggestHtml=`<div class="bk-help-sug"><b>🎾 헬퍼로 세우기 좋아요 <span style="font-weight:600;color:#8a9a90">· 남은 경기 없음</span></b><div class="bk-help-names">${_free.slice(0,14).join(' · ')}</div></div>`;
+      }else if(_soon.length){
+        helperSuggestHtml=`<div class="bk-help-sug soon"><b>헬퍼 후보 <span style="font-weight:600;color:#b5a99c">· 대기 중이지만 다음 경기 있음</span></b><div class="bk-help-names">${_soon.slice(0,14).join(' · ')}</div></div>`;
+      }else{
+        helperSuggestHtml=`<div class="bk-help-sug none">참여 가능한 대기 인원이 없어 <b>외부 헬퍼</b>가 필요해요.</div>`;
+      }
+    }
+    bl.innerHTML=`<div class="bk-ghdr"><span class="bk-gnum">${ri+1}게임</span>${_badge}<span class="bk-gpill">${sess.gm}게임제</span></div><div class="bk-list">${ch}${helperSuggestHtml}<div class="sc-wait"><span class="sc-wait-lbl">대기</span>${wh}</div></div>`;
     cont.appendChild(bl);
   });
   _syncTimerLoopM();
@@ -3523,9 +3699,21 @@ async function saveSc(skey,inp){
       saveQ={};saveStat('saving','저장 중...');await flushUpd(today,upd);return;
     }
     if(!latest.sc)latest.sc={};
+    const _procKeys=Object.keys(saveQ);
     const upd={};
     for(const[k,sides]of Object.entries(saveQ)){if(!latest.sc[k])latest.sc[k]={};for(const[side,val]of Object.entries(sides)){if(val===null){delete latest.sc[k][side];upd['sc/'+k+'/'+side]=null;}else{latest.sc[k][side]=val;upd['sc/'+k+'/'+side]=val;}}}
-    saveQ={};latest.sc._totals=calcTotals(latest);latest.finished=checkDone(latest);
+    saveQ={};
+    // 경기 종료(양팀 점수 입력) 시 경기 시간(분) 고정 저장 — 시작 시각(ipt) 있는 코트만
+    if(!latest.dur)latest.dur={};
+    _procKeys.forEach(k=>{
+      const mv=latest.sc[k]||{};
+      const done=mv.s1!==undefined&&mv.s1!==null&&mv.s2!==undefined&&mv.s2!==null;
+      if(done&&latest.ipt&&latest.ipt[k]&&latest.dur[k]===undefined){
+        const m=Math.max(0,Math.floor((Date.now()-latest.ipt[k])/60000));
+        latest.dur[k]=m;upd['dur/'+k]=m;
+      }
+    });
+    latest.sc._totals=calcTotals(latest);latest.finished=checkDone(latest);
     upd['sc/_totals']=latest.sc._totals;upd['finished']=latest.finished;
     if(latest.bw&&latest.finished&&!latest.bwGradeApplied){
       try{const armed=(await sget('bw-grade-armed'))!==false;if(armed){const done=await applyBWGrades(latest,today);if(done){latest.bwGradeApplied=Date.now();upd['bwGradeApplied']=latest.bwGradeApplied;invalidateSessCache();}}}catch(e){}
