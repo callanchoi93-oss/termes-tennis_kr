@@ -1658,6 +1658,7 @@ async function loadHome(){
   let totalGames=0,totalWins=0,totalPoints=0,sessions=0;
   let myRank='—';
   let rankChange=null;
+  let rankedList=[];
   let myScored=0,myConceded=0,menG=0,menW=0,mixG=0,mixW=0,closeLoss=0;
   const recentR=[];
   const partnerS={},oppS={},sessHist=[],attendedDk=[],sessContrib={},allSessDk=[];
@@ -1721,6 +1722,7 @@ async function loadHome(){
       if(!isGuest&&myIdx>=0&&sessG>0){sessHist.push({dk:String(k),rate:Math.round(sessW/sessG*100),g:sessG,w:sessW});attendedDk.push(String(k).slice(0,8));}
     }
     const ranked=Object.entries(scoreMap).sort((a,b)=>b[1]-a[1]);
+    rankedList=ranked;
     totalPoints=scoreMap[name]||0;
     const ri=ranked.findIndex(r=>r[0]===name);
     myRank=ri>=0?(ri+1):'—';
@@ -1911,7 +1913,7 @@ async function loadHome(){
     const nextPts=Math.ceil((totalPoints+1)/100)*100;
     const goals=[];
     goals.push(`🏆 <b>${nextWin-totalWins}승</b>이면 ${nextWin}승 달성`);
-    if(typeof myRank==='number'&&myRank>1){const above=ranked[myRank-2];if(above)goals.push(`⬆️ <b>${above[1]-totalPoints+1}점</b>이면 ${myRank-1}위로`);}
+    if(typeof myRank==='number'&&myRank>1){const above=rankedList[myRank-2];if(above)goals.push(`⬆️ <b>${above[1]-totalPoints+1}점</b>이면 ${myRank-1}위로`);}
     goals.push(`⭐ <b>${nextPts-totalPoints}점</b>이면 ${nextPts}점 돌파`);
     const rc=rankChange;
     const rcTxt=(rc==null||rc===0)?'<span style="color:#a89b8e">변동 없음</span>':rc>0?`<span style="color:#00b493">▲ ${rc}계단</span>`:`<span style="color:#e57373">▼ ${-rc}계단</span>`;
