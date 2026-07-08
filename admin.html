@@ -1916,7 +1916,7 @@ function renderBracketGender(){
       });
       rosters=`<div class="hz-rsec"><div class="hz-glabel" style="margin-bottom:12px">코트별 조 명단</div>${rosters}</div>`;
     }
-    div.innerHTML=`<div class="hz-head"><div class="hz-eyebrow">HANUL · 코트별 조 편성</div><div class="hz-title">한울 대진표</div><div class="hz-sub">${S.bracket.length}게임 · 전원 4게임 · 코트 색으로 내 조 확인</div></div>${rosters}${games}`;
+    div.innerHTML=`<div class="hz-head"><div class="hz-eyebrow">HANUL · 코트별 조 편성</div><div class="hz-title">한울 대진표</div><div class="hz-sub">${S.bracket.length}게임 · 전원 4게임 · 코트 색으로 내 조 확인</div></div>${rosters}`;
     wrap.appendChild(div);
   }
   S.bracket.forEach((round,ri)=>{
