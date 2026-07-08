@@ -464,6 +464,7 @@ body{background:var(--bg);color:var(--gray-900);font-family:'Pretendard',-apple-
       <div class="raffle-grid" id="rfResult"></div>
     </div>
     <button class="btn btn-success" onclick="genBracket()">대진표 생성</button>
+    <button class="btn" style="width:100%;margin-top:10px;background:linear-gradient(135deg,#dcfce7,#d1fae5);color:#065f46;font-weight:800" onclick="genHanulBracket()">한울 방식 대진 생성 <span style="font-weight:600;font-size:12px;opacity:.8">· 코트별 조 편성</span></button>
     <button class="btn btn-secondary" style="width:100%;margin-top:10px;background:linear-gradient(135deg,#dbeafe,#fee2e2);color:#1e3a8a;font-weight:800" onclick="genBlueWhiteBracket()"><span style="display:inline-block;width:9px;height:9px;border-radius:50%;background:#3b82f6;margin-right:6px;vertical-align:middle"></span>청백전 대진 생성<span style="display:inline-block;width:9px;height:9px;border-radius:50%;background:#ef4444;margin-left:6px;vertical-align:middle"></span></button>
     <div class="form-hint">월례대회용 · 18명 9:9 실력 밸런스 자동 배정 · 청 vs 백 복식 팀대항</div>
   </div>
@@ -1713,6 +1714,17 @@ function genGenderBracket(n,c,r,ppr,waitSz){
   // ── 사후 보정: 파트너 2회 이상 중복 제거 (같은 라운드 내 선수 교환) ──
   repairPartnerDup();
 
+  // ── 혼복 코트: 실제 2남2녀면 각 팀 1남1녀(남여남여)로 강제 재정렬 ──
+  S.bracket.forEach(rd=>{
+    if(rd.isBW||rd.isOrder)return;
+    (rd.courts||[]).forEach(ct=>{
+      if(!ct||ct.length<4||ct.includes(-1))return;
+      const M=ct.filter(x=>pInfo[x]&&pInfo[x].realGender==='M');
+      const F=ct.filter(x=>pInfo[x]&&pInfo[x].realGender==='F');
+      if(M.length===2&&F.length===2){ct.length=0;ct.push(M[0],F[0],M[1],F[1]);}
+    });
+  });
+
   _partnerCnt=pu;
 
   renderBracketGender();
@@ -1884,6 +1896,82 @@ function renderBracketGender(){
 }
 
 // ── 대진표 생성 ──
+function genHanulBracket(){
+  if(!S.assigned||!S.assigned.length){toast('래플을 먼저 진행해주세요');return;}
+  if(!S.players.length){toast('설정을 먼저 저장해주세요');return;}
+  S.isBlueWhite=false;S.bwTeams=null;
+  if(!S.courts||S.courts<1)S.courts=parseInt((document.getElementById('courtN')||{}).value)||3;
+  S.gameMode=(document.getElementById('gameM')||{}).value||'4';
+  S.useGender=true;S.bracket=[];
+  const c=S.courts, T=S.assigned.length, GAMES=4;
+  const pInfo=S.assigned.map(pi=>{
+    const p=S.players[pi];
+    let gender=p.isGuest?(p.guestGender||'M'):(genders[p.name]||'M');
+    const grade=p.isGuest?(p.guestGrade||'none'):(grades[p.name]||'none');
+    const realGender=gender;
+    if(gender==='M'&&grade==='C')gender='F';
+    return{name:p.name,gender,grade,realGender};
+  });
+  // 코트 수 우선 배정 (조당 최소 4명) → 가능한 한 모든 코트 사용
+  let numGroups=Math.min(c, Math.max(1, Math.floor(T/4)));
+  // 실력 스네이크 배분
+  const order=Array.from({length:T},(_,i)=>i).sort((a,b)=>gradeScore(pInfo[b].grade)-gradeScore(pInfo[a].grade)||Math.random()-0.5);
+  let groups=Array.from({length:numGroups},()=>[]);
+  let gi=0,dir=1;
+  order.forEach(idx=>{groups[gi].push(idx);gi+=dir;if(gi<0){gi=0;dir=1;}else if(gi>=numGroups){gi=numGroups-1;dir=-1;}});
+  // 큰 조를 앞 코트(늦게 끝남)로 → 코트 번호 유지
+  groups.sort((a,b)=>b.length-a.length);
+  const gameSoFar={};order.forEach(i=>gameSoFar[i]=0);
+  const pu={},ou={};
+  const pkey=(a,b)=>a<b?a+'_'+b:b+'_'+a;
+  const groupSched=groups.map(()=>[]);
+  groups.forEach((grp,gIdx)=>{
+    let guard=0,maxG=grp.length+8;
+    while(grp.some(i=>gameSoFar[i]<GAMES) && guard<maxG){
+      guard++;
+      const elig=grp.filter(i=>gameSoFar[i]<GAMES).sort((a,b)=>gameSoFar[a]-gameSoFar[b]||Math.random()-0.5);
+      // 파트너/상대 중복 적은 조합 우선: 4명 후보에서 최적 팀 구성
+      let four=elig.slice(0,4);
+      while(four.length<4)four.push(-1);
+      const reals=four.filter(x=>x>=0);
+      let court;
+      if(reals.length===4){
+        const sorted=reals.slice().sort((a,b)=>gradeScore(pInfo[b].grade)-gradeScore(pInfo[a].grade));
+        // 세 가지 팀 분할 중 파트너 중복 가장 적은 것
+        const cand=[[sorted[0],sorted[3],sorted[1],sorted[2]],[sorted[0],sorted[1],sorted[2],sorted[3]],[sorted[0],sorted[2],sorted[1],sorted[3]]];
+        court=cand.map(cc=>({cc,cost:(pu[pkey(cc[0],cc[1])]||0)+(pu[pkey(cc[2],cc[3])]||0)+((ou[pkey(cc[0],cc[2])]||0)+(ou[pkey(cc[0],cc[3])]||0)+(ou[pkey(cc[1],cc[2])]||0)+(ou[pkey(cc[1],cc[3])]||0))*0.5+Math.abs((gradeScore(pInfo[cc[0]].grade)+gradeScore(pInfo[cc[1]].grade))-(gradeScore(pInfo[cc[2]].grade)+gradeScore(pInfo[cc[3]].grade)))})).sort((a,b)=>a.cost-b.cost)[0].cc;
+      }else court=four.slice();
+      // 남여남여
+      const M=court.filter(x=>x>=0&&pInfo[x].realGender==='M');
+      const F=court.filter(x=>x>=0&&pInfo[x].realGender==='F');
+      if(M.length===2&&F.length===2)court=[M[0],F[0],M[1],F[1]];
+      if(court[0]>=0&&court[1]>=0)pu[pkey(court[0],court[1])]=(pu[pkey(court[0],court[1])]||0)+1;
+      if(court[2]>=0&&court[3]>=0)pu[pkey(court[2],court[3])]=(pu[pkey(court[2],court[3])]||0)+1;
+      for(const a of [court[0],court[1]])for(const b of [court[2],court[3]])if(a>=0&&b>=0)ou[pkey(a,b)]=(ou[pkey(a,b)]||0)+1;
+      groupSched[gIdx].push(court);
+      four.forEach(x=>{if(x>=0)gameSoFar[x]++;});
+    }
+  });
+  const courtType=(four)=>{if(four.includes(-1))return '미정';const m=four.filter(x=>x>=0&&pInfo[x].realGender==='M').length;const f=four.filter(x=>x>=0&&pInfo[x].realGender==='F').length;if(m===4)return '남복';if(f===4)return '여복';return '혼복';};
+  const maxRounds=Math.max(0,...groupSched.map(s=>s.length));
+  for(let ri=0;ri<maxRounds;ri++){
+    const courts=[],tps=[];const playing=new Set();
+    for(let g=0;g<groups.length;g++){
+      const m=groupSched[g][ri];
+      if(m){courts.push(m.slice());tps.push(courtType(m));m.forEach(x=>{if(x>=0)playing.add(x);});}
+    }
+    const wl=order.filter(i=>!playing.has(i));
+    S.bracket.push({courts,wait:wl,courtTypeLabels:tps,isHanul:true});
+  }
+  _partnerCnt=pu;
+  renderBracketGender();renderTeamSwap();
+  const pw=document.getElementById('pubBtnWrap');if(pw)pw.style.display='block';setPubDateDefault();
+  const sizes=groups.map(g=>g.length).join('/');
+  const md=Object.values(pu).length?Math.max(...Object.values(pu)):0;
+  toast(`한울 대진 완료 · ${numGroups}개 조(${sizes}명) · 전원 ${GAMES}게임 · 파트너 최대 ${md}회`);
+  goTab('bracket',document.querySelectorAll('.tn')[4]);
+}
+
 function genBracket(){
   if(!S.assigned.length){toast('래플을 먼저 진행해주세요');return;}
   S.isBlueWhite=false;S.bwTeams=null;  // 일반 대진 → 청백 플래그 해제
