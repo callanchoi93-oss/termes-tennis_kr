@@ -282,12 +282,12 @@ body{background:#f6f3ef;color:var(--gray-900);font-family:'Pretendard',-apple-sy
 .rpt-k{font-size:11px;color:#aa9e90;font-weight:600;letter-spacing:-.2px}
 .rpt-v{font-size:15px;font-weight:800;color:#2a1e18;margin-top:2px}
 .rpt-goal{background:#faf6f0;border-radius:12px;padding:11px 15px;font-size:13px;font-weight:700;color:#5c4d42;margin-top:8px}.rpt-goal b{color:#2a1e18}
-.hz-wrap{background:#fff;border:1px solid #f0e9e0;border-radius:22px;padding:20px 18px;margin:0 20px 16px;box-shadow:0 6px 18px -8px rgba(120,90,70,.12)}
-.hz-eyebrow{font-size:10.5px;font-weight:800;letter-spacing:2px;color:#e8845a;text-transform:uppercase;margin-bottom:6px}
-.hz-title2{font-size:22px;font-weight:900;color:#2d1f1a;letter-spacing:-1px;line-height:1;margin-bottom:16px}
-.hz-roster{border-radius:18px;padding:14px 16px;margin-bottom:9px;position:relative}
+.hz-wrap{margin:0 0 18px}
+.hz-eyebrow{font-size:10.5px;font-weight:800;letter-spacing:2px;color:#e8845a;text-transform:uppercase;margin:0 4px 5px}
+.hz-title2{font-size:20px;font-weight:900;color:#2d1f1a;letter-spacing:-.8px;line-height:1;margin:0 4px 14px}
+.hz-roster{border-radius:22px;padding:15px 18px;margin-bottom:12px;position:relative;box-shadow:0 5px 16px rgba(45,31,26,.05)}
 .hz-roster:last-child{margin-bottom:0}
-.hz-roster.me{box-shadow:0 0 0 2.5px #e8845a}
+.hz-roster.me{box-shadow:0 0 0 2.5px #e8845a,0 5px 16px rgba(45,31,26,.05)}
 .hz-rct{font-size:13px;font-weight:900;color:#2d1f1a;margin-bottom:10px;display:flex;align-items:center;gap:8px}
 .hz-rct span.cnt{font-size:11px;font-weight:700;color:rgba(45,31,26,.45)}
 .hz-mine{margin-left:auto;background:#e8845a;color:#fff;font-size:10px;font-weight:800;padding:2px 9px;border-radius:8px}
@@ -298,6 +298,49 @@ body{background:#f6f3ef;color:var(--gray-900);font-family:'Pretendard',-apple-sy
 .hz-mtag.f{background:rgba(212,80,106,.18);color:#c03a56}
 .hz-mem{background:rgba(255,255,255,.72);color:#2d1f1a;font-size:13px;font-weight:800;padding:4px 11px;border-radius:9px}
 .hz-mem.me{background:#2d1f1a;color:#fff}
+.hz-sheet-btn{background:#2d1f1a;color:#fff;border:none;font-family:inherit;font-size:12px;font-weight:800;padding:8px 15px;border-radius:20px;cursor:pointer;flex-shrink:0}
+.sh-ov{position:fixed;inset:0;background:rgba(45,31,26,.5);z-index:10005;display:flex;align-items:flex-end;justify-content:center}
+.sh-panel{background:#faf6f2;width:100%;max-width:480px;max-height:92vh;border-radius:26px 26px 0 0;display:flex;flex-direction:column;overflow:hidden}
+.sh-head{display:flex;align-items:flex-start;justify-content:space-between;padding:22px 22px 14px}
+.sh-eye{font-size:11px;font-weight:800;letter-spacing:1.5px;color:#e8845a;text-transform:uppercase;margin-bottom:4px}
+.sh-title{font-size:24px;font-weight:900;color:#2d1f1a;letter-spacing:-1px;line-height:1}
+.sh-x{background:#efe7dd;border:none;width:34px;height:34px;border-radius:50%;font-size:14px;color:#6b5d51;cursor:pointer;flex-shrink:0}
+.sh-body{overflow-y:auto;padding:0 18px 34px}
+.sh-court{background:#fff;border-radius:21px;padding:21px;margin-bottom:13px;box-shadow:0 4px 14px rgba(120,90,70,.06)}
+.sh-ct{font-size:16px;font-weight:900;color:#2d1f1a;letter-spacing:-.4px;margin-bottom:13px;display:flex;align-items:baseline;gap:8px}
+.sh-ct span{font-size:11px;font-weight:700;color:#a89b8e}
+.sh-sub{font-size:11px;font-weight:800;color:#a89b8e;letter-spacing:.2px;margin:2px 0 8px}
+.sh-tbl{width:100%;border-collapse:collapse;margin-bottom:14px}
+.sh-tbl:last-child{margin-bottom:0}
+.sh-tbl th{font-size:10.5px;font-weight:800;color:#a89b8e;padding:6px 5px;border-bottom:1.5px solid #f0e9e0;text-align:center}
+.sh-tbl td{font-size:12.5px;font-weight:700;color:#2d1f1a;padding:8px 5px;border-bottom:1px solid #f5efe7;text-align:center}
+.sh-games .mt{font-weight:800;font-size:12px}
+.sh-games .gn{color:#e8845a;font-weight:900;width:32px}
+.sh-games .scc{font-weight:900;color:#00b493;white-space:nowrap}
+.sh-games .scc.pending{color:#c9beac}
+.sh-score .rk{color:#e8845a;font-weight:900;width:34px}
+.sh-score .nm{text-align:left;font-weight:800;padding-left:8px}
+.sh-score .pos{color:#e8845a}.sh-score .neg{color:#9aa0b5}
+.sh-score tr.me td{background:#fdf0e9}
+.sh-sched{width:100%;border-collapse:separate;border-spacing:0 8px;font-variant-numeric:tabular-nums}
+.sh-sched td{padding:0;vertical-align:middle}
+.sh-sched .g{width:68px;background:#fdf0e9;color:#e8845a;font-weight:800;font-size:13px;border-radius:13px 0 0 13px;padding:13px 8px;text-align:center;letter-spacing:-.3px}
+.sh-sched .code{background:#faf6f2;font-weight:900;letter-spacing:2px;font-size:17px;color:#2d1f1a;border-radius:0 13px 13px 0;padding:13px 16px;text-align:center}
+.sh-scroll{overflow-x:auto;-webkit-overflow-scrolling:touch;margin:0 -2px}
+.sh-grid{border-collapse:collapse;width:100%;min-width:534px;font-variant-numeric:tabular-nums}
+.sh-grid th{font-size:11px;font-weight:800;color:#a89b8e;padding:8px 3px;border-bottom:2px solid #f0e9e0;white-space:nowrap;letter-spacing:-.2px;vertical-align:middle}
+.sh-grid th.grp{color:#c9beac;font-size:9.5px;font-weight:800;padding-bottom:3px}
+.sh-grid td{font-size:13px;font-weight:700;color:#2d1f1a;padding:13px 3px;border-bottom:1px solid #f5efe7;text-align:center;white-space:nowrap;line-height:1}
+.sh-grid .lblM span,.sh-grid .lblF span{display:inline-flex;width:26px;height:26px;border-radius:8px;align-items:center;justify-content:center;font-size:12px;font-weight:900}
+.sh-grid .lblM span{background:rgba(90,123,234,.16);color:#3a5bd0}
+.sh-grid .lblF span{background:rgba(212,80,106,.16);color:#c03a56}
+.sh-grid .nm{text-align:left;font-size:14px;font-weight:800;padding-left:11px;min-width:54px;letter-spacing:-.3px}
+.sh-grid .set{font-size:14px;font-weight:800;color:#8a7d70;letter-spacing:-.5px}
+.sh-grid .set.win{color:#e8845a;font-weight:900}
+.sh-grid .rk span{display:inline-flex;min-width:26px;height:26px;padding:0 6px;border-radius:8px;background:#fdf0e9;color:#e8845a;font-weight:900;font-size:12px;align-items:center;justify-content:center}
+.sh-grid .neg{color:#9aa0b5}.sh-grid .pos{color:#e8845a}
+.sh-grid tr.me td{background:#fdf9f5}
+.sh-grid tr.me .nm{color:#c2410c}
 .hpill-row{display:flex;gap:8px;padding:0 22px;margin-bottom:22px;overflow-x:auto}
 .hpill{flex:1;min-width:56px;background:#fff;border:1px solid #efe8df;border-radius:15px;padding:10px 4px;text-align:center}
 .hpill .hg{font-size:11px;color:#a89b8e;font-weight:800}.hpill .hs{font-size:12px;font-weight:800;color:#2d1f1a;margin-top:2px}
@@ -3457,7 +3500,62 @@ async function tstart(key){
   }catch(e){toast('저장에 실패했습니다');}
   _tstartBusy=false;
 }
+function showHanulSheet(){
+  const sess=window.__bktSess; if(!sess||!sess.hanul||!Array.isArray(sess.hg)){return;}
+  const B=getB(sess), sc=getSc(sess);
+  const nameToAi={};
+  B.forEach(rd=>rd.courts.forEach(ct=>{if(ct)ct.forEach(ai=>{if(ai>=0){const nm=pname(sess,ai);if(nm&&nm.indexOf('번')<0)nameToAi[nm]=ai;}});}));
+  let sheets='';
+  sess.hg.forEach((grp,gi)=>{
+    const games=[];
+    B.forEach((rd,ri)=>{const ct=rd.courts[gi];if(ct&&ct.length>=4&&!ct.includes(-1))games.push({ri,ct});});
+    // 남=숫자(1,2,3..), 여=영문(A,B,C..)
+    const males=grp.filter(m=>m.gd==='M'), females=grp.filter(m=>m.gd!=='M');
+    const code={}; males.forEach((m,i)=>code[m.n]=String(i+1)); females.forEach((m,i)=>code[m.n]=String.fromCharCode(65+i));
+    const cc=ai=>code[pname(sess,ai)]||'·';
+    const ordered=[...males.map(m=>({n:m.n,c:code[m.n],mal:true})), ...females.map(m=>({n:m.n,c:code[m.n],mal:false}))];
+    // per-member game scores + stats
+    const stat={};
+    ordered.forEach(m=>{
+      const ai=nameToAi[m.n]; const gl=[];
+      games.forEach(g=>{ if(ai!=null&&g.ct.includes(ai)){ const sv=sc[`${g.ri}-${gi}`]||{}; const has=sv.s1!==undefined&&sv.s1!==null&&sv.s2!==undefined&&sv.s2!==null; const s1=parseInt(sv.s1)||0,s2=parseInt(sv.s2)||0; const isT1=g.ct.indexOf(ai)<2; gl.push({my:isT1?s1:s2,op:isT1?s2:s1,has,won:(isT1?s1:s2)>(isT1?s2:s1)}); } });
+      const played=gl.filter(x=>x.has);
+      stat[m.n]={gl,w:played.filter(x=>x.won).length,l:played.filter(x=>!x.won).length,sc:played.reduce((a,x)=>a+x.my,0),co:played.reduce((a,x)=>a+x.op,0),played:played.length};
+      stat[m.n].diff=stat[m.n].sc-stat[m.n].co;
+    });
+    const rankList=ordered.map(m=>({n:m.n,w:stat[m.n].w,diff:stat[m.n].diff,played:stat[m.n].played})).sort((a,b)=>b.w-a.w||b.diff-a.diff);
+    const rankMap={}; let rk=1; rankList.forEach((r,i)=>{if(i>0&&(r.w<rankList[i-1].w||(r.w===rankList[i-1].w&&r.diff<rankList[i-1].diff)))rk=i+1;rankMap[r.n]=r.played?rk:'-';});
+    const nG=Math.max(4,...ordered.map(m=>stat[m.n].gl.length));
+    // 게임순서표 (코드: 1A:2B)
+    let sched='';
+    games.forEach((g,idx)=>{sched+=`<tr><td class="g">게임 ${idx+1}</td><td class="code">${cc(g.ct[0])}${cc(g.ct[1])} : ${cc(g.ct[2])}${cc(g.ct[3])}</td></tr>`;});
+    // 점수표
+    let head=`<tr><th rowspan="2">번호</th><th rowspan="2">Name</th>`;
+    for(let i=0;i<nG;i++)head+=`<th rowspan="2">${i+1}세트</th>`;
+    head+=`<th colspan="2" class="grp">승률</th><th colspan="3" class="grp">게임특실</th><th rowspan="2">순위</th></tr><tr><th>승</th><th>패</th><th>득점</th><th>실점</th><th>득실차</th></tr>`;
+    let body='';
+    ordered.forEach(m=>{
+      const d=stat[m.n]; let sets='';
+      for(let i=0;i<nG;i++){const x=d.gl[i];if(x&&x.has)sets+=`<td class="set${x.won?' win':''}">${x.my} : ${x.op}</td>`;else sets+=`<td class="set" style="color:#d5cabc">·</td>`;}
+      const mine=m.n===me?' me':'';
+      body+=`<tr class="${mine}"><td class="${m.mal?'lblM':'lblF'}"><span>${m.c}</span></td><td class="nm">${m.n}</td>${sets}<td>${d.w}</td><td>${d.l}</td><td>${d.sc}</td><td>${d.co}</td><td class="${d.diff<0?'neg':'pos'}">${d.diff>=0?'+':''}${d.diff}</td><td class="rk"><span>${rankMap[m.n]}</span></td></tr>`;
+    });
+    sheets+=`<div class="sh-court">
+      <div class="sh-ct">코트 ${gi+1} <span>${grp.length}명 · 전원 4게임</span></div>
+      <div class="sh-sub">게임 순서 <span style="color:#c9beac;font-weight:700">· 남 1·2·3 / 여 A·B·C</span></div>
+      <table class="sh-sched"><tbody>${sched||'<tr><td>경기 없음</td></tr>'}</tbody></table>
+      <div class="sh-sub" style="margin-top:15px">점수표 <span style="color:#c9beac;font-weight:700">· 이름·점수·순위 자동</span></div>
+      <div class="sh-scroll"><table class="sh-grid"><thead>${head}</thead><tbody>${body}</tbody></table></div>
+    </div>`;
+  });
+  const ov=document.createElement('div');ov.className='sh-ov';ov.id='shOv';
+  ov.innerHTML=`<div class="sh-panel"><div class="sh-head"><div><div class="sh-eye">한울 AB · 수기 방식</div><div class="sh-title">경기 기록표</div></div><button class="sh-x" onclick="document.getElementById('shOv').remove()">✕</button></div><div class="sh-body">${sheets}</div></div>`;
+  ov.onclick=e=>{if(e.target===ov)ov.remove();};
+  document.body.appendChild(ov);
+}
+
 function renderBktGames(sess){
+  window.__bktSess=sess;
   const cont=document.getElementById('bktGames');if(!cont)return;cont.innerHTML='';
   // 한울 대진: 코트별 조 명단 (내 조 강조)
   if(sess&&sess.hanul&&Array.isArray(sess.hg)&&sess.hg.length){
@@ -3474,7 +3572,7 @@ function renderBktGames(sess){
     });
     const div=document.createElement('div');
     div.className='hz-wrap';
-    div.innerHTML=`<div class="hz-eyebrow">HANUL · 코트별 조 편성</div><div class="hz-title2">코트별 조 명단</div>${rosters}`;
+    div.innerHTML=`<div class="hz-eyebrow">HANUL · 코트별 조 편성</div><div style="display:flex;align-items:center;justify-content:space-between;margin:0 4px 14px"><div class="hz-title2" style="margin:0">코트별 조 명단</div><button class="hz-sheet-btn" onclick="showHanulSheet()">수기 방식 보기</button></div>${rosters}`;
     cont.appendChild(div);
   }
   const B=getB(sess),sc=getSc(sess);
