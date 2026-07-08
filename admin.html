@@ -2119,7 +2119,7 @@ async function publish(){
     await archiveSession(today,existing);
   }
   const archN=await sget('archive-idx-'+today)||0;
-  const data={d:today,p:S.players.map(p=>({n:p.name,g:p.isGuest?1:0,s:p.skill,gd:(p.isGuest?(p.guestGender||''):(genders[p.name]||''))})),ct:S.courts,r:S.rounds,gm:S.gameMode,a:S.assigned,b:S.bracket.map(rd=>({c:rd.courts,w:rd.wait,ctl:rd.courtTypeLabels||null,bw:rd.isBW||false,ord:rd.isOrder||false})),sc:{},bw:S.isBlueWhite||false,bwTeams:S.bwTeams||null,pub:Date.now(),exp:expTs,del:false,finished:false,seq:archN+1};
+  const data={d:today,p:S.players.map(p=>({n:p.name,g:p.isGuest?1:0,s:p.skill,gd:(p.isGuest?(p.guestGender||''):(genders[p.name]||''))})),ct:S.courts,r:S.rounds,gm:S.gameMode,a:S.assigned,b:S.bracket.map(rd=>({c:rd.courts,w:rd.wait,ctl:rd.courtTypeLabels||null,bw:rd.isBW||false,ord:rd.isOrder||false})),sc:{},bw:S.isBlueWhite||false,bwTeams:S.bwTeams||null,hanul:!!(S.hanulGroups&&S.hanulGroups.length),hg:(S.hanulGroups&&S.hanulGroups.length)?S.hanulGroups.map(grp=>grp.map(m=>({n:m.name,gd:m.gender}))):null,pub:Date.now(),exp:expTs,del:false,finished:false,seq:archN+1};
   const ok=await sset('sessions/'+today,data);if(!ok){toast('저장에 실패했습니다');return;}
   let idx=await sget('index');idx=idx?(Array.isArray(idx)?idx:Object.values(idx)):[];
   if(!idx.includes(today))idx.unshift(today);await sset('index',idx.slice(0,200));

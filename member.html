@@ -282,6 +282,22 @@ body{background:#f6f3ef;color:var(--gray-900);font-family:'Pretendard',-apple-sy
 .rpt-k{font-size:11px;color:#aa9e90;font-weight:600;letter-spacing:-.2px}
 .rpt-v{font-size:15px;font-weight:800;color:#2a1e18;margin-top:2px}
 .rpt-goal{background:#faf6f0;border-radius:12px;padding:11px 15px;font-size:13px;font-weight:700;color:#5c4d42;margin-top:8px}.rpt-goal b{color:#2a1e18}
+.hz-wrap{background:#fff;border:1px solid #f0e9e0;border-radius:22px;padding:20px 18px;margin:0 20px 16px;box-shadow:0 6px 18px -8px rgba(120,90,70,.12)}
+.hz-eyebrow{font-size:10.5px;font-weight:800;letter-spacing:2px;color:#e8845a;text-transform:uppercase;margin-bottom:6px}
+.hz-title2{font-size:22px;font-weight:900;color:#2d1f1a;letter-spacing:-1px;line-height:1;margin-bottom:16px}
+.hz-roster{border-radius:18px;padding:14px 16px;margin-bottom:9px;position:relative}
+.hz-roster:last-child{margin-bottom:0}
+.hz-roster.me{box-shadow:0 0 0 2.5px #e8845a}
+.hz-rct{font-size:13px;font-weight:900;color:#2d1f1a;margin-bottom:10px;display:flex;align-items:center;gap:8px}
+.hz-rct span.cnt{font-size:11px;font-weight:700;color:rgba(45,31,26,.45)}
+.hz-mine{margin-left:auto;background:#e8845a;color:#fff;font-size:10px;font-weight:800;padding:2px 9px;border-radius:8px}
+.hz-mrow{display:flex;flex-wrap:wrap;gap:5px;align-items:center;margin-bottom:7px}
+.hz-mrow:last-child{margin-bottom:0}
+.hz-mtag{font-size:10px;font-weight:800;padding:3px 9px;border-radius:8px;flex-shrink:0}
+.hz-mtag.m{background:rgba(90,123,234,.18);color:#3a5bd0}
+.hz-mtag.f{background:rgba(212,80,106,.18);color:#c03a56}
+.hz-mem{background:rgba(255,255,255,.72);color:#2d1f1a;font-size:13px;font-weight:800;padding:4px 11px;border-radius:9px}
+.hz-mem.me{background:#2d1f1a;color:#fff}
 .hpill-row{display:flex;gap:8px;padding:0 22px;margin-bottom:22px;overflow-x:auto}
 .hpill{flex:1;min-width:56px;background:#fff;border:1px solid #efe8df;border-radius:15px;padding:10px 4px;text-align:center}
 .hpill .hg{font-size:11px;color:#a89b8e;font-weight:800}.hpill .hs{font-size:12px;font-weight:800;color:#2d1f1a;margin-top:2px}
@@ -3443,6 +3459,24 @@ async function tstart(key){
 }
 function renderBktGames(sess){
   const cont=document.getElementById('bktGames');if(!cont)return;cont.innerHTML='';
+  // 한울 대진: 코트별 조 명단 (내 조 강조)
+  if(sess&&sess.hanul&&Array.isArray(sess.hg)&&sess.hg.length){
+    const PAL=['#EDE4FB','#D8F0E2','#FBF0C4','#DCE6F8','#F8DCEC','#FCE3D2'];
+    let rosters='';
+    sess.hg.forEach((grp,gi)=>{
+      const males=grp.filter(m=>m.gd==='M'), females=grp.filter(m=>m.gd==='F');
+      const chip=m=>`<span class="hz-mem${m.n===me?' me':''}">${m.n}</span>`;
+      const rows=[];
+      if(males.length)rows.push(`<div class="hz-mrow"><span class="hz-mtag m">남 ${males.length}</span>${males.map(chip).join('')}</div>`);
+      if(females.length)rows.push(`<div class="hz-mrow"><span class="hz-mtag f">여 ${females.length}</span>${females.map(chip).join('')}</div>`);
+      const mine=grp.some(m=>m.n===me);
+      rosters+=`<div class="hz-roster${mine?' me':''}" style="background:${PAL[gi%PAL.length]}"><div class="hz-rct">코트 ${gi+1}<span class="cnt">${grp.length}명</span>${mine?'<span class="hz-mine">내 조</span>':''}</div>${rows.join('')}</div>`;
+    });
+    const div=document.createElement('div');
+    div.className='hz-wrap';
+    div.innerHTML=`<div class="hz-eyebrow">HANUL · 코트별 조 편성</div><div class="hz-title2">코트별 조 명단</div>${rosters}`;
+    cont.appendChild(div);
+  }
   const B=getB(sess),sc=getSc(sess);
   const playersByRound=B.map(r=>_gamePlayers(r));
   const doneByRound=B.map((r,ri)=>_gameDoneR(r,ri,sc));
