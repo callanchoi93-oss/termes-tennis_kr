@@ -495,6 +495,7 @@ body{background:var(--bg);color:var(--gray-900);font-family:'Pretendard',-apple-
     </div>
     <button class="btn btn-success" onclick="genBracket()">일반 대진표 생성</button>
     <button class="btn" style="width:100%;margin-top:10px;background:linear-gradient(135deg,#dcfce7,#d1fae5);color:#065f46;font-weight:800" onclick="genHanulBracket()">한울 방식 대진 생성 <span style="font-weight:600;font-size:12px;opacity:.8">· 코트별 조 편성</span></button>
+    <button class="btn" style="width:100%;margin-top:10px;background:linear-gradient(135deg,#ede9fe,#fce7f3);color:#5b21b6;font-weight:800" onclick="genRatioBracket()">성비 대진 생성 <span style="font-weight:600;font-size:12px;opacity:.8">· 남 남복3+혼복1 / 여 여복2+혼복2</span></button>
     <button class="btn btn-secondary" style="width:100%;margin-top:10px;background:linear-gradient(135deg,#dbeafe,#fee2e2);color:#1e3a8a;font-weight:800" onclick="genBlueWhiteBracket()"><span style="display:inline-block;width:9px;height:9px;border-radius:50%;background:#3b82f6;margin-right:6px;vertical-align:middle"></span>청백전 대진 생성<span style="display:inline-block;width:9px;height:9px;border-radius:50%;background:#ef4444;margin-left:6px;vertical-align:middle"></span></button>
     <div class="form-hint">월례대회용 · 18명 9:9 실력 밸런스 자동 배정 · 청 vs 백 복식 팀대항</div>
   </div>
@@ -1974,6 +1975,134 @@ function renderBracketGender(){
 }
 
 // ── 대진표 생성 ──
+function genRatioBracket(){
+  if(!S.assigned||!S.assigned.length){toast('래플을 먼저 진행해주세요');return;}
+  S.hanulGroups=null;
+  const c=S.courts||3;
+  const T=S.assigned.length;
+  const pInfo=S.assigned.map(pi=>{
+    const p=S.players[pi];
+    const gender=p.isGuest?(p.guestGender||'M'):(genders[p.name]||'M');
+    const grade=p.isGuest?(p.guestGrade||'none'):(grades[p.name]||'none');
+    return{name:p.name,gender,grade,realGender:gender};
+  });
+  const all=Array.from({length:T},(_,i)=>i);
+  const males=all.filter(x=>pInfo[x].realGender==='M');
+  const females=all.filter(x=>pInfo[x].realGender==='F');
+  const M=males.length,F=females.length;
+  if(M+F<4){toast('인원이 부족합니다');return;}
+  // 목표: 남 = 남복3 + 혼복1, 여 = 여복2 + 혼복2 (인원 안맞으면 근접)
+  const target={};
+  males.forEach(x=>target[x]={md:3,xd:1,wd:0});
+  females.forEach(x=>target[x]={md:0,xd:2,wd:2});
+  // 혼복 슬롯 균형: 코트당 남2·여2
+  let mixM=M*1, mixF=F*2;
+  let mixCourts=Math.floor(Math.min(mixM,mixF)/2);
+  if(F<2)mixCourts=0;
+  // 남복/여복 코트 수 (4명 단위)
+  let menCourts=Math.floor((M*3-(mixCourts*2-Math.min(mixM,mixCourts*2)))/4);
+  menCourts=Math.max(0,Math.floor((M*3)/4));
+  let womCourts=Math.max(0,Math.floor((F*2)/4));
+  // 실제 총 게임 슬롯 = 전원 4게임
+  const needSlots=T*4;
+  // 우선 혼복/남복/여복 코트 수를 4게임 총량에 맞게 보정
+  let totalCourts=Math.round(needSlots/4);
+  const games={};all.forEach(x=>games[x]=0);
+  const mixCnt={},menCnt={},womCnt={};all.forEach(x=>{mixCnt[x]=0;menCnt[x]=0;womCnt[x]=0;});
+  const pu={},ou={};const pkey=(a,b)=>a<b?a+'_'+b:b+'_'+a;
+  const partnerCnt=(a,b)=>pu[pkey(a,b)]||0;
+  const oppCnt=(a,b)=>ou[pkey(a,b)]||0;
+  const need=(x)=>4-games[x];
+  const wantMix=(x)=>Math.max(0,target[x].xd-mixCnt[x]);
+  const wantMen=(x)=>Math.max(0,target[x].md-menCnt[x]);
+  const wantWom=(x)=>Math.max(0,target[x].wd-womCnt[x]);
+  const pick=(pool,n,scoreFn)=>{
+    const arr=pool.filter(x=>need(x)>0);
+    arr.sort((a,b)=>scoreFn(b)-scoreFn(a)||need(b)-need(a)||games[a]-games[b]);
+    return arr.slice(0,n);
+  };
+  const gradeScore=(x)=>({A:3,B:2,C:1})[pInfo[x].grade]||2;
+  const bracket=[];
+  const maxRounds=Math.ceil(needSlots/(4*c))+6;
+  for(let ri=0;ri<maxRounds;ri++){
+    const used=new Set();
+    const courts=[],tps=[];
+    for(let ci=0;ci<c;ci++){
+      const availM=males.filter(x=>!used.has(x)&&need(x)>0);
+      const availF=females.filter(x=>!used.has(x)&&need(x)>0);
+      // 코트 타입 결정: 남은 목표량 큰 쪽 우선
+      const mixReadyM=availM.filter(x=>wantMix(x)>0).length, mixReadyF=availF.filter(x=>wantMix(x)>0).length;
+      const menReady=availM.filter(x=>wantMen(x)>0).length;
+      const womReady=availF.filter(x=>wantWom(x)>0).length;
+      let type=null;
+      if(mixReadyM>=2&&mixReadyF>=2)type='mix';
+      else if(menReady>=4)type='men';
+      else if(womReady>=4)type='wom';
+      else if(availM.length>=4)type='men';
+      else if(availF.length>=4)type='wom';
+      else if(availM.length>=2&&availF.length>=2)type='mix';
+      else break;
+      let four=[];
+      if(type==='mix'){
+        const mm=pick(availM,2,x=>wantMix(x)*10+need(x));
+        const ff=pick(availF,2,x=>wantMix(x)*10+need(x));
+        if(mm.length<2||ff.length<2)break;
+        // 남여남여: 팀1=(m0,f0) 팀2=(m1,f1) — 실력 균형 위해 조합 선택
+        const cands=[[mm[0],ff[0],mm[1],ff[1]],[mm[0],ff[1],mm[1],ff[0]]];
+        cands.sort((a,b)=>{
+          const bal=(t)=>Math.abs((gradeScore(t[0])+gradeScore(t[1]))-(gradeScore(t[2])+gradeScore(t[3])));
+          const dup=(t)=>partnerCnt(t[0],t[1])+partnerCnt(t[2],t[3])+oppCnt(t[0],t[2])+oppCnt(t[1],t[3]);
+          return (bal(a)+dup(a)*2)-(bal(b)+dup(b)*2);
+        });
+        four=cands[0];
+        four.forEach(x=>mixCnt[x]++);
+        tps.push('혼복');
+      }else if(type==='men'){
+        four=pick(availM,4,x=>wantMen(x)*10+need(x));
+        if(four.length<4)break;
+        four.sort((a,b)=>gradeScore(b)-gradeScore(a));
+        four=[four[0],four[3],four[1],four[2]];
+        four.forEach(x=>menCnt[x]++);
+        tps.push('남복');
+      }else{
+        four=pick(availF,4,x=>wantWom(x)*10+need(x));
+        if(four.length<4)break;
+        four.sort((a,b)=>gradeScore(b)-gradeScore(a));
+        four=[four[0],four[3],four[1],four[2]];
+        four.forEach(x=>womCnt[x]++);
+        tps.push('여복');
+      }
+      four.forEach(x=>{used.add(x);games[x]++;});
+      pu[pkey(four[0],four[1])]=(pu[pkey(four[0],four[1])]||0)+1;
+      pu[pkey(four[2],four[3])]=(pu[pkey(four[2],four[3])]||0)+1;
+      [[0,2],[0,3],[1,2],[1,3]].forEach(([a,b])=>{ou[pkey(four[a],four[b])]=(ou[pkey(four[a],four[b])]||0)+1;});
+      courts.push(four);
+    }
+    if(!courts.length)break;
+    const wl=all.filter(x=>!used.has(x));
+    bracket.push({courts,wait:wl,courtTypeLabels:tps});
+    if(all.every(x=>games[x]>=4))break;
+  }
+  S.bracket=bracket;
+  S.rounds=bracket.length;
+  // 남여남여 보정 (혹시 모를 경우)
+  S.bracket.forEach(rd=>{(rd.courts||[]).forEach(ct=>{
+    if(!ct||ct.length<4)return;
+    const mm=ct.filter(x=>pInfo[x].realGender==='M'), ff=ct.filter(x=>pInfo[x].realGender==='F');
+    if(mm.length===2&&ff.length===2){ct.length=0;ct.push(mm[0],ff[0],mm[1],ff[1]);}
+  });});
+  _partnerCnt=pu;
+  renderBracketGender();renderTeamSwap();
+  document.getElementById('pubBtnWrap').style.display='block';setPubDateDefault();
+  const avgMen=M?(males.reduce((a,x)=>a+menCnt[x],0)/M).toFixed(1):0;
+  const avgMixM=M?(males.reduce((a,x)=>a+mixCnt[x],0)/M).toFixed(1):0;
+  const avgWom=F?(females.reduce((a,x)=>a+womCnt[x],0)/F).toFixed(1):0;
+  const avgMixF=F?(females.reduce((a,x)=>a+mixCnt[x],0)/F).toFixed(1):0;
+  const short=all.filter(x=>games[x]<4).length;
+  toast(`성비 대진 완료 · 남 남복${avgMen}·혼복${avgMixM} / 여 여복${avgWom}·혼복${avgMixF}${short?` · ${short}명 4게임 미만`:''}`);
+  goTab('bracket',document.querySelectorAll('.tn')[4]);
+}
+
 function genHanulBracket(){
   if(!S.assigned||!S.assigned.length){toast('래플을 먼저 진행해주세요');return;}
   if(!S.players.length){toast('설정을 먼저 저장해주세요');return;}
