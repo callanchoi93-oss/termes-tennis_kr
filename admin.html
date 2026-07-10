@@ -1986,6 +1986,11 @@ function genRatioBracket(){
     const grade=p.isGuest?(p.guestGrade||'none'):(grades[p.name]||'none');
     return{name:p.name,gender,grade,realGender:gender};
   });
+  // 늦참자: 지정 라운드부터 참여
+  const lateMap=S.lateArrivals||{};
+  const startRound=Array(T).fill(0);
+  const _piToNi={};S.assigned.forEach((pi,ni)=>{_piToNi[pi]=ni;});
+  Object.entries(lateMap).forEach(([ri,pl])=>{(pl||[]).forEach(pi=>{const ni=_piToNi[pi];if(ni!==undefined)startRound[ni]=parseInt(ri);});});
   const all=Array.from({length:T},(_,i)=>i);
   const males=all.filter(x=>pInfo[x].realGender==='M');
   const females=all.filter(x=>pInfo[x].realGender==='F');
@@ -2016,36 +2021,66 @@ function genRatioBracket(){
   const wantMix=(x)=>Math.max(0,target[x].xd-mixCnt[x]);
   const wantMen=(x)=>Math.max(0,target[x].md-menCnt[x]);
   const wantWom=(x)=>Math.max(0,target[x].wd-womCnt[x]);
-  const pick=(pool,n,scoreFn)=>{
-    const arr=pool.filter(x=>need(x)>0);
-    arr.sort((a,b)=>scoreFn(b)-scoreFn(a)||need(b)-need(a)||games[a]-games[b]);
-    return arr.slice(0,n);
-  };
+  const gr=(x)=>pInfo[x].grade;
   const gradeScore=(x)=>({A:3,B:2,C:1})[pInfo[x].grade]||2;
+  // A↔C 같은 코트 금지 (B는 A/C 모두 가능). 불가피하면 허용.
+  const conflictAC=(sel,x)=>sel.some(s=>(gr(s)==='A'&&gr(x)==='C')||(gr(s)==='C'&&gr(x)==='A'));
+  const pickSafe=(pool,n,scoreFn,seed)=>{
+    let arr=pool.filter(x=>need(x)>0);
+    if(arr.length<n)arr=pool.filter(x=>games[x]<5); // 마무리 단계에서만 pool에 filler가 들어옴
+    arr.sort((a,b)=>scoreFn(b)-scoreFn(a)||need(b)-need(a)||games[a]-games[b]);
+    const sel=(seed||[]).slice();
+    for(const x of arr){ if(sel.length>=n+ (seed?seed.length:0))break; if(sel.includes(x))continue; if(conflictAC(sel,x))continue; sel.push(x); }
+    if(sel.length<n+(seed?seed.length:0)){ // 불가피 시 완화
+      for(const x of arr){ if(sel.length>=n+(seed?seed.length:0))break; if(!sel.includes(x))sel.push(x); }
+    }
+    return seed?sel.slice(seed.length):sel;
+  };
+  const pick=(pool,n,scoreFn)=>pickSafe(pool,n,scoreFn,null);
   const bracket=[];
-  const maxRounds=Math.ceil(needSlots/(4*c))+6;
+  const lastStart=Math.max(0,...startRound);
+  const maxRounds=Math.ceil(needSlots/(4*c))+lastStart+10;
   for(let ri=0;ri<maxRounds;ri++){
     const used=new Set();
     const courts=[],tps=[];
     for(let ci=0;ci<c;ci++){
-      const availM=males.filter(x=>!used.has(x)&&need(x)>0);
-      const availF=females.filter(x=>!used.has(x)&&need(x)>0);
+      let availM=males.filter(x=>!used.has(x)&&need(x)>0&&startRound[x]<=ri);
+      let availF=females.filter(x=>!used.has(x)&&need(x)>0&&startRound[x]<=ri);
+      // 마무리 단계: 4게임 미달자가 소수만 남으면 이미 채운 사람으로 코트를 메움(그들은 5게임 허용 안 함 → 아래 filler 사용)
+      const fillM=males.filter(x=>!used.has(x)&&need(x)<=0&&startRound[x]<=ri&&games[x]<5).sort((a,b)=>games[a]-games[b]);
+      const fillF=females.filter(x=>!used.has(x)&&need(x)<=0&&startRound[x]<=ri&&games[x]<5).sort((a,b)=>games[a]-games[b]);
       // 코트 타입 결정: 남은 목표량 큰 쪽 우선
       const mixReadyM=availM.filter(x=>wantMix(x)>0).length, mixReadyF=availF.filter(x=>wantMix(x)>0).length;
       const menReady=availM.filter(x=>wantMen(x)>0).length;
       const womReady=availF.filter(x=>wantWom(x)>0).length;
       let type=null;
+      const anyShort=all.some(x=>games[x]<4&&startRound[x]<=ri);
+      if(!anyShort && !all.some(x=>games[x]<4)) break;  // 전원 4게임 완료 → 코트 추가 생성 중단
+      const urgentM=availM.length, urgentF=availF.length;
+      const totM=urgentM+fillM.length, totF=urgentF+fillF.length;
       if(mixReadyM>=2&&mixReadyF>=2)type='mix';
       else if(menReady>=4)type='men';
       else if(womReady>=4)type='wom';
-      else if(availM.length>=4)type='men';
-      else if(availF.length>=4)type='wom';
-      else if(availM.length>=2&&availF.length>=2)type='mix';
+      else if(urgentM>=4)type='men';
+      else if(urgentF>=4)type='wom';
+      else if(urgentM>=2&&urgentF>=2)type='mix';
+      // 마무리 단계에서만 filler 사용: 전체에 4게임 미달자가 남아있고, 미달자만으론 코트 구성 불가
+      else if(anyShort && urgentM>0 && totM>=4)type='men';
+      else if(anyShort && urgentF>0 && totF>=4)type='wom';
+      else if(anyShort && (urgentM+urgentF)>0 && totM>=2 && totF>=2)type='mix';
       else break;
+      if(anyShort){
+        if(type==='men'&&availM.length<4)availM=availM.concat(fillM.slice(0,4-availM.length));
+        if(type==='wom'&&availF.length<4)availF=availF.concat(fillF.slice(0,4-availF.length));
+        if(type==='mix'){
+          if(availM.length<2)availM=availM.concat(fillM.slice(0,2-availM.length));
+          if(availF.length<2)availF=availF.concat(fillF.slice(0,2-availF.length));
+        }
+      }
       let four=[];
       if(type==='mix'){
         const mm=pick(availM,2,x=>wantMix(x)*10+need(x));
-        const ff=pick(availF,2,x=>wantMix(x)*10+need(x));
+        const ff=pickSafe(availF,2,x=>wantMix(x)*10+need(x),mm);
         if(mm.length<2||ff.length<2)break;
         // 남여남여: 팀1=(m0,f0) 팀2=(m1,f1) — 실력 균형 위해 조합 선택
         const cands=[[mm[0],ff[0],mm[1],ff[1]],[mm[0],ff[1],mm[1],ff[0]]];
@@ -2078,10 +2113,15 @@ function genRatioBracket(){
       [[0,2],[0,3],[1,2],[1,3]].forEach(([a,b])=>{ou[pkey(four[a],four[b])]=(ou[pkey(four[a],four[b])]||0)+1;});
       courts.push(four);
     }
-    if(!courts.length)break;
-    const wl=all.filter(x=>!used.has(x));
+    if(!courts.length){
+      const remaining=all.some(x=>games[x]<4);
+      const willArrive=all.some(x=>startRound[x]>ri);
+      if((remaining||willArrive) && ri<maxRounds-1) continue;
+      break;
+    }
+    if(all.every(x=>games[x]>=4)){bracket.push({courts,wait:all.filter(x=>!used.has(x)&&startRound[x]<=ri),courtTypeLabels:tps});break;}
+    const wl=all.filter(x=>!used.has(x)&&startRound[x]<=ri);
     bracket.push({courts,wait:wl,courtTypeLabels:tps});
-    if(all.every(x=>games[x]>=4))break;
   }
   S.bracket=bracket;
   S.rounds=bracket.length;
