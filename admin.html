@@ -161,6 +161,11 @@ body{background:var(--bg);color:var(--gray-900);font-family:'Pretendard',-apple-
 .warn-banner{background:var(--red-l);border-radius:10px;padding:10px 14px;font-size:14px;color:var(--red);font-weight:600;margin-bottom:12px;display:none}
 
 /* 대진표 */
+.p-chip.bk-tap{cursor:pointer;transition:all .12s}
+.p-chip.bk-tap:active{transform:scale(.94)}
+.p-chip.bk-sel{background:#2d1f1a!important;color:#fff!important;box-shadow:0 0 0 2px #e8845a}
+.bk-swaphint{background:#fdf0e9;border:1px solid #f6d8c8;border-radius:12px;padding:9px 13px;font-size:12.5px;font-weight:700;color:#b3502a;margin-bottom:10px;display:flex;align-items:center;justify-content:space-between;gap:8px}
+.bk-swaphint button{background:#e8845a;color:#fff;border:none;border-radius:9px;padding:6px 12px;font-family:inherit;font-size:11.5px;font-weight:800;cursor:pointer}
 .round-block{background:var(--white);border-radius:var(--radius);box-shadow:var(--shadow);margin-bottom:12px;overflow:hidden}
 .hz-wrap{background:#fff;border:1px solid #f0e9e0;border-radius:26px;padding:26px 20px;margin-bottom:18px;box-shadow:0 6px 20px -8px rgba(120,90,70,.12)}
 .hz-head{margin-bottom:22px}
@@ -1896,8 +1901,37 @@ function swapBWPlayers(){
   toast(`${S.players[ba].name} ↔ ${S.players[wa].name} 교체했습니다`);
 }
 
+// ── 대진 수동 조정 (선수 탭 → 교체) ──
+let _swapSel=null;  // {ri, ci, pos}  ci=-1 이면 대기
+function bkSlotClick(ri,ci,pos){
+  if(!S.bracket||!S.bracket[ri])return;
+  if(_swapSel && _swapSel.ri===ri && _swapSel.ci===ci && _swapSel.pos===pos){_swapSel=null;renderBracketGender();return;}
+  if(!_swapSel){_swapSel={ri,ci,pos};renderBracketGender();toast('교체할 상대를 선택하세요');return;}
+  if(_swapSel.ri!==ri){_swapSel={ri,ci,pos};renderBracketGender();toast('같은 게임 안에서만 교체할 수 있어요');return;}
+  const rd=S.bracket[ri];
+  const getVal=(c,p)=>c===-1?rd.wait[p]:rd.courts[c][p];
+  const setVal=(c,p,v)=>{if(c===-1)rd.wait[p]=v;else rd.courts[c][p]=v;};
+  const a=getVal(_swapSel.ci,_swapSel.pos), b=getVal(ci,pos);
+  if(a===undefined||b===undefined){_swapSel=null;renderBracketGender();return;}
+  setVal(_swapSel.ci,_swapSel.pos,b); setVal(ci,pos,a);
+  const an=pname(a), bn=pname(b);
+  _swapSel=null;
+  renderBracketGender();
+  toast(`${an} ↔ ${bn} 교체했습니다`);
+}
+function bkResetSel(){_swapSel=null;renderBracketGender();}
+function _selCls(ri,ci,pos){return (_swapSel&&_swapSel.ri===ri&&_swapSel.ci===ci&&_swapSel.pos===pos)?' bk-sel':'';}
+
 function renderBracketGender(){
   const wrap=document.getElementById('bktWrap');wrap.innerHTML='';
+  if(S.bracket && S.bracket.length){
+    const hint=document.createElement('div');
+    hint.className='bk-swaphint';
+    hint.innerHTML=_swapSel
+      ? `<span><b>${pname(_swapSel.ci===-1?S.bracket[_swapSel.ri].wait[_swapSel.pos]:S.bracket[_swapSel.ri].courts[_swapSel.ci][_swapSel.pos])}</b> 선택됨 · 바꿀 선수를 누르세요 <span style="font-weight:600;opacity:.75">(같은 게임 안에서)</span></span><button onclick="bkResetSel()">취소</button>`
+      : `<span>선수 이름을 눌러 <b>수동 교체</b>할 수 있어요 · 대기 선수와도 교체 가능</span>`;
+    wrap.appendChild(hint);
+  }
   // 한울 대진: 밝은 파스텔 카드 스타일 (게임별·코트별)
   if(S.bracket.length && S.bracket.some(r=>r.isHanul)){
     const PAL=['#EDE4FB','#D8F0E2','#FBF0C4','#DCE6F8','#F8DCEC','#FCE3D2'];
@@ -1946,7 +1980,7 @@ function renderBracketGender(){
       const col=CC[ci%CC.length];
       const tpLabel=round.courtTypeLabels?round.courtTypeLabels[ci]:'';
       const tpColor=tpLabel==='남복'?'#e8845a':tpLabel==='여복'?'#f04452':tpLabel==='미정'?'#8b95a1':tpLabel==='청백'?'#3b82f6':'#00b493';
-      const p=ai=>`<span class="p-chip">${pname(ai)}</span>`;
+      const p=(ai,pos)=>`<span class="p-chip bk-tap${_selCls(ri,ci,pos)}" onclick="bkSlotClick(${ri},${ci},${pos})">${pname(ai)}</span>`;
       // 청백전 코트
       if(round.isBW){
         const bchip=ai=>ai===null||ai===undefined?`<span class="p-chip" style="background:#f1f5f9;color:#94a3b8;border:1px dashed #cbd5e1">미배정</span>`:`<span class="p-chip" style="background:#dbeafe;color:#1e40af">${pname(ai)}</span>`;
@@ -1954,7 +1988,7 @@ function renderBracketGender(){
         return `<div class="court-line" style="background:linear-gradient(90deg,#eff6ff,#fef2f2);border-left:4px solid #3b82f6">
           <div class="court-tag">코트 ${ci+1}</div>
           <span style="font-size:11px;font-weight:700;padding:2px 8px;border-radius:6px;background:#3b82f620;color:#3b82f6">청백</span>
-          <div class="match-group"><div class="team-pair"><span style="font-size:11px;font-weight:800;color:#1e40af">청</span>${bchip(ct[0])}${bchip(ct[1])}</div><span class="vs-label">VS</span><div class="team-pair"><span style="font-size:11px;font-weight:800;color:#b91c1c">백</span>${wchip(ct[2])}${wchip(ct[3])}</div></div>
+          <div class="match-group"><div class="team-pair"><span style="font-size:11px;font-weight:800;color:#1e40af">청</span>${bchip(ct[0],0)}${bchip(ct[1],1)}</div><span class="vs-label">VS</span><div class="team-pair"><span style="font-size:11px;font-weight:800;color:#b91c1c">백</span>${wchip(ct[2],2)}${wchip(ct[3],3)}</div></div>
         </div>`;
       }
       
@@ -1963,15 +1997,15 @@ function renderBracketGender(){
       if(tpLabel==='혼복'){
         // ct[0]+ct[1] vs ct[2]+ct[3] (각 팀 남1+여1)
         matchHtml=`<div class="match-group">
-          <div class="team-pair">${p(ct[0])}${p(ct[1])}</div>
+          <div class="team-pair">${p(ct[0],0)}${p(ct[1],1)}</div>
           <span class="vs-label">VS</span>
-          <div class="team-pair">${p(ct[2])}${p(ct[3])}</div>
+          <div class="team-pair">${p(ct[2],2)}${p(ct[3],3)}</div>
         </div>`;
       } else {
         matchHtml=`<div class="match-group">
-          <div class="team-pair">${p(ct[0])}${p(ct[1])}</div>
+          <div class="team-pair">${p(ct[0],0)}${p(ct[1],1)}</div>
           <span class="vs-label">VS</span>
-          <div class="team-pair">${p(ct[2])}${p(ct[3])}</div>
+          <div class="team-pair">${p(ct[2],2)}${p(ct[3],3)}</div>
         </div>`;
       }
       
@@ -1981,7 +2015,7 @@ function renderBracketGender(){
         ${matchHtml}
       </div>`;
     }).join('');
-    const wh=round.wait.length?round.wait.map(ai=>`<span class="wait-chip">${pname(ai)}</span>`).join(''):`<span class="wait-chip" style="color:var(--green)">전원 참가</span>`;
+    const wh=round.wait.length?round.wait.map((ai,wi)=>`<span class="wait-chip bk-tap${_selCls(ri,-1,wi)}" style="cursor:pointer" onclick="bkSlotClick(${ri},-1,${wi})">${pname(ai)}</span>`).join(''):`<span class="wait-chip" style="color:var(--green)">전원 참가</span>`;
     bl.innerHTML=`<div class="round-top"><div class="round-name">${ri+1}게임</div><div class="round-mode">${S.gameMode}게임제</div></div><div class="round-body">${ch}<div class="wait-line"><span class="wait-tag">대기</span>${wh}</div></div>`;
     wrap.appendChild(bl);
   });
