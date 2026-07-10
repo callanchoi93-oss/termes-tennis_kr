@@ -486,7 +486,7 @@ body{background:var(--bg);color:var(--gray-900);font-family:'Pretendard',-apple-
     <div class="section">
       <div class="section-title">래플 방식</div>
       <button class="btn btn-secondary" style="width:100%;margin-bottom:10px" onclick="doRaffle(true)">실력별 래플</button>
-      <div class="form-hint">A↔B, B↔C 허용 · A↔C 같은 코트 최대한 차단 (불가피 시 허용)</div>
+      <div class="form-hint">S·A↔B, B↔C 허용 · S·A↔C 같은 코트 최대한 차단 (불가피 시 허용)</div>
     </div>
     <div id="rfWarn" style="display:none;background:var(--red-l);border-radius:10px;padding:10px 14px;font-size:14px;color:var(--red);font-weight:600;margin-bottom:14px"></div>
     <div class="section">
@@ -890,6 +890,8 @@ function addAttGuest(){
       </select>
       <select id="${id}-grade" style="flex:1;background:var(--gray-100);border:none;border-radius:10px;padding:9px 12px;font-size:14px;font-family:'Pretendard',sans-serif;outline:none;color:var(--gray-900)">
         <option value="none">등급 없음</option>
+        <option value="S">S 최상위</option>
+        <option value="S">S 최상위 (코치·금배부 우승)</option>
         <option value="A">A 상위</option>
         <option value="B">B 중위</option>
         <option value="C">C 하위</option>
@@ -961,6 +963,8 @@ async function attAndGo(){
         </select>
         <select class="grade-select guest-grade" style="flex:1;text-align:center;font-size:13px;padding:6px 8px">
           <option value="none"${g.grade==='none'?' selected':''}>등급 없음</option>
+          <option value="S"${g.grade==='S'?' selected':''}>S 최상위</option>
+          <option value="S"${g.grade==='S'?' selected':''}>S 최상위</option>
           <option value="A"${g.grade==='A'?' selected':''}>A 상위</option>
           <option value="B"${g.grade==='B'?' selected':''}>B 중위</option>
           <option value="C"${g.grade==='C'?' selected':''}>C 하위</option>
@@ -1051,6 +1055,8 @@ function renderGradeList(){
     row.innerHTML=`<div class="grade-name">${name}</div>
       <select class="grade-select" data-n="${name}" style="text-align:center">
         <option value="none"${g==='none'?' selected':''}>—</option>
+        <option value="S"${g==='S'?' selected':''}>S 최상위</option>
+        <option value="S"${g==='S'?' selected':''}>S 최상위</option>
         <option value="A"${g==='A'?' selected':''}>A 상위</option>
         <option value="B"${g==='B'?' selected':''}>B 중위</option>
         <option value="C"${g==='C'?' selected':''}>C 하위</option>
@@ -1218,6 +1224,8 @@ function appendGuestSlot(i){
       </select>
       <select class="grade-select guest-grade" style="flex:1;text-align:center;font-size:13px;padding:6px 8px">
         <option value="none">등급 없음</option>
+        <option value="S">S 최상위</option>
+        <option value="S">S 최상위 (코치·금배부 우승)</option>
         <option value="A">A 상위</option>
         <option value="B">B 중위</option>
         <option value="C">C 하위</option>
@@ -1461,7 +1469,7 @@ function assignBalanced(pool,ci){
 }
 
 // ── 성별 대진 알고리즘 ──
-function gradeScore(grade){return {A:3,B:2,C:1,none:2}[grade]||2;}
+function gradeScore(grade){return {S:4,A:3,B:2,C:1,none:2}[grade]||2;}
 function getCombinations(arr,k){
   if(k===0)return[[]];if(!arr.length)return[];
   const [f,...rest]=arr;
@@ -1569,7 +1577,12 @@ function genGenderBracket(n,c,r,ppr,waitSz){
       const pCost=Math.pow(pc(a,b)+1,2)*1000+Math.pow(pc(d,e)+1,2)*1000;
       const oCost=(oc(a,d)+oc(a,e)+oc(b,d)+oc(b,e));
       const bal=Math.abs((gradeScore(pInfo[a].grade)+gradeScore(pInfo[b].grade))-(gradeScore(pInfo[d].grade)+gradeScore(pInfo[e].grade)));
-      const sc=pCost+oCost*10+bal;
+      // S와 C는 같은 팀으로 (SC vs SC 선호)
+      const gA=pInfo[a].grade,gB=pInfo[b].grade,gD=pInfo[d].grade,gE=pInfo[e].grade;
+      const scPair=(g1,g2)=>((g1==='S'&&g2==='C')||(g1==='C'&&g2==='S'))?1:0;
+      const scBonus=-(scPair(gA,gB)+scPair(gD,gE))*40;
+      const scSplit=(((gA==='S'||gB==='S')&&(gD==='C'||gE==='C')&&!scPair(gD,gE))||((gD==='S'||gE==='S')&&(gA==='C'||gB==='C')&&!scPair(gA,gB)))?30:0;
+      const sc=pCost+oCost*10+bal+scBonus+scSplit;
       if(sc<bs){bs=sc;best={t1:[a,b],t2:[d,e],cost:sc};}
     }
     return best;
@@ -1805,7 +1818,7 @@ function genBlueWhiteBracket(){
     const grade=p.isGuest?(p.guestGrade||'none'):(grades[p.name]||'none');
     return{name:p.name,grade};
   });
-  const gs=g=>({A:3,B:2,C:1,none:2}[g]||2);
+  const gs=g=>({S:4,A:3,B:2,C:1,none:2}[g]||2);
 
   // 실력 내림차순 → 스네이크 배정 (실력합 균형)
   const order=Array.from({length:n},(_,i)=>i).sort((a,b)=>gs(pInfo[b].grade)-gs(pInfo[a].grade));
@@ -2022,9 +2035,20 @@ function genRatioBracket(){
   const wantMen=(x)=>Math.max(0,target[x].md-menCnt[x]);
   const wantWom=(x)=>Math.max(0,target[x].wd-womCnt[x]);
   const gr=(x)=>pInfo[x].grade;
-  const gradeScore=(x)=>({A:3,B:2,C:1})[pInfo[x].grade]||2;
-  // A↔C 같은 코트 금지 (B는 A/C 모두 가능). 불가피하면 허용.
+  const gradeScore=(x)=>({S:4,A:3,B:2,C:1})[pInfo[x].grade]||2;
+  // A↔C 같은 코트 금지 (B는 A/C 모두 가능). S↔C는 허용 (SC vs SC 팀으로 묶음). 불가피하면 완화.
   const conflictAC=(sel,x)=>sel.some(s=>(gr(s)==='A'&&gr(x)==='C')||(gr(s)==='C'&&gr(x)==='A'));
+  // 팀 나누기: S가 있으면 S와 C를 같은 팀으로 (SC vs SC), 없으면 1·4 / 2·3 밸런스
+  const pairTeams=(f)=>{
+    const S_=f.filter(x=>gr(x)==='S'), C_=f.filter(x=>gr(x)==='C'), rest=f.filter(x=>gr(x)!=='S'&&gr(x)!=='C');
+    if(S_.length>=1&&C_.length>=1){
+      const t1=[S_[0],C_[0]];
+      const left=f.filter(x=>!t1.includes(x));
+      return [t1[0],t1[1],left[0],left[1]];
+    }
+    const s=f.slice().sort((a,b)=>gradeScore(b)-gradeScore(a));
+    return [s[0],s[3],s[1],s[2]];
+  };
   const pickSafe=(pool,n,scoreFn,seed)=>{
     let arr=pool.filter(x=>need(x)>0);
     if(arr.length<n)arr=pool.filter(x=>games[x]<5); // 마무리 단계에서만 pool에 filler가 들어옴
@@ -2095,15 +2119,13 @@ function genRatioBracket(){
       }else if(type==='men'){
         four=pick(availM,4,x=>wantMen(x)*10+need(x));
         if(four.length<4)break;
-        four.sort((a,b)=>gradeScore(b)-gradeScore(a));
-        four=[four[0],four[3],four[1],four[2]];
+        four=pairTeams(four);
         four.forEach(x=>menCnt[x]++);
         tps.push('남복');
       }else{
         four=pick(availF,4,x=>wantWom(x)*10+need(x));
         if(four.length<4)break;
-        four.sort((a,b)=>gradeScore(b)-gradeScore(a));
-        four=[four[0],four[3],four[1],four[2]];
+        four=pairTeams(four);
         four.forEach(x=>womCnt[x]++);
         tps.push('여복');
       }
@@ -2788,7 +2810,7 @@ function _rebuildOpenRounds(sess){
   });
   const isReal=ai=>ai>=0&&ai<n;
   const GAMES=4,MENS_TARGET=2,HELPER=-1;
-  const gradeS=g=>({A:3,B:2,C:1,none:2}[g]||2);
+  const gradeS=g=>({S:4,A:3,B:2,C:1,none:2}[g]||2);
   const pk=(x,y)=>Math.min(x,y)+','+Math.max(x,y);
   const ctType=four=>{
     const m=four.filter(x=>x>=0&&pInfo[x].realGender==='M').length;
