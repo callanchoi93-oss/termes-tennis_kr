@@ -3507,8 +3507,9 @@ function showHanulSheet(){
   B.forEach(rd=>rd.courts.forEach(ct=>{if(ct)ct.forEach(ai=>{if(ai>=0){const nm=pname(sess,ai);if(nm&&nm.indexOf('번')<0)nameToAi[nm]=ai;}});}));
   let sheets='';
   sess.hg.forEach((grp,gi)=>{
+    const scCourts=(sess.hsc&&sess.hsc[gi])?sess.hsc[gi]:[gi];
     const games=[];
-    B.forEach((rd,ri)=>{const ct=rd.courts[gi];if(ct&&ct.length>=4&&!ct.includes(-1))games.push({ri,ct});});
+    B.forEach((rd,ri)=>{scCourts.forEach(ci=>{const ct=rd.courts[ci];if(ct&&ct.length>=4&&!ct.includes(-1))games.push({ri,ci,ct});});});
     // 남=숫자(1,2,3..), 여=영문(A,B,C..)
     const males=grp.filter(m=>m.gd==='M'), females=grp.filter(m=>m.gd!=='M');
     const code={}; males.forEach((m,i)=>code[m.n]=String(i+1)); females.forEach((m,i)=>code[m.n]=String.fromCharCode(65+i));
@@ -3518,7 +3519,7 @@ function showHanulSheet(){
     const stat={};
     ordered.forEach(m=>{
       const ai=nameToAi[m.n]; const gl=[];
-      games.forEach(g=>{ if(ai!=null&&g.ct.includes(ai)){ const sv=sc[`${g.ri}-${gi}`]||{}; const has=sv.s1!==undefined&&sv.s1!==null&&sv.s2!==undefined&&sv.s2!==null; const s1=parseInt(sv.s1)||0,s2=parseInt(sv.s2)||0; const isT1=g.ct.indexOf(ai)<2; gl.push({my:isT1?s1:s2,op:isT1?s2:s1,has,won:(isT1?s1:s2)>(isT1?s2:s1)}); } });
+      games.forEach(g=>{ if(ai!=null&&g.ct.includes(ai)){ const sv=sc[`${g.ri}-${g.ci}`]||{}; const has=sv.s1!==undefined&&sv.s1!==null&&sv.s2!==undefined&&sv.s2!==null; const s1=parseInt(sv.s1)||0,s2=parseInt(sv.s2)||0; const isT1=g.ct.indexOf(ai)<2; gl.push({my:isT1?s1:s2,op:isT1?s2:s1,has,won:(isT1?s1:s2)>(isT1?s2:s1)}); } });
       const played=gl.filter(x=>x.has);
       stat[m.n]={gl,w:played.filter(x=>x.won).length,l:played.filter(x=>!x.won).length,sc:played.reduce((a,x)=>a+x.my,0),co:played.reduce((a,x)=>a+x.op,0),played:played.length};
       stat[m.n].diff=stat[m.n].sc-stat[m.n].co;
@@ -3568,7 +3569,8 @@ function renderBktGames(sess){
       if(males.length)rows.push(`<div class="hz-mrow"><span class="hz-mtag m">남 ${males.length}</span>${males.map(chip).join('')}</div>`);
       if(females.length)rows.push(`<div class="hz-mrow"><span class="hz-mtag f">여 ${females.length}</span>${females.map(chip).join('')}</div>`);
       const mine=grp.some(m=>m.n===me);
-      rosters+=`<div class="hz-roster${mine?' me':''}" style="background:${PAL[gi%PAL.length]}"><div class="hz-rct">코트 ${gi+1}<span class="cnt">${grp.length}명</span>${mine?'<span class="hz-mine">내 조</span>':''}</div>${rows.join('')}</div>`;
+      const _sc=(sess.hsc&&sess.hsc[gi])?sess.hsc[gi].map(x=>x+1).join('·'):(gi+1);
+      rosters+=`<div class="hz-roster${mine?' me':''}" style="background:${PAL[gi%PAL.length]}"><div class="hz-rct">코트 ${_sc}<span class="cnt">${grp.length}명</span>${mine?'<span class="hz-mine">내 조</span>':''}</div>${rows.join('')}</div>`;
     });
     const div=document.createElement('div');
     div.className='hz-wrap';
