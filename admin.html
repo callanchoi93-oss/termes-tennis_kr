@@ -499,6 +499,15 @@ body{background:var(--bg);color:var(--gray-900);font-family:'Pretendard',-apple-
       <div class="raffle-grid" id="rfResult"></div>
     </div>
     <button class="btn btn-success" onclick="genBracket()">일반 대진표 생성</button>
+    <div style="display:flex;align-items:center;gap:8px;margin-top:10px;background:#f0faf6;border:1px solid #cdeade;border-radius:11px;padding:9px 12px">
+      <span style="font-size:12.5px;font-weight:800;color:#1f4536;white-space:nowrap">한울 시트당 인원</span>
+      <select id="hanulSize" style="flex:1;border:1px solid #b9e2cd;border-radius:9px;padding:7px 10px;font-family:inherit;font-size:13px;font-weight:700;color:#1f4536;background:#fff">
+        <option value="auto">자동 (코트별로 균등 분배)</option>
+        <option value="8">시트당 최대 8명</option>
+        <option value="12">시트당 최대 12명</option>
+        <option value="16">시트당 최대 16명 (한 장에 몰기)</option>
+      </select>
+    </div>
     <button class="btn" style="width:100%;margin-top:10px;background:linear-gradient(135deg,#dcfce7,#d1fae5);color:#065f46;font-weight:800" onclick="genHanulBracket()">한울 방식 대진 생성 <span style="font-weight:600;font-size:12px;opacity:.8">· 코트별 조 편성</span></button>
     <button class="btn" style="width:100%;margin-top:10px;background:linear-gradient(135deg,#ede9fe,#fce7f3);color:#5b21b6;font-weight:800" onclick="genRatioBracket()">성비 대진 생성 <span style="font-weight:600;font-size:12px;opacity:.8">· 남 남복3+혼복1 / 여 여복2+혼복2</span></button>
     <button class="btn btn-secondary" style="width:100%;margin-top:10px;background:linear-gradient(135deg,#dbeafe,#fee2e2);color:#1e3a8a;font-weight:800" onclick="genBlueWhiteBracket()"><span style="display:inline-block;width:9px;height:9px;border-radius:50%;background:#3b82f6;margin-right:6px;vertical-align:middle"></span>청백전 대진 생성<span style="display:inline-block;width:9px;height:9px;border-radius:50%;background:#ef4444;margin-left:6px;vertical-align:middle"></span></button>
@@ -2217,6 +2226,17 @@ function genHanulBracket(){
   });
   // 코트 수 우선 배정 (조당 최소 4명) → 가능한 한 모든 코트 사용
   let numGroups=Math.min(c, Math.max(1, Math.floor(T/4)));
+  // 시트당 인원 지정 시: 큰 시트로 몰기 (조당 최대 인원 제한)
+  const _hs=(document.getElementById('hanulSize')||{}).value||'auto';
+  if(_hs!=='auto'){
+    const per=parseInt(_hs);
+    // 시트당 per명 이하가 되도록 최소 조 수 (단, 조당 4명 이상, 코트 수 이하)
+    let g=Math.ceil(T/per);
+    g=Math.max(1, Math.min(g, Math.floor(T/4)||1));
+    // 조 수는 코트 수를 넘을 수 없음(라운드당 코트 한계) → 넘으면 코트 수로
+    if(g>c)g=c;
+    numGroups=g;
+  }
   // 실력 스네이크 배분
   const order=Array.from({length:T},(_,i)=>i).sort((a,b)=>gradeScore(pInfo[b].grade)-gradeScore(pInfo[a].grade)||Math.random()-0.5);
   let groups=Array.from({length:numGroups},()=>[]);
