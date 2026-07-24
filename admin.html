@@ -2093,53 +2093,101 @@ function genRatioBracket(){
     const rem=OPEN?{open:T}:{men:plan.menG,mix:plan.mixG,wom:plan.womG};
     const need=x=>GAMES-games[x];
     const conflictAC=(list,x)=>list.some(s=>(gr(s)==='A'&&gr(x)==='C')||(gr(s)==='C'&&gr(x)==='A'));
-    // 후보 선발: ①남은 게임 많은 순 ②해당 타입 적게 한 순 ③파트너 중복 적은 순
-    function choose(pool,cnt,seed,typeCnt){
-      const arr=shuffle(pool);
-      arr.sort((a,b)=>need(b)-need(a)||typeCnt[a]-typeCnt[b]);
-      const sel=[];
-      for(const x of arr){
-        if(sel.length>=cnt)break;
-        if(conflictAC([...seed,...sel],x))continue;   // A↔C 같은 코트 회피
-        sel.push(x);
-      }
-      if(sel.length<cnt){                              // 불가피하면 완화
-        for(const x of arr){if(sel.length>=cnt)break;if(!sel.includes(x))sel.push(x);}
-      }
-      return sel.length>=cnt?sel.slice(0,cnt):null;
+    const isC=x=>gr(x)==='C',isA=x=>gr(x)==='A';
+    const ccPair=(x,y)=>(isC(x)&&isC(y))?1:0;
+    const sum2=(x,y)=>gradeScore(x)+gradeScore(y);
+
+    // ── 팀 분할 평가: 전력차 최소화가 1순위 ──
+    function splitCost(a,b,d,e){
+      return Math.abs(sum2(a,b)-sum2(d,e))*300      // ★ 팀 전력차 (1순위)
+            +(ccPair(a,b)+ccPair(d,e))*4000         // C+C 파트너 금지
+            +(pc(a,b)+pc(d,e))*600                  // 파트너 중복
+            +(oc(a,d)+oc(a,e)+oc(b,d)+oc(b,e))*40;  // 상대 중복
     }
     const pairTeams=f=>{
-      const S_=f.filter(x=>gr(x)==='S'),C_=f.filter(x=>gr(x)==='C');
-      if(S_.length>=1&&C_.length>=1){
-        const t1=[S_[0],C_[0]];const left=f.filter(x=>!t1.includes(x));
-        return [t1[0],t1[1],left[0],left[1]];
+      const opts=[[0,1,2,3],[0,2,1,3],[0,3,1,2]];
+      let best=null,bs=Infinity;
+      for(const o of opts){
+        const a=f[o[0]],b=f[o[1]],d=f[o[2]],e=f[o[3]];
+        const s=splitCost(a,b,d,e);
+        if(s<bs){bs=s;best=[a,b,d,e];}
       }
-      const s=f.slice().sort((a,b)=>gradeScore(b)-gradeScore(a));
-      return [s[0],s[3],s[1],s[2]];
+      return best;
     };
     const mixOrder=(mm,ff)=>{
-      const cands=[[mm[0],ff[0],mm[1],ff[1]],[mm[0],ff[1],mm[1],ff[0]]];
-      cands.sort((a,b)=>{
-        const bal=t=>Math.abs((gradeScore(t[0])+gradeScore(t[1]))-(gradeScore(t[2])+gradeScore(t[3])));
-        const dup=t=>pc(t[0],t[1])+pc(t[2],t[3])+oc(t[0],t[2])+oc(t[1],t[3]);
-        return (bal(a)+dup(a)*2)-(bal(b)+dup(b)*2);
-      });
-      return cands[0];
+      const c1=[mm[0],ff[0],mm[1],ff[1]],c2=[mm[0],ff[1],mm[1],ff[0]];
+      return splitCost(c1[0],c1[1],c1[2],c1[3])<=splitCost(c2[0],c2[1],c2[2],c2[3])?c1:c2;
     };
+    // ── 코트 자체의 비용: 4명을 어떻게 나눠도 남는 불균형 + 구성 규칙 ──
+    function courtCost(f){
+      const opts=[[0,1,2,3],[0,2,1,3],[0,3,1,2]];
+      let bs=Infinity;
+      for(const o of opts)bs=Math.min(bs,splitCost(f[o[0]],f[o[1]],f[o[2]],f[o[3]]));
+      const cCnt=f.filter(isC).length;
+      const over=Math.max(0,cCnt-2)*5000;                          // C는 한 코트 최대 2명
+      const ac=(f.some(isA)&&f.some(isC))?500:0;                   // A↔C 같은 코트 회피
+      return bs+over+ac;
+    }
+    // 혼복은 팀이 (남,여)로 고정 → 2가지 배열만 평가
+    function mixCourtCost(mm,ff){
+      const c1=splitCost(mm[0],ff[0],mm[1],ff[1]),c2=splitCost(mm[0],ff[1],mm[1],ff[0]);
+      const f=[...mm,...ff];
+      const over=Math.max(0,f.filter(isC).length-2)*5000;
+      const ac=(f.some(isA)&&f.some(isC))?500:0;
+      return Math.min(c1,c2)+over+ac;
+    }
+    // ── 후보 풀: '남은 게임 수'가 많은 사람이 반드시 먼저 (전원 4게임 보장) ──
+    // 동률자 안에서는 자유롭게 조합할 수 있으므로 그 범위에서 밸런스를 최적화한다
+    function poolFor(list,cnt,typeCnt){
+      if(list.length<cnt)return null;
+      const s=list.slice().sort((a,b)=>need(b)-need(a)||typeCnt[a]-typeCnt[b]);
+      const thrN=need(s[cnt-1]),thrT=typeCnt[s[cnt-1]];
+      const must=s.filter(x=>need(x)>thrN||(need(x)===thrN&&typeCnt[x]<thrT));
+      const can=s.filter(x=>!must.includes(x)&&need(x)===thrN&&typeCnt[x]===thrT);
+      return {must:must.slice(0,cnt),can};
+    }
+    function sample(p,cnt){
+      const sel=p.must.slice(0,cnt);
+      const rest=shuffle(p.can);
+      for(const x of rest){if(sel.length>=cnt)break;sel.push(x);}
+      return sel.length>=cnt?sel:null;
+    }
+    const TRY=36;                                   // 코트당 후보 조합 시도 횟수
     // 해당 타입 코트를 실제로 채울 수 있으면 4명 반환, 아니면 null
     function staff(type,used,ri){
       const avail=g=>(g==='M'?males:females).filter(x=>!used.has(x)&&games[x]<GAMES&&startRound[x]<=ri);
-      if(type==='men'){const s=choose(avail('M'),4,[],menCnt);return s?pairTeams(s):null;}
-      if(type==='wom'){const s=choose(avail('F'),4,[],womCnt);return s?pairTeams(s):null;}
-      if(type==='open'){
-        const s=choose(all.filter(x=>!used.has(x)&&games[x]<GAMES&&startRound[x]<=ri),4,[],menCnt);
-        if(!s)return null;
-        const mm=s.filter(x=>pInfo[x].realGender==='M'),ff=s.filter(x=>pInfo[x].realGender==='F');
-        return (mm.length===2&&ff.length===2)?mixOrder(mm,ff):pairTeams(s);
+      if(type==='mix'){
+        const pm=poolFor(avail('M'),2,mixCnt),pf=poolFor(avail('F'),2,mixCnt);
+        if(!pm||!pf)return null;
+        let best=null,bs=Infinity;
+        for(let t=0;t<TRY;t++){
+          const mm=sample(pm,2),ff=sample(pf,2);
+          if(!mm||!ff)return null;
+          const s=mixCourtCost(mm,ff);
+          if(s<bs){bs=s;best=mixOrder(mm,ff);}
+          if(bs<=0)break;
+        }
+        return best;
       }
-      const mm=choose(avail('M'),2,[],mixCnt);if(!mm)return null;
-      const ff=choose(avail('F'),2,mm,mixCnt);if(!ff)return null;
-      return mixOrder(mm,ff);
+      const list=type==='men'?avail('M'):type==='wom'?avail('F')
+                :all.filter(x=>!used.has(x)&&games[x]<GAMES&&startRound[x]<=ri);
+      const tc=type==='men'?menCnt:type==='wom'?womCnt:menCnt;
+      const p=poolFor(list,4,tc);
+      if(!p)return null;
+      let best=null,bs=Infinity;
+      for(let t=0;t<TRY;t++){
+        const f=sample(p,4);
+        if(!f)return null;
+        const s=courtCost(f);
+        if(s<bs){bs=s;best=f.slice();}
+        if(bs<=0)break;
+      }
+      if(!best)return null;
+      if(type==='open'){
+        const mm=best.filter(x=>pInfo[x].realGender==='M'),ff=best.filter(x=>pInfo[x].realGender==='F');
+        if(mm.length===2&&ff.length===2)return mixOrder(mm,ff);
+      }
+      return pairTeams(best);
     }
     // 인원이 적은 성별의 타입을 먼저 배치해야 마지막 라운드가 늘어지지 않는다
     const capT={men:Math.floor(M/4),wom:Math.floor(F/4),mix:Math.floor(Math.min(M,F)/2),open:Math.floor(T/4)};
@@ -2175,17 +2223,26 @@ function genRatioBracket(){
     }
     const dev=all.reduce((a,x)=>a+Math.abs(games[x]-GAMES),0)+left()*4;
     const maxDup=Object.values(pu).length?Math.max(...Object.values(pu)):0;
-    return {ok:dev===0,dev,maxDup,bracket,games,pu,ou,mixCnt,menCnt,womCnt};
+    let cc=0,imbal=0,worst=0;
+    bracket.forEach(rd=>rd.courts.forEach(ct=>{
+      cc+=ccPair(ct[0],ct[1])+ccPair(ct[2],ct[3]);
+      const d=Math.abs(sum2(ct[0],ct[1])-sum2(ct[2],ct[3]));
+      imbal+=d;if(d>worst)worst=d;
+    }));
+    return {ok:dev===0,dev,cc,imbal,worst,maxDup,bracket,games,pu,ou,mixCnt,menCnt,womCnt};
   }
 
   // ── 3) 전원 4게임이 될 때까지 재시도 (편차 → 라운드수 → 파트너중복 순으로 최적) ──
   const idealR=Math.ceil(T*GAMES/(4*c))+lastStart;
-  const sc=r=>r.dev*1e6+r.bracket.length*100+r.maxDup;
+  // 평가 우선순위: 전원 4게임 > 라운드수 > 팀 전력차(밸런스) > C+C > 파트너 중복
+  const sc=r=>r.dev*1e8+r.bracket.length*1e5+r.cc*5000+r.imbal*300+r.worst*200+r.maxDup*50;
   let best=null;
-  for(let i=0;i<600;i++){
+  for(let i=0;i<400;i++){
     const r=attempt();
     if(!best||sc(r)<sc(best))best=r;
-    if(best.ok&&best.maxDup<=1&&best.bracket.length<=idealR)break;
+    if(!best.ok||best.cc>0||best.bracket.length>idealR)continue;
+    if(best.imbal===0&&best.maxDup<=1)break;              // 완전 균형이면 즉시 확정
+    if(i>=99&&best.worst<=1)break;                        // 모든 경기 전력차 1점 이내면 충분
   }
 
   S.bracket=best.bracket;
@@ -2209,7 +2266,7 @@ function genRatioBracket(){
     ? `주의 · ${bad}명이 4게임이 아닙니다 (인원/코트 조건 확인)`
     : OPEN
       ? `대진 완료 · 전원 4게임 · ${best.bracket.length}라운드 (한쪽 성별 인원 부족 → 통합 편성)`
-      : `성비 대진 완료 · 전원 4게임 · ${best.bracket.length}라운드 · 남 남복${avgMen}·혼복${avgMixM} / 여 여복${avgWom}·혼복${avgMixF}`);
+      : `성비 대진 완료 · 전원 4게임 · ${best.bracket.length}라운드 · 팀 전력차 평균 ${(best.imbal/Math.max(1,best.bracket.reduce((a,rd)=>a+rd.courts.length,0))).toFixed(2)}(최대 ${best.worst}) · 남 남복${avgMen}·혼복${avgMixM} / 여 여복${avgWom}·혼복${avgMixF}`);
   goTab('bracket',document.querySelectorAll('.tn')[4]);
 }
 
