@@ -715,6 +715,22 @@ body{background:var(--bg);color:var(--gray-900);font-family:'Pretendard',-apple-
   </div>
 </div>
 
+<!-- 게스트 이름 변경 모달 -->
+<div class="modal-overlay" id="guestNameModal">
+  <div class="modal-sheet">
+    <div class="modal-handle"></div>
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
+      <div class="modal-title" style="margin-bottom:0">게스트 이름 변경</div>
+      <button onclick="closeModal('guestNameModal')" style="background:none;border:none;font-size:24px;color:var(--gray-400);cursor:pointer;line-height:1">&times;</button>
+    </div>
+    <div style="font-size:13px;color:var(--gray-500);margin-bottom:8px;line-height:1.6">발행된 대진의 <b>게스트 이름만</b> 바꿉니다. 대진 편성·입력된 점수·순위는 그대로 유지됩니다.</div>
+    <div id="guestNameInfo" style="font-size:12px;color:var(--blue);font-weight:700;margin-bottom:14px"></div>
+    <select class="form-input" id="guestNameSel" style="margin-bottom:10px;cursor:pointer" onchange="onGuestNamePick()"></select>
+    <input class="form-input" type="text" id="guestNameInput" maxlength="12" placeholder="새 이름" style="margin-bottom:18px">
+    <button class="btn btn-primary" style="width:100%" onclick="doGuestName()">이름 변경</button>
+  </div>
+</div>
+
 <div class="toast" id="toast"></div>
 
 <script>
@@ -2523,7 +2539,7 @@ function renderHistCard(wrap,rec,key,dk,isArch){
     <div class="h-info">${(rec.p||[]).length}명 · 코트 ${rec.ct} · ${rec.r}라운드 · ${rec.gm}게임제</div>
     <div class="h-actions">${isDel
       ?`<button class="btn btn-neutral btn-xs" onclick="restoreSession('${dk}')">복원</button><button class="btn btn-danger-light btn-xs" onclick="confirmPurge('${dk}','${fmt(String(dk).slice(0,8))}')">영구삭제</button>`
-      :`${(rec.bw&&rec.bwTeams&&!arch)?`<button class="btn btn-neutral btn-xs" onclick="openBWSwap('${key}')">팀 스왑</button>`:''}${(!arch&&!rec.bw&&!fin)?`<button class="btn btn-neutral btn-xs" onclick="openAddPlayer('${key}')">+인원</button><button class="btn btn-neutral btn-xs" onclick="openRemovePlayer('${key}')">제외</button>`:''}<button class="btn btn-neutral btn-xs" onclick="openScoreEdit('${key}',this)">스코어 ${arch?'확인':'수정'}</button>${!arch?`<button class="btn btn-danger-light btn-xs" onclick="confirmDel('${dk}','${fmt(String(dk).slice(0,8))}')">삭제</button>`:''}`}</div>`;
+      :`${(rec.bw&&rec.bwTeams&&!arch)?`<button class="btn btn-neutral btn-xs" onclick="openBWSwap('${key}')">팀 스왑</button>`:''}${(!arch&&!rec.bw&&!fin)?`<button class="btn btn-neutral btn-xs" onclick="openAddPlayer('${key}')">+인원</button><button class="btn btn-neutral btn-xs" onclick="openRemovePlayer('${key}')">제외</button>`:''}${(!arch&&(rec.p||[]).some(p=>p.g===1))?`<button class="btn btn-neutral btn-xs" onclick="openGuestName('${key}')">게스트명</button>`:''}<button class="btn btn-neutral btn-xs" onclick="openScoreEdit('${key}',this)">스코어 ${arch?'확인':'수정'}</button>${!arch?`<button class="btn btn-danger-light btn-xs" onclick="confirmDel('${dk}','${fmt(String(dk).slice(0,8))}')">삭제</button>`:''}`}</div>`;
   wrap.appendChild(el);
 }
 let pendingDk=null;
@@ -2918,6 +2934,57 @@ async function doRemovePlayer(){
   closeModal('removePlayerModal');
   toast(`${nm} 제외 완료 · 남은 게임 다시 생성됨`);
   _rmKey=null;
+  loadHistory();
+}
+// ── 발행 후 게스트 이름 변경 ──
+let _gnKey=null,_gnSess=null;
+async function openGuestName(key){
+  const sess=await sget(key);
+  if(!sess){toast('불러오기 실패');return;}
+  const guests=(sess.p||[]).map((p,pi)=>({pi,p})).filter(o=>o.p&&o.p.g===1);
+  if(!guests.length){toast('이 대진에는 게스트가 없습니다');return;}
+  _gnKey=key;_gnSess=sess;
+  document.getElementById('guestNameSel').innerHTML=guests.map(o=>{
+    const gd=o.p.gd==='F'?'여':o.p.gd==='M'?'남':'-';
+    const sk=(o.p.s&&o.p.s!=='none')?o.p.s:'게스트';
+    return `<option value="${o.pi}">${o.p.n} (${gd}·${sk})</option>`;
+  }).join('');
+  document.getElementById('guestNameInfo').textContent=`게스트 ${guests.length}명 · 이름만 바뀌고 대진은 그대로`;
+  document.getElementById('guestNameSel').value=String(guests[0].pi);
+  onGuestNamePick();
+  document.getElementById('guestNameModal').classList.add('on');
+}
+function onGuestNamePick(){
+  if(!_gnSess)return;
+  const pi=parseInt(document.getElementById('guestNameSel').value);
+  const cur=((_gnSess.p||[])[pi]||{}).n||'';
+  const inp=document.getElementById('guestNameInput');
+  inp.value=cur;inp.placeholder=cur;
+}
+async function doGuestName(){
+  if(!_gnKey){toast('대상을 찾을 수 없습니다');return;}
+  const pi=parseInt(document.getElementById('guestNameSel').value);
+  const nm=(document.getElementById('guestNameInput').value||'').trim();
+  if(isNaN(pi)){toast('게스트를 선택하세요');return;}
+  if(!nm){toast('새 이름을 입력해주세요');return;}
+  if(nm.length>12){toast('이름은 12자 이내로 입력해주세요');return;}
+  // 저장 직전 최신 세션 재로드 (점수 입력 충돌 최소화)
+  const sess=await sget(_gnKey);
+  if(!sess){toast('세션을 찾을 수 없습니다');closeModal('guestNameModal');return;}
+  const P=sess.p||[];
+  if(!P[pi]||P[pi].g!==1){toast('게스트가 아닙니다');return;}
+  const old=P[pi].n;
+  if(old===nm){toast('이름이 같습니다');return;}
+  if(P.some((p,i)=>i!==pi&&p&&p.n===nm)){toast('이 대진에 같은 이름이 이미 있습니다');return;}
+  if(Array.isArray(MEMBERS)&&MEMBERS.includes(nm)){toast('정회원과 같은 이름은 쓸 수 없습니다 (기록이 섞입니다)');return;}
+  P[pi].n=nm;
+  // 한울 그룹표는 이름을 그대로 저장하므로 함께 갱신
+  if(Array.isArray(sess.hg))sess.hg.forEach(grp=>(grp||[]).forEach(m=>{if(m&&m.n===old)m.n=nm;}));
+  const ok=await sset(_gnKey,sess);
+  if(!ok){toast('저장에 실패했습니다');return;}
+  closeModal('guestNameModal');
+  toast(`${old} → ${nm} 으로 변경했습니다`);
+  _gnKey=null;_gnSess=null;
   loadHistory();
 }
 // 공용: 완전히 빈 게임만 다시 생성 (제외 인원 sess.out 반영, 게스트 성별 gd 사용)
