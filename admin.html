@@ -643,7 +643,7 @@ async function sget(k){try{if(db){const s=await db.ref('termes/'+k).once('value'
 async function sset(k,v){try{if(db){await db.ref('termes/'+k).set(v);return true;}}catch(e){}try{localStorage.setItem('t-'+k,JSON.stringify(v));return true;}catch(e){return false;}}
 
 // 상수
-const MEMBERS=['곽주영','최민혁','정윤희','김진수A','김영민','이석용','이인애','이평화','강태민','이중호','최민지','한은주','유명현','유승은','이정욱','장한욱','김진수B','박현우','최우임','박희진','배충호','장태성','이광하','김제홍','이기훈','정혜정','오동현','정지용','박사라'];
+const MEMBERS=['곽주영','최민혁','정윤희','김진수A','김영민','이석용','이인애','이평화','강태민','이중호','최민지','한은주','유명현','유승은','이정욱','장한욱','김진수B','박현우','최우임','박희진','배충호','장태성','이광하','김제홍','이기훈','정혜정','오동현','정지용','박사라','곽병철','오주환','김환석'];
 const CC=['#e8845a','#00b493','#f7c244','#f04452','#8b5cf6','#f97316'];
 const NC=['#f04452','#e8845a','#00b493','#8b5cf6','#f97316','#ec4899','#0891b2','#65a30d'];
 const SEC_ANSWERS=['용테파','용인테니스파크'];

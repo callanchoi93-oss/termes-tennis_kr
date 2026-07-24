@@ -595,7 +595,7 @@ async function sset(k,v){
 }
 
 // ── 상수 ──
-const MEMBERS=['곽주영','최민혁','정윤희','김진수A','김영민','이석용','이인애','이평화','강태민','이중호','최민지','한은주','유명현','유승은','이정욱','장한욱','김진수B','박현우','최우임','박희진','배충호','장태성','이광하','김제홍','이기훈','정혜정','오동현','정지용','박사라'];
+const MEMBERS=['곽주영','최민혁','정윤희','김진수A','김영민','이석용','이인애','이평화','강태민','이중호','최민지','한은주','유명현','유승은','이정욱','장한욱','김진수B','박현우','최우임','박희진','배충호','장태성','이광하','김제홍','이기훈','정혜정','오동현','정지용','박사라','곽병철','오주환','김환석'];
 const CC=['#e8845a','#00b493','#f7c244','#f04452','#8b5cf6','#f97316'];
 const RP=[100,80,60,40,20,10];
 let me=null,curYear=new Date().getFullYear(),curSess=null,autoTimer=null,pmTab='history';
@@ -658,6 +658,19 @@ function checkRegName(inp){
 }
 
 // ── 로그인 폼 초기화 ──
+// ── 신규 회원 초기 PIN 부여 (임원진 배정) ──
+const DEFAULT_PIN_MEMBERS=['박사라','곽병철','오주환','김환석'];
+const DEFAULT_PIN='000000';
+async function seedDefaultAccounts(){
+  for(const name of DEFAULT_PIN_MEMBERS){
+    try{
+      const d=await sget(mkKey(name));
+      if(d&&d.pin) continue; // 이미 PIN이 있으면 건드리지 않음 (본인이 바꾼 PIN 보존)
+      await sset(mkKey(name), Object.assign({}, d||{}, {pin:DEFAULT_PIN, approved:true, pending:false, createdAt:Date.now()}));
+    }catch(e){}
+  }
+}
+
 async function buildNameList(){
   const sel=document.getElementById('loginName');
   if(!sel)return;
@@ -3485,7 +3498,7 @@ async function restoreLogin(){
   }catch(e){showLogin();}
 }
 
-buildNameList().then(()=>{
+seedDefaultAccounts().then(()=>buildNameList()).then(()=>{
   restoreLogin();
 });
 setTimeout(function(){try{hideBootLoader();}catch(e){}},5000);
